@@ -2,7 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.db.database import Base, engine
 from app.api.routes import auth, users, students, courses, assignments, google_classroom
+
+# Create database tables
+from app.models import User, Student, Teacher, Course, Assignment
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.app_name,

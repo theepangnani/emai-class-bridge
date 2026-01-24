@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     app_name: str = "EMAI"
     debug: bool = False
 
-    # Database
-    database_url: str = "postgresql://user:password@localhost:5432/emai_db"
+    # Database (SQLite for local dev, PostgreSQL for production)
+    database_url: str = "sqlite:///./emai.db"
 
     # JWT
     secret_key: str = "your-secret-key-change-in-production"
