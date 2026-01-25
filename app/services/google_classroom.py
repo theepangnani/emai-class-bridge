@@ -36,7 +36,6 @@ def get_authorization_url(state: str | None = None) -> tuple[str, str]:
     flow = get_google_auth_flow()
     authorization_url, returned_state = flow.authorization_url(
         access_type="offline",
-        include_granted_scopes="true",
         prompt="consent",
         state=state,
     )
@@ -45,13 +44,26 @@ def get_authorization_url(state: str | None = None) -> tuple[str, str]:
 
 def exchange_code_for_tokens(code: str) -> dict:
     """Exchange authorization code for access and refresh tokens."""
-    flow = get_google_auth_flow()
-    flow.fetch_token(code=code)
-    credentials = flow.credentials
+    import requests
+
+    # Exchange code for tokens directly to avoid scope validation issues
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "code": code,
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
+        "redirect_uri": settings.google_redirect_uri,
+        "grant_type": "authorization_code",
+    }
+
+    response = requests.post(token_url, data=data)
+    response.raise_for_status()
+    tokens = response.json()
+
     return {
-        "access_token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "expiry": credentials.expiry.isoformat() if credentials.expiry else None,
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token"),
+        "expiry": None,
     }
 
 
