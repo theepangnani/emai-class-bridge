@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.db.database import Base, engine
-from app.api.routes import auth, users, students, courses, assignments, google_classroom
+from app.api.routes import auth, users, students, courses, assignments, google_classroom, study
 
 # Create database tables
-from app.models import User, Student, Teacher, Course, Assignment
+from app.models import User, Student, Teacher, Course, Assignment, StudyGuide
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -31,6 +31,7 @@ app.include_router(students.router, prefix="/api")
 app.include_router(courses.router, prefix="/api")
 app.include_router(assignments.router, prefix="/api")
 app.include_router(google_classroom.router, prefix="/api")
+app.include_router(study.router, prefix="/api")
 
 
 def hello_world() -> str:
