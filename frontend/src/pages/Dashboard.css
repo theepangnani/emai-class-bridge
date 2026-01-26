@@ -241,6 +241,83 @@
   text-transform: uppercase;
 }
 
+/* Assignments */
+.assignments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.assignment-item {
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.assignment-item:last-child {
+  border-bottom: none;
+}
+
+.assignment-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.assignment-title {
+  font-weight: 500;
+  color: #1a1a2e;
+}
+
+.assignment-due {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Study Guides */
+.study-guides-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.study-guide-item {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.study-guide-item:last-child {
+  border-bottom: none;
+}
+
+.study-guide-link {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.2s;
+}
+
+.study-guide-link:hover {
+  background-color: #f5f7fa;
+}
+
+.guide-icon {
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.guide-title {
+  flex: 1;
+  font-weight: 500;
+  color: #1a1a2e;
+}
+
+.guide-date {
+  font-size: 12px;
+  color: #999;
+}
+
 @media (max-width: 768px) {
   .dashboard-header {
     padding: 16px;

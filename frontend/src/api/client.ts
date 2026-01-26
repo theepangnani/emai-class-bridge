@@ -123,3 +123,75 @@ export const googleApi = {
     return response.data;
   },
 };
+
+// Study Tools API
+export interface StudyGuide {
+  id: number;
+  user_id: number;
+  assignment_id: number | null;
+  course_id: number | null;
+  title: string;
+  content: string;
+  guide_type: string;
+  created_at: string;
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: { A: string; B: string; C: string; D: string };
+  correct_answer: string;
+  explanation: string;
+}
+
+export interface Quiz {
+  id: number;
+  title: string;
+  questions: QuizQuestion[];
+  guide_type: string;
+  created_at: string;
+}
+
+export interface Flashcard {
+  front: string;
+  back: string;
+}
+
+export interface FlashcardSet {
+  id: number;
+  title: string;
+  cards: Flashcard[];
+  guide_type: string;
+  created_at: string;
+}
+
+export const studyApi = {
+  generateGuide: async (params: { assignment_id?: number; course_id?: number; title?: string; content?: string }) => {
+    const response = await api.post('/api/study/generate', params);
+    return response.data as StudyGuide;
+  },
+
+  generateQuiz: async (params: { assignment_id?: number; course_id?: number; topic?: string; content?: string; num_questions?: number }) => {
+    const response = await api.post('/api/study/quiz/generate', params);
+    return response.data as Quiz;
+  },
+
+  generateFlashcards: async (params: { assignment_id?: number; course_id?: number; topic?: string; content?: string; num_cards?: number }) => {
+    const response = await api.post('/api/study/flashcards/generate', params);
+    return response.data as FlashcardSet;
+  },
+
+  listGuides: async (guideType?: string) => {
+    const params = guideType ? { guide_type: guideType } : {};
+    const response = await api.get('/api/study/guides', { params });
+    return response.data as StudyGuide[];
+  },
+
+  getGuide: async (id: number) => {
+    const response = await api.get(`/api/study/guides/${id}`);
+    return response.data as StudyGuide;
+  },
+
+  deleteGuide: async (id: number) => {
+    await api.delete(`/api/study/guides/${id}`);
+  },
+};
