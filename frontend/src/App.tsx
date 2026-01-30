@@ -8,6 +8,8 @@ import { Dashboard } from './pages/Dashboard';
 import { StudyGuidePage } from './pages/StudyGuidePage';
 import { QuizPage } from './pages/QuizPage';
 import { FlashcardsPage } from './pages/FlashcardsPage';
+import { MessagesPage } from './pages/MessagesPage';
+import { TeacherCommsPage } from './pages/TeacherCommsPage';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -49,6 +51,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <FlashcardsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages"
+              element={
+                <ProtectedRoute>
+                  <MessagesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teacher-communications"
+              element={
+                <ProtectedRoute>
+                  <TeacherCommsPage />
                 </ProtectedRoute>
               }
             />

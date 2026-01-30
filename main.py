@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging_config import setup_logging, get_logger, RequestLogger
 from app.db.database import Base, engine
-from app.api.routes import auth, users, students, courses, assignments, google_classroom, study, logs
+from app.api.routes import auth, users, students, courses, assignments, google_classroom, study, logs, messages, notifications, teacher_communications
 
 # Initialize logging first (auto-determines level based on environment)
 setup_logging(
@@ -22,7 +22,7 @@ request_logger = RequestLogger(get_logger("emai.requests"))
 logger.info("Starting EMAI application...")
 
 # Create database tables
-from app.models import User, Student, Teacher, Course, Assignment, StudyGuide
+from app.models import User, Student, Teacher, Course, Assignment, StudyGuide, Conversation, Message, Notification, TeacherCommunication
 Base.metadata.create_all(bind=engine)
 logger.info("Database tables created/verified")
 
@@ -82,6 +82,9 @@ app.include_router(assignments.router, prefix="/api")
 app.include_router(google_classroom.router, prefix="/api")
 app.include_router(study.router, prefix="/api")
 app.include_router(logs.router, prefix="/api")
+app.include_router(messages.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
+app.include_router(teacher_communications.router, prefix="/api")
 
 logger.info("All routers registered")
 
@@ -103,9 +106,30 @@ def health_check():
 
 @app.on_event("startup")
 async def startup_event():
+    from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
+    from app.services.scheduler import scheduler, start_scheduler
+    from app.jobs.assignment_reminders import check_assignment_reminders
+    from app.jobs.teacher_comm_sync import check_teacher_communications
+
+    scheduler.add_job(
+        check_assignment_reminders,
+        CronTrigger(hour=8, minute=0),
+        id="assignment_reminders",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        check_teacher_communications,
+        IntervalTrigger(minutes=15),
+        id="teacher_comm_sync",
+        replace_existing=True,
+    )
+    start_scheduler()
     logger.info("EMAI application started successfully")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    from app.services.scheduler import stop_scheduler
+    stop_scheduler()
     logger.info("EMAI application shutting down")

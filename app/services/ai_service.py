@@ -71,6 +71,38 @@ async def generate_content(
         raise
 
 
+async def summarize_teacher_communication(
+    subject: str,
+    body: str,
+    sender_name: str,
+    comm_type: str = "email",
+) -> str:
+    """
+    Generate a concise AI summary of a teacher communication.
+
+    Returns a 1-3 sentence summary highlighting action items, deadlines, and key info.
+    """
+    logger.info(f"Summarizing teacher communication | type={comm_type} | subject={subject}")
+
+    prompt = f"""Summarize the following {comm_type} from a teacher for a student/parent.
+Focus on: action items, deadlines, key information.
+Keep the summary to 1-3 sentences.
+
+**From:** {sender_name}
+**Subject:** {subject}
+
+**Content:**
+{body[:3000]}"""
+
+    system_prompt = (
+        "You are an educational assistant that summarizes teacher communications "
+        "for students and parents. Be concise, highlight deadlines and action items. "
+        "Use simple, clear language. Do not add information not in the original message."
+    )
+
+    return await generate_content(prompt, system_prompt, max_tokens=200, temperature=0.3)
+
+
 async def generate_study_guide(
     assignment_title: str,
     assignment_description: str,

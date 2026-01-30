@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
+    # Email (SendGrid)
+    sendgrid_api_key: str = ""
+    from_email: str = "noreply@classbridge.app"
+
     class Config:
         env_file = ".env"
 

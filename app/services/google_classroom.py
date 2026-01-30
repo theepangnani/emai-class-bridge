@@ -9,6 +9,8 @@ SCOPES = [
     "https://www.googleapis.com/auth/classroom.courses.readonly",
     "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
     "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
+    "https://www.googleapis.com/auth/classroom.announcements.readonly",
+    "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
     "openid",
@@ -101,6 +103,28 @@ def get_classroom_service(access_token: str, refresh_token: str | None = None):
         credentials.refresh(Request())
 
     return build("classroom", "v1", credentials=credentials), credentials
+
+
+def get_gmail_service(access_token: str, refresh_token: str | None = None):
+    """Build Gmail API service with auto-refresh."""
+    credentials = get_credentials(access_token, refresh_token)
+
+    if credentials.expired and credentials.refresh_token:
+        credentials.refresh(Request())
+
+    return build("gmail", "v1", credentials=credentials), credentials
+
+
+def get_email_monitoring_auth_url(state: str | None = None) -> tuple[str, str]:
+    """Get OAuth URL for granting email monitoring permissions (re-consent)."""
+    flow = get_google_auth_flow()
+    authorization_url, returned_state = flow.authorization_url(
+        access_type="offline",
+        prompt="consent",
+        state=state,
+        include_granted_scopes="true",
+    )
+    return authorization_url, returned_state
 
 
 def get_user_info(access_token: str) -> dict:

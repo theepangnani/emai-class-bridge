@@ -30,6 +30,12 @@ openpyxl>=3.1.0
 python-pptx>=0.6.23
 aiofiles>=24.1.0
 
+# Email
+sendgrid>=6.10.0
+
+# Scheduling
+apscheduler>=3.10.0
+
 # Utilities
 pydantic>=2.10.0
 pydantic-settings>=2.6.0

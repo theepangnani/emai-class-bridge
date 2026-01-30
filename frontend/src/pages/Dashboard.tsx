@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { googleApi, coursesApi, assignmentsApi, studyApi } from '../api/client';
+import { googleApi, coursesApi, assignmentsApi, studyApi, messagesApi } from '../api/client';
 import type { StudyGuide, SupportedFormats } from '../api/client';
 import { StudyToolsButton } from '../components/StudyToolsButton';
+import { NotificationBell } from '../components/NotificationBell';
 import { logger } from '../utils/logger';
 import './Dashboard.css';
 
@@ -35,6 +36,7 @@ export function Dashboard() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [studyGuides, setStudyGuides] = useState<StudyGuide[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Custom study material modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -79,7 +81,21 @@ export function Dashboard() {
     loadCourses();
     loadAssignments();
     loadStudyGuides();
+    loadUnreadCount();
+
+    // Poll for unread messages every 60 seconds
+    const interval = setInterval(loadUnreadCount, 60000);
+    return () => clearInterval(interval);
   }, [searchParams, setSearchParams]);
+
+  const loadUnreadCount = async () => {
+    try {
+      const data = await messagesApi.getUnreadCount();
+      setUnreadCount(data.total_unread);
+    } catch {
+      // Silently fail - user may not have messaging access
+    }
+  };
 
   const loadCourses = async () => {
     try {
@@ -306,6 +322,14 @@ export function Dashboard() {
           <h1 className="logo">EMAI</h1>
         </div>
         <div className="header-right">
+          <button onClick={() => navigate('/messages')} className="messages-button">
+            Messages
+            {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
+          </button>
+          <button onClick={() => navigate('/teacher-communications')} className="messages-button">
+            Teacher Comms
+          </button>
+          <NotificationBell />
           <span className="user-name">{user?.full_name}</span>
           <span className="user-role">{user?.role}</span>
           <button onClick={logout} className="logout-button">
