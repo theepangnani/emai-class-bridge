@@ -1,0 +1,49 @@
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
+
+from app.schemas.course import CourseResponse
+from app.schemas.assignment import AssignmentResponse
+
+
+class LinkChildRequest(BaseModel):
+    student_email: str
+
+
+class ChildSummary(BaseModel):
+    student_id: int
+    user_id: int
+    full_name: str
+    grade_level: Optional[int]
+    school_name: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class DiscoveredChild(BaseModel):
+    user_id: int
+    email: str
+    full_name: str
+    google_courses: list[str]
+    already_linked: bool
+
+
+class DiscoverChildrenResponse(BaseModel):
+    discovered: list[DiscoveredChild]
+    google_connected: bool
+    courses_searched: int
+
+
+class LinkChildrenBulkRequest(BaseModel):
+    user_ids: list[int]
+
+
+class ChildOverview(BaseModel):
+    student_id: int
+    user_id: int
+    full_name: str
+    grade_level: Optional[int]
+    courses: list[CourseResponse]
+    assignments: list[AssignmentResponse]
+    study_guides_count: int

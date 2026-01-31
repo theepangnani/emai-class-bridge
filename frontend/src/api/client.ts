@@ -65,6 +65,11 @@ export const coursesApi = {
     const response = await api.get(`/api/courses/${id}`);
     return response.data;
   },
+
+  teachingList: async () => {
+    const response = await api.get('/api/courses/teaching');
+    return response.data;
+  },
 };
 
 // Assignments API
@@ -460,5 +465,101 @@ export const teacherCommsApi = {
   getEmailMonitoringAuthUrl: async () => {
     const response = await api.get('/api/teacher-communications/auth/email-monitoring');
     return response.data as { authorization_url: string };
+  },
+};
+
+// Parent Types
+export interface ChildSummary {
+  student_id: number;
+  user_id: number;
+  full_name: string;
+  grade_level: number | null;
+  school_name: string | null;
+}
+
+export interface ChildOverview {
+  student_id: number;
+  user_id: number;
+  full_name: string;
+  grade_level: number | null;
+  courses: Array<{ id: number; name: string; description: string | null; subject: string | null; google_classroom_id: string | null; teacher_id: number | null; created_at: string }>;
+  assignments: Array<{ id: number; title: string; description: string | null; course_id: number; google_classroom_id: string | null; due_date: string | null; max_points: number | null; created_at: string }>;
+  study_guides_count: number;
+}
+
+export interface DiscoveredChild {
+  user_id: number;
+  email: string;
+  full_name: string;
+  google_courses: string[];
+  already_linked: boolean;
+}
+
+export interface DiscoverChildrenResponse {
+  discovered: DiscoveredChild[];
+  google_connected: boolean;
+  courses_searched: number;
+}
+
+// Parent API
+export const parentApi = {
+  getChildren: async () => {
+    const response = await api.get('/api/parent/children');
+    return response.data as ChildSummary[];
+  },
+
+  getChildOverview: async (studentId: number) => {
+    const response = await api.get(`/api/parent/children/${studentId}/overview`);
+    return response.data as ChildOverview;
+  },
+
+  linkChild: async (studentEmail: string) => {
+    const response = await api.post('/api/parent/children/link', { student_email: studentEmail });
+    return response.data as ChildSummary;
+  },
+
+  discoverViaGoogle: async () => {
+    const response = await api.post('/api/parent/children/discover-google');
+    return response.data as DiscoverChildrenResponse;
+  },
+
+  linkChildrenBulk: async (userIds: number[]) => {
+    const response = await api.post('/api/parent/children/link-bulk', { user_ids: userIds });
+    return response.data as ChildSummary[];
+  },
+};
+
+// Admin Types
+export interface AdminUserItem {
+  id: number;
+  email: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminUserList {
+  users: AdminUserItem[];
+  total: number;
+}
+
+export interface AdminStats {
+  total_users: number;
+  users_by_role: Record<string, number>;
+  total_courses: number;
+  total_assignments: number;
+}
+
+// Admin API
+export const adminApi = {
+  getStats: async () => {
+    const response = await api.get('/api/admin/stats');
+    return response.data as AdminStats;
+  },
+
+  getUsers: async (params?: { role?: string; search?: string; skip?: number; limit?: number }) => {
+    const response = await api.get('/api/admin/users', { params });
+    return response.data as AdminUserList;
   },
 };

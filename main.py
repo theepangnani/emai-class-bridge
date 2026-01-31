@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging_config import setup_logging, get_logger, RequestLogger
 from app.db.database import Base, engine
-from app.api.routes import auth, users, students, courses, assignments, google_classroom, study, logs, messages, notifications, teacher_communications
+from app.api.routes import auth, users, students, courses, assignments, google_classroom, study, logs, messages, notifications, teacher_communications, parent, admin
 
 # Initialize logging first (auto-determines level based on environment)
 setup_logging(
@@ -85,6 +85,8 @@ app.include_router(logs.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(teacher_communications.router, prefix="/api")
+app.include_router(parent.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 logger.info("All routers registered")
 

@@ -3,7 +3,7 @@
 **Product Name:** ClassBridge
 **Author:** Theepan Gnanasabapathy
 **Version:** 1.0 (Based on PRD v4)
-**Last Updated:** 2026-01-25
+**Last Updated:** 2026-01-30
 
 ---
 
@@ -86,10 +86,11 @@ Education ecosystems are fragmented:
 - Trend analysis
 - Weekly progress reports
 
-### 6.5 Communication (Phase 1)
+### 6.5 Communication (Phase 1) - IMPLEMENTED
 - Secure Parent <-> Teacher messaging
 - Announcements
 - Message history
+- Notification system with in-app bell, email reminders, and preferences
 
 ### 6.6 Student Organization (Phase 2)
 - Class schedules
@@ -110,26 +111,42 @@ Education ecosystems are fragmented:
 - AI-powered tutor recommendations
 - Booking workflow
 
-### 6.9 AI Email Communication Agent (Phase 5)
+### 6.9 Teacher Email Monitoring (Phase 1) - IMPLEMENTED
+- Monitor teacher emails via Gmail integration
+- Monitor Google Classroom announcements
+- AI-powered email summarization
+- Paginated communication list with type filter and search
+- Manual sync trigger and background sync job
+
+### 6.10 AI Email Communication Agent (Phase 5)
 - Compose messages inside ClassBridge
 - AI formats and sends email to teacher
-- Monitor teacher email replies
-- AI summarizes responses
+- AI-powered reply suggestions
 - Searchable email archive
 
 ---
 
-## 7. Role-Based Dashboards
+## 7. Role-Based Dashboards - IMPLEMENTED
 
-Each user role has a customized dashboard:
+Each user role has a customized dashboard (dispatcher pattern via `Dashboard.tsx`):
 
-| Dashboard | Key Features |
-|-----------|--------------|
-| **Parent Dashboard** | Child progress, assignments, study materials, tutor access |
-| **Student Dashboard** | Courses, assignments, study tools, calendar |
-| **Teacher Dashboard** | Classes, assignments, messaging, material sharing |
-| **Tutor Dashboard** | Bookings, availability, student assignments (Phase 4) |
-| **Admin Dashboard** | User management, analytics, compliance (Phase 3) |
+| Dashboard | Key Features | Status |
+|-----------|--------------|--------|
+| **Parent Dashboard** | Link children (by email or via Google Classroom), child progress, assignments, study materials, messages | Implemented |
+| **Student Dashboard** | Courses, assignments, study tools, Google Classroom sync, file upload | Implemented |
+| **Teacher Dashboard** | Courses teaching, messages, teacher communications, Google Classroom status | Implemented |
+| **Admin Dashboard** | Platform stats, user management table (search, filter, pagination) | Implemented |
+| **Tutor Dashboard** | Bookings, availability, student assignments (Phase 4) | Planned |
+
+### Parent-Child Linking
+Parents can link children via two methods:
+- **By Email**: Enter the student's registered email address
+- **Via Google Classroom**: Connect Google account, auto-discover children enrolled in Google Classroom courses, select and bulk-link
+
+### Role-Based Access Control
+- Backend: `require_role()` dependency factory for endpoint-level role checking
+- Frontend: `ProtectedRoute` component with optional `allowedRoles` prop
+- Shared `DashboardLayout` component for common header/nav across all dashboards
 
 ---
 
@@ -139,9 +156,15 @@ Each user role has a customized dashboard:
 - [x] Google Classroom integration
 - [x] Parent & Student dashboards
 - [x] AI study tools (guides, quizzes, flashcards)
-- [ ] Secure messaging
+- [x] Secure parent-teacher messaging
+- [x] Notification system (in-app + email reminders)
+- [x] Teacher email monitoring (Gmail + Classroom announcements)
+- [x] Role-based dashboards (Student, Parent, Teacher, Admin)
+- [x] Parent-child linking (by email + Google Classroom discovery)
+- [x] File upload with content extraction
+- [x] Logging framework
 - [ ] Central document repository
-- [ ] Manual content upload with OCR
+- [ ] Manual content upload with OCR (enhanced)
 
 ### Phase 2
 - [ ] TeachAssist integration
@@ -185,15 +208,34 @@ Each user role has a customized dashboard:
 |----------|--------|-------------|
 | `/api/auth/register` | POST | User registration |
 | `/api/auth/login` | POST | User login |
+| `/api/users/me` | GET | Current user info |
 | `/api/google/connect` | GET | Initiate Google OAuth |
 | `/api/google/callback` | GET | Handle OAuth callback |
-| `/api/google/sync-courses` | POST | Sync Google Classroom courses |
-| `/api/courses` | GET | List user's courses |
-| `/api/assignments` | GET | List assignments |
+| `/api/google/status` | GET | Google connection status |
+| `/api/google/disconnect` | DELETE | Disconnect Google |
+| `/api/google/courses/sync` | POST | Sync Google Classroom courses |
+| `/api/courses/` | GET | List user's courses |
+| `/api/courses/teaching` | GET | List courses teaching (teacher only) |
+| `/api/assignments/` | GET | List assignments |
 | `/api/study/generate` | POST | Generate study guide |
 | `/api/study/quiz/generate` | POST | Generate quiz |
 | `/api/study/flashcards/generate` | POST | Generate flashcards |
 | `/api/study/guides` | GET | List study materials |
+| `/api/study/upload/generate` | POST | Generate from uploaded file |
+| `/api/messages/conversations` | GET | List message conversations |
+| `/api/messages/conversations` | POST | Create conversation |
+| `/api/messages/conversations/{id}/messages` | POST | Send message |
+| `/api/notifications/` | GET | List notifications |
+| `/api/notifications/unread-count` | GET | Unread notification count |
+| `/api/teacher-communications/` | GET | List teacher communications |
+| `/api/teacher-communications/sync` | POST | Trigger email sync |
+| `/api/parent/children` | GET | List linked children |
+| `/api/parent/children/link` | POST | Link child by email |
+| `/api/parent/children/discover-google` | POST | Discover children via Google Classroom |
+| `/api/parent/children/link-bulk` | POST | Bulk link children |
+| `/api/parent/children/{id}/overview` | GET | Child overview |
+| `/api/admin/users` | GET | Paginated user list (admin only) |
+| `/api/admin/stats` | GET | Platform statistics (admin only) |
 
 ---
 
@@ -221,15 +263,28 @@ Each user role has a customized dashboard:
 
 Current feature issues are tracked in GitHub:
 
-### Phase 1
-- Issue #15: AI Study Tools Backend
-- Issue #16: AI Study Guide Generation
-- Issue #17: AI Quiz Generation
-- Issue #18: AI Flashcard Generation
-- Issue #19: AI Study Tools Frontend
-- Issue #25: Manual Content Upload with OCR
+### Phase 1 - Completed
+- Issue #2: ~~Google Classroom OAuth flow~~ (CLOSED)
+- Issue #3: ~~Parent/Student dashboard~~ (CLOSED)
+- Issue #4: ~~AI study guide generation~~ (CLOSED)
+- Issue #5: ~~Assignment alerts and notifications~~ (CLOSED)
+- Issue #6: ~~Frontend React application~~ (CLOSED)
+- Issue #8: ~~Parent-teacher secure messaging~~ (CLOSED)
+- Issue #15: ~~OpenAI/Vertex AI integration~~ (CLOSED)
+- Issue #16: ~~Study guide generation API~~ (CLOSED)
+- Issue #17: ~~Quiz generation API~~ (CLOSED)
+- Issue #18: ~~Flashcard generation API~~ (CLOSED)
+- Issue #19: ~~AI study tools frontend~~ (CLOSED)
+- Issue #20: ~~Notification model and API~~ (CLOSED)
+- Issue #21: ~~Email notification service~~ (CLOSED)
+- Issue #22: ~~Assignment reminder background job~~ (CLOSED)
+- Issue #23: ~~Notification UI~~ (CLOSED)
+- Issue #32: ~~Role-based dashboards~~ (CLOSED)
+- Issue #33: ~~Teacher email monitoring~~ (CLOSED)
+
+### Phase 1 - Open
+- Issue #25: Manual Content Upload with OCR (enhanced)
 - Issue #28: Central Document Repository
-- Issue #32: Role-Based Dashboards
 
 ### Phase 2
 - Issue #26: Performance Analytics Dashboard
@@ -239,6 +294,14 @@ Current feature issues are tracked in GitHub:
 ### Phase 3+
 - Issue #30: Tutor Marketplace
 - Issue #31: AI Email Communication Agent
+
+### Infrastructure
+- Issue #10: Pytest unit tests
+- Issue #11: GitHub Actions CI/CD
+- Issue #12: PostgreSQL + Alembic migrations
+- Issue #13: Deploy to GCP
+- Issue #14: Google OAuth verification
+- Issue #24: Register classbridge.ca domain
 
 ---
 

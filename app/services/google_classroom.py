@@ -10,6 +10,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
     "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
     "https://www.googleapis.com/auth/classroom.announcements.readonly",
+    "https://www.googleapis.com/auth/classroom.rosters.readonly",
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -153,6 +154,29 @@ def get_course_work(
         return results.get("courseWork", []), credentials
     except Exception:
         return [], credentials
+
+
+def list_course_students(
+    access_token: str,
+    course_id: str,
+    refresh_token: str | None = None,
+) -> tuple[list[dict], Credentials]:
+    """List students enrolled in a Google Classroom course."""
+    service, credentials = get_classroom_service(access_token, refresh_token)
+    students = []
+    try:
+        page_token = None
+        while True:
+            response = service.courses().students().list(
+                courseId=course_id, pageToken=page_token
+            ).execute()
+            students.extend(response.get("students", []))
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+    except Exception:
+        pass
+    return students, credentials
 
 
 def get_student_submissions(
