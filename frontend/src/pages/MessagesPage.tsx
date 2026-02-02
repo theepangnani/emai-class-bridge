@@ -170,7 +170,18 @@ export function MessagesPage() {
     return (
       <div className="messages-page">
         <div className="loading-container">
-          <p>Loading messages...</p>
+          <div className="loading-grid">
+            <div className="loading-card">
+              <div className="skeleton loading-line" />
+              <div className="skeleton loading-line short" />
+              <div className="skeleton loading-line" />
+            </div>
+            <div className="loading-card">
+              <div className="skeleton loading-line" />
+              <div className="skeleton loading-line short" />
+              <div className="skeleton loading-line" />
+            </div>
+          </div>
         </div>
       </div>
     );
