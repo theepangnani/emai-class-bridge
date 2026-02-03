@@ -23,7 +23,7 @@ test('login and dashboard', async ({ page }) => {
 
   await expect(page).toHaveURL(/dashboard/);
   await expect(page.getByText(/welcome back/i)).toBeVisible();
-  await expect(page.getByText(/messages/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Messages', exact: true })).toBeVisible();
 });
 
 test('messages and notifications smoke', async ({ page }) => {
@@ -36,7 +36,7 @@ test('messages and notifications smoke', async ({ page }) => {
   await page.fill('input[type="password"]', 'password123!');
   await page.getByRole('button', { name: /sign in|login/i }).click();
 
-  await page.getByRole('button', { name: /messages/i }).click();
+  await page.getByRole('button', { name: 'Messages', exact: true }).click();
   await expect(page).toHaveURL(/messages/);
   await expect(page.getByText(/conversations/i)).toBeVisible();
 
