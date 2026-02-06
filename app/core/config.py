@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     claude_model: str = "claude-sonnet-4-5-20250929"
 
+    # Study guide limits
+    max_study_guides_per_student: int = 100
+    max_study_guides_per_parent: int = 200
+
     # Email (SendGrid)
     sendgrid_api_key: str = ""
     from_email: str = "noreply@classbridge.app"

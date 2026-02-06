@@ -8,6 +8,7 @@ class StudyGuideCreate(BaseModel):
     course_id: int | None = None
     title: str | None = None  # Optional custom title
     content: str | None = None  # Optional custom content to base guide on
+    regenerate_from_id: int | None = None  # ID of existing guide to create new version of
 
 
 class StudyGuideResponse(BaseModel):
@@ -19,6 +20,8 @@ class StudyGuideResponse(BaseModel):
     title: str
     content: str
     guide_type: str
+    version: int = 1
+    parent_guide_id: int | None = None
     created_at: datetime
 
     class Config:
@@ -32,6 +35,7 @@ class QuizGenerateRequest(BaseModel):
     topic: str | None = None
     content: str | None = None
     num_questions: int = 5
+    regenerate_from_id: int | None = None
 
 
 class QuizQuestion(BaseModel):
@@ -48,6 +52,8 @@ class QuizResponse(BaseModel):
     title: str
     questions: list[QuizQuestion]
     guide_type: str = "quiz"
+    version: int = 1
+    parent_guide_id: int | None = None
     created_at: datetime
 
     class Config:
@@ -61,6 +67,7 @@ class FlashcardGenerateRequest(BaseModel):
     topic: str | None = None
     content: str | None = None
     num_cards: int = 10
+    regenerate_from_id: int | None = None
 
 
 class Flashcard(BaseModel):
@@ -75,7 +82,24 @@ class FlashcardSetResponse(BaseModel):
     title: str
     cards: list[Flashcard]
     guide_type: str = "flashcards"
+    version: int = 1
+    parent_guide_id: int | None = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class DuplicateCheckRequest(BaseModel):
+    """Request to check for duplicate study guide before generation."""
+    title: str | None = None
+    guide_type: str  # study_guide, quiz, flashcards
+    assignment_id: int | None = None
+    course_id: int | None = None
+
+
+class DuplicateCheckResponse(BaseModel):
+    """Response indicating whether a duplicate study guide exists."""
+    exists: bool
+    existing_guide: StudyGuideResponse | None = None
+    message: str | None = None

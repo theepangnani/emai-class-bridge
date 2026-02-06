@@ -73,6 +73,20 @@ Education ecosystems are fragmented:
 - Summarize teacher handouts
 - Identify strengths and weaknesses
 
+#### 6.2.1 Study Guide Storage & Management (Phase 1) - IMPLEMENTED
+
+Persistent storage, organization, and lifecycle management for AI-generated study guides.
+
+- **List & Browse**: Parents and students can list all their saved study guides with filtering and search
+- **Course Categorization**: Study guides are labeled under existing courses for organized browsing; guides can be filtered by course
+- **Configurable Storage Limits**: Maximum 100 study guides per student, 200 per parent. Limits are configurable via application settings (`STUDY_GUIDE_LIMIT_STUDENT`, `STUDY_GUIDE_LIMIT_PARENT`)
+- **Version Control**: Regenerating a study guide for the same topic/assignment creates a new version linked to the original via `parent_guide_id`, preserving full history. Users can browse all versions of a guide
+- **Duplicate Detection**: Before AI generation, the system checks for existing guides with matching content hash to avoid redundant API calls and save costs. Endpoint: `POST /api/study/check-duplicate`
+- **Role-Based Visibility**:
+  - **Students** see their own study guides plus any course-labeled guides shared within their enrolled courses
+  - **Parents** see their own study guides plus all study guides belonging to their linked children
+- **Deletion**: Users can delete their own study guides. Deleting a parent guide does not cascade to child versions
+
 ### 6.3 Parent-Student Registration & Linking (Phase 1)
 
 ClassBridge supports three independent paths for student onboarding. Parent linking is entirely optional — students can use the platform independently.
@@ -376,6 +390,11 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] Unified invite system (shared invites table for student + teacher invites)
 - [x] Teacher Google Classroom course sync (set teacher_id on synced courses)
 - [x] Parent-student-Google sync flow (onboarding banner, parent-triggered sync, teacher info)
+- [x] Study guide storage limits (100/student, 200/parent, configurable)
+- [x] Study guide versioning and duplicate detection
+- [x] Course-labeled study guide categorization
+- [x] Role-based study guide visibility
+- [x] Study guide list/management UI for parents and students
 - [ ] Multi-Google account support for teachers
 - [ ] Manual course creation for teachers
 - [ ] Manual assignment creation for teachers
@@ -482,6 +501,8 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 | `/api/study/guides` | GET | List study materials |
 | `/api/study/guides/{guide_id}` | GET | Get a specific study guide |
 | `/api/study/guides/{guide_id}` | DELETE | Delete a study guide |
+| `/api/study/check-duplicate` | POST | Check for duplicate study guide before generation |
+| `/api/study/guides/{id}/versions` | GET | List all versions of a study guide |
 | `/api/study/upload/generate` | POST | Generate from uploaded file |
 | `/api/study/upload/extract-text` | POST | Extract text from uploaded file |
 | `/api/study/upload/formats` | GET | Supported upload formats |
@@ -609,6 +630,13 @@ Current feature issues are tracked in GitHub:
 - Issue #60: Parent registers child directly (name, email, grade, school)
 - Issue #61: Content privacy controls and version history for uploads
 - Issue #62: teacher_google_accounts table for multi-account OAuth
+- Issue #82: Study guide model: add version, parent_guide_id, content_hash
+- Issue #83: Role-based study guide limits
+- Issue #84: Study guide duplicate detection endpoint
+- Issue #85: Study guide versioning
+- Issue #86: Role-based study guide visibility
+- Issue #87: Frontend study guide management UI
+- Issue #88: Update REQUIREMENTS.md with study guide management
 
 ### Phase 1.5 - Task Manager, Calendar & Content
 - Issue #44: Task/Todo CRUD API and model

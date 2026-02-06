@@ -60,6 +60,23 @@ export function StudyGuidePage() {
         <Link to="/dashboard" className="back-link">&larr; Back to Dashboard</Link>
         <div className="header-actions">
           <button className="print-btn" onClick={() => window.print()}>Print</button>
+          <button
+            className="print-btn"
+            onClick={async () => {
+              try {
+                const result = await studyApi.generateGuide({
+                  title: guide.title.replace(/^Study Guide: /, ''),
+                  content: guide.content,
+                  regenerate_from_id: guide.id,
+                });
+                navigate(`/study/guide/${result.id}`);
+              } catch {
+                setError('Failed to regenerate');
+              }
+            }}
+          >
+            Regenerate
+          </button>
           <button className="delete-btn" onClick={handleDelete}>Delete</button>
         </div>
       </div>
@@ -67,6 +84,7 @@ export function StudyGuidePage() {
       <div className="study-guide-content">
         <h1>{guide.title}</h1>
         <p className="guide-meta">
+          {guide.version > 1 && <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '1px 6px', borderRadius: '8px', fontSize: '0.85rem', marginRight: '0.5rem' }}>v{guide.version}</span>}
           Created: {new Date(guide.created_at).toLocaleDateString()}
         </p>
         <div className="guide-body">

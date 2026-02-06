@@ -148,7 +148,15 @@ export interface StudyGuide {
   title: string;
   content: string;
   guide_type: string;
+  version: number;
+  parent_guide_id: number | null;
   created_at: string;
+}
+
+export interface DuplicateCheckResponse {
+  exists: boolean;
+  existing_guide: StudyGuide | null;
+  message: string | null;
 }
 
 export interface QuizQuestion {
@@ -163,6 +171,8 @@ export interface Quiz {
   title: string;
   questions: QuizQuestion[];
   guide_type: string;
+  version: number;
+  parent_guide_id: number | null;
   created_at: string;
 }
 
@@ -176,6 +186,8 @@ export interface FlashcardSet {
   title: string;
   cards: Flashcard[];
   guide_type: string;
+  version: number;
+  parent_guide_id: number | null;
   created_at: string;
 }
 
@@ -197,24 +209,33 @@ export interface ExtractedText {
 }
 
 export const studyApi = {
-  generateGuide: async (params: { assignment_id?: number; course_id?: number; title?: string; content?: string }) => {
+  generateGuide: async (params: { assignment_id?: number; course_id?: number; title?: string; content?: string; regenerate_from_id?: number }) => {
     const response = await api.post('/api/study/generate', params);
     return response.data as StudyGuide;
   },
 
-  generateQuiz: async (params: { assignment_id?: number; course_id?: number; topic?: string; content?: string; num_questions?: number }) => {
+  generateQuiz: async (params: { assignment_id?: number; course_id?: number; topic?: string; content?: string; num_questions?: number; regenerate_from_id?: number }) => {
     const response = await api.post('/api/study/quiz/generate', params);
     return response.data as Quiz;
   },
 
-  generateFlashcards: async (params: { assignment_id?: number; course_id?: number; topic?: string; content?: string; num_cards?: number }) => {
+  generateFlashcards: async (params: { assignment_id?: number; course_id?: number; topic?: string; content?: string; num_cards?: number; regenerate_from_id?: number }) => {
     const response = await api.post('/api/study/flashcards/generate', params);
     return response.data as FlashcardSet;
   },
 
-  listGuides: async (guideType?: string) => {
-    const params = guideType ? { guide_type: guideType } : {};
-    const response = await api.get('/api/study/guides', { params });
+  checkDuplicate: async (params: { title?: string; guide_type: string; assignment_id?: number; course_id?: number }) => {
+    const response = await api.post('/api/study/check-duplicate', params);
+    return response.data as DuplicateCheckResponse;
+  },
+
+  listGuides: async (params?: { guide_type?: string; course_id?: number; include_children?: boolean; student_user_id?: number }) => {
+    const response = await api.get('/api/study/guides', { params: params || {} });
+    return response.data as StudyGuide[];
+  },
+
+  listGuideVersions: async (guideId: number) => {
+    const response = await api.get(`/api/study/guides/${guideId}/versions`);
     return response.data as StudyGuide[];
   },
 

@@ -94,7 +94,10 @@ export function FlashcardsPage() {
     <div className="flashcards-page">
       <div className="flashcards-header">
         <Link to="/dashboard" className="back-link">&larr; Back to Dashboard</Link>
-        <h1>{guide.title}</h1>
+        <h1>
+          {guide.title}
+          {guide.version > 1 && <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '1px 6px', borderRadius: '8px', fontSize: '0.75rem', marginLeft: '0.5rem', verticalAlign: 'middle' }}>v{guide.version}</span>}
+        </h1>
         <div className="progress">
           Card {currentIndex + 1} of {cards.length}
         </div>

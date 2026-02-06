@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { googleApi, coursesApi, assignmentsApi, studyApi } from '../api/client';
-import type { StudyGuide, SupportedFormats } from '../api/client';
+import type { StudyGuide, SupportedFormats, DuplicateCheckResponse } from '../api/client';
 import { StudyToolsButton } from '../components/StudyToolsButton';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { logger } from '../utils/logger';
@@ -46,6 +46,8 @@ export function StudentDashboard() {
   const [uploadMode, setUploadMode] = useState<'text' | 'file'>('text');
   const [isDragging, setIsDragging] = useState(false);
   const [supportedFormats, setSupportedFormats] = useState<SupportedFormats | null>(null);
+  const [courseFilter, setCourseFilter] = useState<number | ''>('');
+  const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const justRegistered = searchParams.get('just_registered') === 'true';
@@ -106,9 +108,11 @@ export function StudentDashboard() {
     }
   };
 
-  const loadStudyGuides = async () => {
+  const loadStudyGuides = async (filterCourseId?: number) => {
     try {
-      const data = await studyApi.listGuides();
+      const params: { course_id?: number } = {};
+      if (filterCourseId) params.course_id = filterCourseId;
+      const data = await studyApi.listGuides(params);
       setStudyGuides(data);
     } catch {
       // Study guides not loaded
@@ -245,9 +249,27 @@ export function StudentDashboard() {
       contentLength: customContent.length,
     });
 
+    // Check for duplicates before generating (skip for file uploads)
+    if (uploadMode === 'text' && !duplicateCheck) {
+      try {
+        const dupResult = await studyApi.checkDuplicate({
+          title: customTitle || undefined,
+          guide_type: customType,
+        });
+        if (dupResult.exists) {
+          setDuplicateCheck(dupResult);
+          return;
+        }
+      } catch {
+        // Continue with generation if check fails
+      }
+    }
+    setDuplicateCheck(null);
+
     setIsGenerating(true);
     try {
       let result;
+      const regenerateId = duplicateCheck?.existing_guide?.id;
 
       if (uploadMode === 'file' && selectedFile) {
         result = await studyApi.generateFromFile({
@@ -263,17 +285,20 @@ export function StudentDashboard() {
             topic: customTitle || 'Custom Quiz',
             content: customContent,
             num_questions: 5,
+            regenerate_from_id: regenerateId,
           });
         } else if (customType === 'flashcards') {
           result = await studyApi.generateFlashcards({
             topic: customTitle || 'Custom Flashcards',
             content: customContent,
             num_cards: 10,
+            regenerate_from_id: regenerateId,
           });
         } else {
           result = await studyApi.generateGuide({
             title: customTitle || 'Custom Study Guide',
             content: customContent,
+            regenerate_from_id: regenerateId,
           });
         }
       }
@@ -405,10 +430,28 @@ export function StudentDashboard() {
               + Create Custom
             </button>
           </div>
+          {courses.length > 0 && (
+            <div style={{ marginBottom: '0.75rem' }}>
+              <select
+                value={courseFilter}
+                onChange={(e) => {
+                  const val = e.target.value ? Number(e.target.value) : '';
+                  setCourseFilter(val);
+                  loadStudyGuides(val || undefined);
+                }}
+                style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }}
+              >
+                <option value="">All Courses</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {studyGuides.length > 0 ? (
             <ul className="study-guides-list">
               {studyGuides.map((guide) => (
-                <li key={guide.id} className="study-guide-item">
+                <li key={guide.id} className="study-guide-item" style={{ display: 'flex', alignItems: 'center' }}>
                   <Link
                     to={
                       guide.guide_type === 'quiz'
@@ -418,15 +461,32 @@ export function StudentDashboard() {
                         : `/study/guide/${guide.id}`
                     }
                     className="study-guide-link"
+                    style={{ flex: 1 }}
                   >
                     <span className="guide-icon">
                       {guide.guide_type === 'quiz' ? '?' : guide.guide_type === 'flashcards' ? '🃏' : '📖'}
                     </span>
                     <span className="guide-title">{guide.title}</span>
+                    {guide.version > 1 && (
+                      <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '1px 6px', borderRadius: '8px', fontSize: '0.75rem', marginLeft: '0.5rem' }}>
+                        v{guide.version}
+                      </span>
+                    )}
                     <span className="guide-date">
                       {new Date(guide.created_at).toLocaleDateString()}
                     </span>
                   </Link>
+                  <button
+                    title="Delete"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      await studyApi.deleteGuide(guide.id);
+                      setStudyGuides(prev => prev.filter(g => g.id !== guide.id));
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#c00', cursor: 'pointer', padding: '4px 8px', fontSize: '1rem' }}
+                  >
+                    x
+                  </button>
                 </li>
               ))}
             </ul>
@@ -573,8 +633,36 @@ export function StudentDashboard() {
               </label>
             </div>
 
+            {duplicateCheck && duplicateCheck.exists && (
+              <div style={{ background: '#fff3e0', padding: '0.75rem', borderRadius: '6px', marginBottom: '0.75rem' }}>
+                <p style={{ margin: 0, fontWeight: 500 }}>{duplicateCheck.message}</p>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <button
+                    className="generate-btn"
+                    onClick={() => {
+                      const guide = duplicateCheck.existing_guide!;
+                      resetModal();
+                      navigate(
+                        guide.guide_type === 'quiz' ? `/study/quiz/${guide.id}`
+                          : guide.guide_type === 'flashcards' ? `/study/flashcards/${guide.id}`
+                          : `/study/guide/${guide.id}`
+                      );
+                    }}
+                  >
+                    View Existing
+                  </button>
+                  <button className="generate-btn" onClick={handleCreateCustom}>
+                    Regenerate (New Version)
+                  </button>
+                  <button className="cancel-btn" onClick={() => setDuplicateCheck(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="modal-actions">
-              <button className="cancel-btn" onClick={() => resetModal()} disabled={isGenerating}>
+              <button className="cancel-btn" onClick={() => { resetModal(); setDuplicateCheck(null); }} disabled={isGenerating}>
                 Cancel
               </button>
               <button

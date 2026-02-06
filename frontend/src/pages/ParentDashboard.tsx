@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { parentApi, googleApi, invitesApi, studyApi } from '../api/client';
-import type { ChildSummary, ChildOverview, DiscoveredChild, SupportedFormats } from '../api/client';
+import type { ChildSummary, ChildOverview, DiscoveredChild, SupportedFormats, StudyGuide, DuplicateCheckResponse } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import './ParentDashboard.css';
 
@@ -59,6 +59,9 @@ export function ParentDashboard() {
   const [studyError, setStudyError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [supportedFormats, setSupportedFormats] = useState<SupportedFormats | null>(null);
+  const [myStudyGuides, setMyStudyGuides] = useState<StudyGuide[]>([]);
+  const [childStudyGuides, setChildStudyGuides] = useState<StudyGuide[]>([]);
+  const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check for OAuth callback and pending action on mount
@@ -81,7 +84,17 @@ export function ParentDashboard() {
 
     loadChildren();
     checkGoogleStatus();
+    loadMyStudyGuides();
   }, []);
+
+  const loadMyStudyGuides = async () => {
+    try {
+      const data = await studyApi.listGuides();
+      setMyStudyGuides(data);
+    } catch {
+      // Failed to load study guides
+    }
+  };
 
   useEffect(() => {
     if (selectedChild) {
@@ -117,8 +130,12 @@ export function ParentDashboard() {
     try {
       const data = await parentApi.getChildOverview(studentId);
       setChildOverview(data);
+      // Load child's study guides
+      const childGuides = await studyApi.listGuides({ include_children: true, student_user_id: data.user_id });
+      setChildStudyGuides(childGuides.filter(g => g.user_id !== data.user_id ? false : true));
     } catch {
       setChildOverview(null);
+      setChildStudyGuides([]);
     } finally {
       setOverviewLoading(false);
     }
@@ -329,11 +346,29 @@ export function ParentDashboard() {
       return;
     }
 
+    // Check for duplicates before generating (skip for file uploads)
+    if (studyMode === 'text' && !duplicateCheck) {
+      try {
+        const dupResult = await studyApi.checkDuplicate({
+          title: studyTitle || undefined,
+          guide_type: studyType,
+        });
+        if (dupResult.exists) {
+          setDuplicateCheck(dupResult);
+          return;
+        }
+      } catch {
+        // Continue with generation if check fails
+      }
+    }
+    setDuplicateCheck(null);
+
     setIsGenerating(true);
     setStudyError('');
 
     try {
       let result;
+      const regenerateId = duplicateCheck?.existing_guide?.id;
       if (studyMode === 'file' && selectedFile) {
         result = await studyApi.generateFromFile({
           file: selectedFile,
@@ -344,15 +379,16 @@ export function ParentDashboard() {
         });
       } else {
         if (studyType === 'study_guide') {
-          result = await studyApi.generateGuide({ title: studyTitle, content: studyContent });
+          result = await studyApi.generateGuide({ title: studyTitle, content: studyContent, regenerate_from_id: regenerateId });
         } else if (studyType === 'quiz') {
-          result = await studyApi.generateQuiz({ topic: studyTitle, content: studyContent, num_questions: 10 });
+          result = await studyApi.generateQuiz({ topic: studyTitle, content: studyContent, num_questions: 10, regenerate_from_id: regenerateId });
         } else {
-          result = await studyApi.generateFlashcards({ topic: studyTitle, content: studyContent, num_cards: 15 });
+          result = await studyApi.generateFlashcards({ topic: studyTitle, content: studyContent, num_cards: 15, regenerate_from_id: regenerateId });
         }
       }
 
       resetStudyModal();
+      loadMyStudyGuides();
       // Navigate to the created study material
       if (studyType === 'study_guide') {
         navigate(`/study/guide/${result.id}`);
@@ -535,12 +571,98 @@ export function ParentDashboard() {
               </section>
 
               <section className="section">
-                <h3>Study Materials</h3>
-                <div className="study-count-card">
-                  <span className="study-count">{childOverview.study_guides_count}</span>
-                  <span className="study-label">study materials created</span>
+                <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>My Study Materials</h3>
+                  <button className="link-child-btn-small" onClick={() => setShowStudyModal(true)}>
+                    + Create New
+                  </button>
                 </div>
+                {myStudyGuides.length > 0 ? (
+                  <ul className="study-guides-list">
+                    {myStudyGuides.map((guide) => (
+                      <li key={guide.id} className="study-guide-item">
+                        <div
+                          className="study-guide-link"
+                          onClick={() => navigate(
+                            guide.guide_type === 'quiz'
+                              ? `/study/quiz/${guide.id}`
+                              : guide.guide_type === 'flashcards'
+                              ? `/study/flashcards/${guide.id}`
+                              : `/study/guide/${guide.id}`
+                          )}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}
+                        >
+                          <span className="guide-icon">
+                            {guide.guide_type === 'quiz' ? '?' : guide.guide_type === 'flashcards' ? '🃏' : '📖'}
+                          </span>
+                          <span className="guide-title" style={{ flex: 1 }}>{guide.title}</span>
+                          {guide.version > 1 && (
+                            <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '1px 6px', borderRadius: '8px', fontSize: '0.75rem' }}>
+                              v{guide.version}
+                            </span>
+                          )}
+                          <span className="guide-date" style={{ color: '#888', fontSize: '0.85rem' }}>
+                            {new Date(guide.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <button
+                          className="delete-guide-btn"
+                          title="Delete"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await studyApi.deleteGuide(guide.id);
+                            setMyStudyGuides(prev => prev.filter(g => g.id !== guide.id));
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#c00', cursor: 'pointer', padding: '4px 8px', fontSize: '1rem' }}
+                        >
+                          x
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="empty-state">
+                    <p>No study materials yet</p>
+                    <small>Click "Create New" or the AI Study Tools card to generate study guides, quizzes, or flashcards</small>
+                  </div>
+                )}
               </section>
+
+              {childStudyGuides.length > 0 && (
+                <section className="section">
+                  <h3>{childOverview.full_name}'s Study Materials</h3>
+                  <ul className="study-guides-list">
+                    {childStudyGuides.map((guide) => (
+                      <li key={guide.id} className="study-guide-item">
+                        <div
+                          className="study-guide-link"
+                          onClick={() => navigate(
+                            guide.guide_type === 'quiz'
+                              ? `/study/quiz/${guide.id}`
+                              : guide.guide_type === 'flashcards'
+                              ? `/study/flashcards/${guide.id}`
+                              : `/study/guide/${guide.id}`
+                          )}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}
+                        >
+                          <span className="guide-icon">
+                            {guide.guide_type === 'quiz' ? '?' : guide.guide_type === 'flashcards' ? '🃏' : '📖'}
+                          </span>
+                          <span className="guide-title" style={{ flex: 1 }}>{guide.title}</span>
+                          {guide.version > 1 && (
+                            <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '1px 6px', borderRadius: '8px', fontSize: '0.75rem' }}>
+                              v{guide.version}
+                            </span>
+                          )}
+                          <span className="guide-date" style={{ color: '#888', fontSize: '0.85rem' }}>
+                            {new Date(guide.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
             </div>
           ) : null}
         </>
@@ -893,8 +1015,37 @@ export function ParentDashboard() {
               {studyError && <p className="link-error">{studyError}</p>}
             </div>
 
+            {duplicateCheck && duplicateCheck.exists && (
+              <div style={{ background: '#fff3e0', padding: '0.75rem', borderRadius: '6px', marginBottom: '0.75rem' }}>
+                <p style={{ margin: 0, fontWeight: 500 }}>{duplicateCheck.message}</p>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <button
+                    className="generate-btn"
+                    onClick={() => {
+                      const guide = duplicateCheck.existing_guide!;
+                      resetStudyModal();
+                      setDuplicateCheck(null);
+                      navigate(
+                        guide.guide_type === 'quiz' ? `/study/quiz/${guide.id}`
+                          : guide.guide_type === 'flashcards' ? `/study/flashcards/${guide.id}`
+                          : `/study/guide/${guide.id}`
+                      );
+                    }}
+                  >
+                    View Existing
+                  </button>
+                  <button className="generate-btn" onClick={handleGenerateStudy}>
+                    Regenerate (New Version)
+                  </button>
+                  <button className="cancel-btn" onClick={() => setDuplicateCheck(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="modal-actions">
-              <button className="cancel-btn" onClick={resetStudyModal} disabled={isGenerating}>
+              <button className="cancel-btn" onClick={() => { resetStudyModal(); setDuplicateCheck(null); }} disabled={isGenerating}>
                 Cancel
               </button>
               <button
