@@ -20,8 +20,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY frontend/package.json frontend/package-lock.json ./frontend/
 RUN cd frontend && npm ci
 
+# Copy frontend source (changes here invalidate the build cache)
 COPY frontend/ ./frontend/
-RUN cd frontend && npm run build
+ARG BUILD_DATE=unknown
+RUN echo "Build date: $BUILD_DATE" && cd frontend && npm run build
 
 # Copy backend application
 COPY app/ ./app/
