@@ -145,12 +145,14 @@ export function ParentDashboard() {
     setInviteSuccess('');
     setInviteLoading(true);
     try {
-      await invitesApi.create({
+      const result = await invitesApi.create({
         email: inviteEmail.trim(),
         invite_type: 'student',
         metadata: { relationship_type: inviteRelationship },
       });
-      setInviteSuccess(`Invite sent to ${inviteEmail.trim()}`);
+      // Show invite link (email may not send if SendGrid not configured)
+      const inviteLink = `${window.location.origin}/accept-invite?token=${result.token}`;
+      setInviteSuccess(`Invite created! Share this link with your child:\n${inviteLink}`);
       setInviteEmail('');
     } catch (err: any) {
       setInviteError(err.response?.data?.detail || 'Failed to send invite');
@@ -744,14 +746,31 @@ export function ParentDashboard() {
                 </select>
               </label>
               {inviteError && <p className="link-error">{inviteError}</p>}
-              {inviteSuccess && <p className="link-success">{inviteSuccess}</p>}
+              {inviteSuccess && (
+                <div className="invite-success-box">
+                  <p className="link-success">Invite created!</p>
+                  <p className="invite-link-label">Share this link with your child:</p>
+                  <div className="invite-link-container">
+                    <code className="invite-link">{inviteSuccess.split('\n')[1]}</code>
+                    <button
+                      className="copy-link-btn"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteSuccess.split('\n')[1]);
+                        alert('Link copied!');
+                      }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="modal-actions">
               <button className="cancel-btn" onClick={closeInviteModal} disabled={inviteLoading}>
                 Close
               </button>
-              <button className="generate-btn" onClick={handleInviteStudent} disabled={inviteLoading || !inviteEmail.trim()}>
-                {inviteLoading ? 'Sending...' : 'Send Invite'}
+              <button className="generate-btn" onClick={handleInviteStudent} disabled={inviteLoading || !inviteEmail.trim() || !!inviteSuccess}>
+                {inviteLoading ? 'Creating...' : 'Create Invite'}
               </button>
             </div>
           </div>
