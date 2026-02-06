@@ -3,8 +3,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top left, rgba(21, 138, 135, 0.5), transparent 50%),
-    radial-gradient(circle at bottom right, rgba(245, 158, 108, 0.5), transparent 50%),
+  background: radial-gradient(circle at top left, rgba(13, 101, 179, 0.25), transparent 50%),
+    radial-gradient(circle at bottom right, rgba(244, 128, 31, 0.20), transparent 50%),
     #eef1f5;
   padding: 20px;
 }
@@ -80,7 +80,7 @@
 .form-group select:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(21, 138, 135, 0.12);
+  box-shadow: 0 0 0 3px rgba(73, 184, 192, 0.12);
 }
 
 .auth-button {

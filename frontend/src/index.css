@@ -13,9 +13,11 @@
   --color-surface: #ffffff;
   --color-surface-alt: #f5f6f9;
   --color-border: #e3e6ee;
-  --color-accent: #158a87;
-  --color-accent-strong: #0f6f6c;
-  --color-accent-warm: #f59e6c;
+  --color-accent: #49b8c0;
+  --color-accent-strong: #3a9aa1;
+  --color-accent-warm: #f4801f;
+  --color-blue: #0d65b3;
+  --color-blue-dark: #074b92;
   --color-danger: #d64545;
   --color-warning: #f3b04c;
 
@@ -41,8 +43,8 @@ body {
   margin: 0;
   min-width: 320px;
   color: var(--color-ink);
-  background: radial-gradient(circle at top left, rgba(21, 138, 135, 0.12), transparent 45%),
-    radial-gradient(circle at 15% 80%, rgba(245, 158, 108, 0.18), transparent 55%),
+  background: radial-gradient(circle at top left, rgba(13, 101, 179, 0.10), transparent 45%),
+    radial-gradient(circle at 15% 80%, rgba(244, 128, 31, 0.12), transparent 55%),
     #eef1f5;
   min-height: 100vh;
 }

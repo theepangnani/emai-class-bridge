@@ -66,7 +66,7 @@
 
 .option.selected {
   border-color: var(--color-accent);
-  background: rgba(21, 138, 135, 0.14);
+  background: rgba(73, 184, 192, 0.14);
 }
 
 .option.correct {

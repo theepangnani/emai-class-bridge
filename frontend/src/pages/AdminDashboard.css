@@ -54,7 +54,7 @@
 }
 
 .admin-users-table tr:hover td {
-  background: rgba(21, 138, 135, 0.06);
+  background: rgba(73, 184, 192, 0.06);
 }
 
 .role-badge-small {
@@ -67,12 +67,12 @@
 }
 
 .role-badge-small.student {
-  background: rgba(21, 138, 135, 0.15);
+  background: rgba(73, 184, 192, 0.15);
   color: var(--color-accent-strong);
 }
 
 .role-badge-small.parent {
-  background: rgba(245, 158, 108, 0.18);
+  background: rgba(244, 128, 31, 0.18);
   color: #b1571e;
 }
 
