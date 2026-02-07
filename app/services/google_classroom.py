@@ -99,9 +99,13 @@ def get_classroom_service(access_token: str, refresh_token: str | None = None):
     """Build Google Classroom API service with auto-refresh."""
     credentials = get_credentials(access_token, refresh_token)
 
-    # Refresh if expired
-    if credentials.expired and credentials.refresh_token:
-        credentials.refresh(Request())
+    # Proactively refresh if we have a refresh token, since expiry is not
+    # tracked and credentials.expired may return False for expired tokens.
+    if credentials.refresh_token:
+        try:
+            credentials.refresh(Request())
+        except Exception:
+            pass  # Fall through to use existing access token
 
     return build("classroom", "v1", credentials=credentials), credentials
 
@@ -110,8 +114,11 @@ def get_gmail_service(access_token: str, refresh_token: str | None = None):
     """Build Gmail API service with auto-refresh."""
     credentials = get_credentials(access_token, refresh_token)
 
-    if credentials.expired and credentials.refresh_token:
-        credentials.refresh(Request())
+    if credentials.refresh_token:
+        try:
+            credentials.refresh(Request())
+        except Exception:
+            pass
 
     return build("gmail", "v1", credentials=credentials), credentials
 

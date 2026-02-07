@@ -154,13 +154,15 @@ def discover_children_google(
     if not current_user.google_access_token:
         return DiscoverChildrenResponse(discovered=[], google_connected=False, courses_searched=0)
 
+    logger.info(f"Parent {current_user.id} ({current_user.email}) starting Google discovery, has_refresh_token={bool(current_user.google_refresh_token)}")
     try:
         courses, credentials = list_courses(
             current_user.google_access_token,
             current_user.google_refresh_token,
         )
+        logger.info(f"Parent {current_user.id} found {len(courses)} Google Classroom courses")
     except Exception as e:
-        logger.warning(f"Failed to list Google courses for parent {current_user.id}: {e}")
+        logger.warning(f"Failed to list Google courses for parent {current_user.id}: {e}", exc_info=True)
         return DiscoverChildrenResponse(discovered=[], google_connected=True, courses_searched=0)
 
     # Update tokens if refreshed
