@@ -85,6 +85,11 @@ export const coursesApi = {
     const response = await api.post('/api/courses/', data);
     return response.data;
   },
+
+  createdByMe: async () => {
+    const response = await api.get('/api/courses/created/me');
+    return response.data;
+  },
 };
 
 // Assignments API
@@ -580,6 +585,27 @@ export const parentApi = {
   syncChildCourses: async (studentId: number) => {
     const response = await api.post(`/api/parent/children/${studentId}/sync-courses`);
     return response.data as { message: string; courses: Array<{ id: number; name: string; google_id: string }> };
+  },
+
+  createChild: async (fullName: string, relationshipType: string = 'guardian', email?: string) => {
+    const response = await api.post('/api/parent/children/create', {
+      full_name: fullName,
+      relationship_type: relationshipType,
+      ...(email ? { email } : {}),
+    });
+    return response.data as ChildSummary;
+  },
+
+  assignCoursesToChild: async (studentId: number, courseIds: number[]) => {
+    const response = await api.post(`/api/parent/children/${studentId}/courses`, {
+      course_ids: courseIds,
+    });
+    return response.data as { message: string; assigned: Array<{ course_id: number; course_name: string }> };
+  },
+
+  unassignCourseFromChild: async (studentId: number, courseId: number) => {
+    const response = await api.delete(`/api/parent/children/${studentId}/courses/${courseId}`);
+    return response.data;
   },
 };
 

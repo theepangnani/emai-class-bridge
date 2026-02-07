@@ -6,6 +6,12 @@ from app.schemas.course import CourseResponse
 from app.schemas.assignment import AssignmentResponse
 
 
+class CreateChildRequest(BaseModel):
+    full_name: str
+    email: str | None = None
+    relationship_type: str = "guardian"
+
+
 class LinkChildRequest(BaseModel):
     student_email: str
     full_name: str | None = None

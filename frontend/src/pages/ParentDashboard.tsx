@@ -1,15 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { parentApi, googleApi, invitesApi, studyApi } from '../api/client';
+import { parentApi, googleApi, invitesApi, studyApi, coursesApi } from '../api/client';
 import type { ChildSummary, ChildOverview, DiscoveredChild, SupportedFormats, StudyGuide, DuplicateCheckResponse } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import './ParentDashboard.css';
 
 const MAX_FILE_SIZE_MB = 100;
 
-type LinkTab = 'email' | 'google';
+type LinkTab = 'create' | 'email' | 'google';
 type DiscoveryState = 'idle' | 'discovering' | 'results' | 'no_results';
 type SyncState = 'idle' | 'syncing' | 'done' | 'error';
+
+interface ParentCourse {
+  id: number;
+  name: string;
+  description: string | null;
+  subject: string | null;
+  created_at: string;
+}
 
 export function ParentDashboard() {
   const navigate = useNavigate();
@@ -22,7 +30,7 @@ export function ParentDashboard() {
 
   // Link child modal state
   const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkTab, setLinkTab] = useState<LinkTab>('email');
+  const [linkTab, setLinkTab] = useState<LinkTab>('create');
   const [linkEmail, setLinkEmail] = useState('');
   const [linkName, setLinkName] = useState('');
   const [linkRelationship, setLinkRelationship] = useState('guardian');
@@ -66,6 +74,26 @@ export function ParentDashboard() {
   const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Create child (name-only) state
+  const [createChildName, setCreateChildName] = useState('');
+  const [createChildEmail, setCreateChildEmail] = useState('');
+  const [createChildRelationship, setCreateChildRelationship] = useState('guardian');
+  const [createChildLoading, setCreateChildLoading] = useState(false);
+  const [createChildError, setCreateChildError] = useState('');
+  const [createChildInviteLink, setCreateChildInviteLink] = useState('');
+
+  // Course management state
+  const [showCreateCourseModal, setShowCreateCourseModal] = useState(false);
+  const [courseName, setCourseName] = useState('');
+  const [courseSubject, setCourseSubject] = useState('');
+  const [courseDescription, setCourseDescription] = useState('');
+  const [createCourseLoading, setCreateCourseLoading] = useState(false);
+  const [createCourseError, setCreateCourseError] = useState('');
+  const [parentCourses, setParentCourses] = useState<ParentCourse[]>([]);
+  const [showAssignCourseModal, setShowAssignCourseModal] = useState(false);
+  const [selectedCoursesForAssign, setSelectedCoursesForAssign] = useState<Set<number>>(new Set());
+  const [assignLoading, setAssignLoading] = useState(false);
+
   // Check for OAuth callback and pending action on mount
   useEffect(() => {
     const connected = searchParams.get('google_connected');
@@ -87,6 +115,7 @@ export function ParentDashboard() {
     loadChildren();
     checkGoogleStatus();
     loadMyStudyGuides();
+    loadParentCourses();
   }, []);
 
   const loadMyStudyGuides = async () => {
@@ -124,6 +153,93 @@ export function ParentDashboard() {
       // Failed to load children
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadParentCourses = async () => {
+    try {
+      const data = await coursesApi.createdByMe();
+      setParentCourses(data);
+    } catch {
+      // Failed to load courses
+    }
+  };
+
+  const handleCreateChild = async () => {
+    if (!createChildName.trim()) return;
+    setCreateChildError('');
+    setCreateChildInviteLink('');
+    setCreateChildLoading(true);
+    try {
+      const result = await parentApi.createChild(
+        createChildName.trim(),
+        createChildRelationship,
+        createChildEmail.trim() || undefined,
+      );
+      if (result.invite_link) {
+        setCreateChildInviteLink(result.invite_link);
+      } else {
+        closeLinkModal();
+      }
+      await loadChildren();
+    } catch (err: any) {
+      setCreateChildError(err.response?.data?.detail || 'Failed to create child');
+    } finally {
+      setCreateChildLoading(false);
+    }
+  };
+
+  const handleCreateCourse = async () => {
+    if (!courseName.trim()) return;
+    setCreateCourseError('');
+    setCreateCourseLoading(true);
+    try {
+      await coursesApi.create({
+        name: courseName.trim(),
+        subject: courseSubject.trim() || undefined,
+        description: courseDescription.trim() || undefined,
+      });
+      closeCreateCourseModal();
+      await loadParentCourses();
+      // Refresh child overview to show new courses if assigned
+      if (selectedChild) loadChildOverview(selectedChild);
+    } catch (err: any) {
+      setCreateCourseError(err.response?.data?.detail || 'Failed to create course');
+    } finally {
+      setCreateCourseLoading(false);
+    }
+  };
+
+  const closeCreateCourseModal = () => {
+    setShowCreateCourseModal(false);
+    setCourseName('');
+    setCourseSubject('');
+    setCourseDescription('');
+    setCreateCourseError('');
+  };
+
+  const handleAssignCourses = async () => {
+    if (!selectedChild || selectedCoursesForAssign.size === 0) return;
+    setAssignLoading(true);
+    try {
+      await parentApi.assignCoursesToChild(selectedChild, Array.from(selectedCoursesForAssign));
+      setShowAssignCourseModal(false);
+      setSelectedCoursesForAssign(new Set());
+      loadChildOverview(selectedChild);
+    } catch {
+      // silently fail
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handleUnassignCourse = async (courseId: number) => {
+    if (!selectedChild) return;
+    try {
+      await parentApi.unassignCourseFromChild(selectedChild, courseId);
+      loadChildOverview(selectedChild);
+    } catch {
+      // silently fail
     }
   };
 
@@ -259,7 +375,7 @@ export function ParentDashboard() {
 
   const closeLinkModal = () => {
     setShowLinkModal(false);
-    setLinkTab('email');
+    setLinkTab('create');
     setLinkEmail('');
     setLinkName('');
     setLinkRelationship('guardian');
@@ -268,6 +384,11 @@ export function ParentDashboard() {
     setDiscoveryState('idle');
     setDiscoveredChildren([]);
     setSelectedDiscovered(new Set());
+    setCreateChildName('');
+    setCreateChildEmail('');
+    setCreateChildRelationship('guardian');
+    setCreateChildError('');
+    setCreateChildInviteLink('');
   };
 
   const handleSyncChildCourses = async () => {
@@ -467,23 +588,23 @@ export function ParentDashboard() {
 
       {children.length === 0 ? (
         <div className="no-children-state">
-          <h3>No Children Linked</h3>
-          <p>Link your child's student account to monitor their progress.</p>
+          <h3>Get Started</h3>
+          <p>Add your child to start managing their education. No school account required!</p>
           <button className="link-child-btn" onClick={() => setShowLinkModal(true)}>
-            + Link Child
+            + Add Child
           </button>
-          <button className="link-child-btn" onClick={() => setShowInviteModal(true)}>
-            + Invite Student
+          <button className="link-child-btn" onClick={() => setShowCreateCourseModal(true)}>
+            + Create Course
           </button>
         </div>
       ) : (
         <>
           <div className="link-child-header">
             <button className="link-child-btn-small" onClick={() => setShowLinkModal(true)}>
-              + Link Another Child
+              + Add Child
             </button>
-            <button className="link-child-btn-small" onClick={() => setShowInviteModal(true)}>
-              + Invite Student
+            <button className="link-child-btn-small" onClick={() => setShowCreateCourseModal(true)}>
+              + Create Course
             </button>
           </div>
 
@@ -536,24 +657,35 @@ export function ParentDashboard() {
               <section className="section">
                 <div className="section-header">
                   <h3>{childOverview.full_name}'s Courses</h3>
-                  {childOverview.google_connected && (
-                    <button
-                      className="link-child-btn-small"
-                      onClick={handleSyncChildCourses}
-                      disabled={syncState === 'syncing'}
-                    >
-                      {syncState === 'syncing' ? 'Syncing...' : 'Sync Courses'}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {parentCourses.length > 0 && (
+                      <button
+                        className="link-child-btn-small"
+                        onClick={() => {
+                          setSelectedCoursesForAssign(new Set());
+                          setShowAssignCourseModal(true);
+                        }}
+                      >
+                        + Assign Course
+                      </button>
+                    )}
+                    <button className="link-child-btn-small" onClick={() => setShowCreateCourseModal(true)}>
+                      + Create Course
                     </button>
-                  )}
+                    {childOverview.google_connected && (
+                      <button
+                        className="link-child-btn-small"
+                        onClick={handleSyncChildCourses}
+                        disabled={syncState === 'syncing'}
+                      >
+                        {syncState === 'syncing' ? 'Syncing...' : 'Sync from Google'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {syncMessage && (
                   <div className={`status-message status-${syncState === 'error' ? 'error' : 'success'}`}>
                     {syncMessage}
-                  </div>
-                )}
-                {!childOverview.google_connected && (
-                  <div className="google-warning">
-                    Your child hasn't connected Google Classroom yet. Ask them to sign in and connect it from their dashboard.
                   </div>
                 )}
                 {childOverview.courses.length > 0 ? (
@@ -569,15 +701,47 @@ export function ParentDashboard() {
                         {course.subject && (
                           <span className="course-subject">{course.subject}</span>
                         )}
+                        <button
+                          className="delete-guide-btn"
+                          title="Remove from child"
+                          onClick={() => handleUnassignCourse(course.id)}
+                        >
+                          ✕
+                        </button>
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <div className="empty-state">
-                    <p>No courses enrolled</p>
+                    <p>No courses yet</p>
+                    <small>Create a course and assign it, or sync from Google Classroom</small>
                   </div>
                 )}
               </section>
+
+              {parentCourses.length > 0 && (
+                <section className="section">
+                  <div className="section-header">
+                    <h3>My Courses</h3>
+                    <button className="link-child-btn-small" onClick={() => setShowCreateCourseModal(true)}>
+                      + Create Course
+                    </button>
+                  </div>
+                  <ul className="courses-list">
+                    {parentCourses.map((course) => (
+                      <li key={course.id} className="course-item">
+                        <span className="course-name">{course.name}</span>
+                        {course.subject && (
+                          <span className="course-subject">{course.subject}</span>
+                        )}
+                        <span className="guide-date">
+                          {new Date(course.created_at).toLocaleDateString()}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
               <section className="section">
                 <div className="section-header">
@@ -674,23 +838,102 @@ export function ParentDashboard() {
       {showLinkModal && (
         <div className="modal-overlay" onClick={closeLinkModal}>
           <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
-            <h2>Link Child Account</h2>
+            <h2>Add Child</h2>
 
             {/* Tabs */}
             <div className="link-tabs">
               <button
+                className={`link-tab ${linkTab === 'create' ? 'active' : ''}`}
+                onClick={() => { setLinkTab('create'); setLinkError(''); }}
+              >
+                Create New
+              </button>
+              <button
                 className={`link-tab ${linkTab === 'email' ? 'active' : ''}`}
                 onClick={() => { setLinkTab('email'); setLinkError(''); }}
               >
-                By Email
+                Link by Email
               </button>
               <button
                 className={`link-tab ${linkTab === 'google' ? 'active' : ''}`}
                 onClick={() => { setLinkTab('google'); setLinkError(''); }}
               >
-                Via Google Classroom
+                Google Classroom
               </button>
             </div>
+
+            {/* Create Tab - Name only, email optional */}
+            {linkTab === 'create' && (
+              <>
+                {createChildInviteLink ? (
+                  <div className="modal-form">
+                    <div className="invite-success-box">
+                      <p style={{ margin: '0 0 8px', fontWeight: 600 }}>Child added successfully!</p>
+                      <p style={{ margin: '0 0 8px', fontSize: 14 }}>
+                        Share this link with your child so they can set their password and log in:
+                      </p>
+                      <div className="invite-link-container">
+                        <span className="invite-link">{createChildInviteLink}</span>
+                        <button className="copy-link-btn" onClick={() => { navigator.clipboard.writeText(createChildInviteLink); }}>
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="modal-desc">Add your child with just their name. Email is optional.</p>
+                    <div className="modal-form">
+                      <label>
+                        Child's Name *
+                        <input
+                          type="text"
+                          value={createChildName}
+                          onChange={(e) => setCreateChildName(e.target.value)}
+                          placeholder="e.g. Alex Smith"
+                          disabled={createChildLoading}
+                          onKeyDown={(e) => e.key === 'Enter' && handleCreateChild()}
+                        />
+                      </label>
+                      <label>
+                        Email (optional)
+                        <input
+                          type="email"
+                          value={createChildEmail}
+                          onChange={(e) => { setCreateChildEmail(e.target.value); setCreateChildError(''); }}
+                          placeholder="child@example.com"
+                          disabled={createChildLoading}
+                        />
+                      </label>
+                      <label>
+                        Relationship
+                        <select
+                          value={createChildRelationship}
+                          onChange={(e) => setCreateChildRelationship(e.target.value)}
+                          disabled={createChildLoading}
+                        >
+                          <option value="mother">Mother</option>
+                          <option value="father">Father</option>
+                          <option value="guardian">Guardian</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </label>
+                      {createChildError && <p className="link-error">{createChildError}</p>}
+                    </div>
+                  </>
+                )}
+                <div className="modal-actions">
+                  <button className="cancel-btn" onClick={closeLinkModal} disabled={createChildLoading}>
+                    {createChildInviteLink ? 'Close' : 'Cancel'}
+                  </button>
+                  {!createChildInviteLink && (
+                    <button className="generate-btn" onClick={handleCreateChild} disabled={createChildLoading || !createChildName.trim()}>
+                      {createChildLoading ? 'Creating...' : 'Add Child'}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Email Tab */}
             {linkTab === 'email' && (
@@ -1101,6 +1344,122 @@ export function ParentDashboard() {
                 disabled={isGenerating || (studyMode === 'file' ? !selectedFile : !studyContent.trim())}
               >
                 {isGenerating ? 'Generating...' : 'Generate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Create Course Modal */}
+      {showCreateCourseModal && (
+        <div className="modal-overlay" onClick={closeCreateCourseModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Create Course</h2>
+            <p className="modal-desc">
+              Create a course for your child. No teacher or school required.
+            </p>
+            <div className="modal-form">
+              <label>
+                Course Name *
+                <input
+                  type="text"
+                  value={courseName}
+                  onChange={(e) => setCourseName(e.target.value)}
+                  placeholder="e.g. Math Grade 5"
+                  disabled={createCourseLoading}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateCourse()}
+                />
+              </label>
+              <label>
+                Subject (optional)
+                <input
+                  type="text"
+                  value={courseSubject}
+                  onChange={(e) => setCourseSubject(e.target.value)}
+                  placeholder="e.g. Mathematics"
+                  disabled={createCourseLoading}
+                />
+              </label>
+              <label>
+                Description (optional)
+                <textarea
+                  value={courseDescription}
+                  onChange={(e) => setCourseDescription(e.target.value)}
+                  placeholder="Course details..."
+                  rows={3}
+                  disabled={createCourseLoading}
+                />
+              </label>
+              {createCourseError && <p className="link-error">{createCourseError}</p>}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={closeCreateCourseModal} disabled={createCourseLoading}>
+                Cancel
+              </button>
+              <button className="generate-btn" onClick={handleCreateCourse} disabled={createCourseLoading || !courseName.trim()}>
+                {createCourseLoading ? 'Creating...' : 'Create Course'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Course to Child Modal */}
+      {showAssignCourseModal && selectedChild && (
+        <div className="modal-overlay" onClick={() => setShowAssignCourseModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Assign Course to {childOverview?.full_name}</h2>
+            <p className="modal-desc">Select courses to assign to your child.</p>
+            <div className="modal-form">
+              {parentCourses.length === 0 ? (
+                <div className="empty-state">
+                  <p>No courses created yet</p>
+                  <button className="link-child-btn-small" onClick={() => { setShowAssignCourseModal(false); setShowCreateCourseModal(true); }}>
+                    + Create Course
+                  </button>
+                </div>
+              ) : (
+                <div className="discovered-list">
+                  {parentCourses.map((course) => {
+                    const alreadyAssigned = childOverview?.courses.some(c => c.id === course.id) ?? false;
+                    return (
+                      <label
+                        key={course.id}
+                        className={`discovered-item ${alreadyAssigned ? 'disabled' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCoursesForAssign.has(course.id)}
+                          onChange={() => {
+                            setSelectedCoursesForAssign(prev => {
+                              const next = new Set(prev);
+                              if (next.has(course.id)) next.delete(course.id);
+                              else next.add(course.id);
+                              return next;
+                            });
+                          }}
+                          disabled={alreadyAssigned}
+                        />
+                        <div className="discovered-info">
+                          <span className="discovered-name">{course.name}</span>
+                          {course.subject && <span className="discovered-email">{course.subject}</span>}
+                          {alreadyAssigned && <span className="discovered-linked-badge">Already assigned</span>}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setShowAssignCourseModal(false)} disabled={assignLoading}>
+                Cancel
+              </button>
+              <button
+                className="generate-btn"
+                onClick={handleAssignCourses}
+                disabled={assignLoading || selectedCoursesForAssign.size === 0}
+              >
+                {assignLoading ? 'Assigning...' : `Assign ${selectedCoursesForAssign.size} Course${selectedCoursesForAssign.size !== 1 ? 's' : ''}`}
               </button>
             </div>
           </div>

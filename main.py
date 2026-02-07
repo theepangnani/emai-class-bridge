@@ -47,6 +47,15 @@ with engine.connect() as conn:
             conn.execute(text("ALTER TABLE study_guides ADD COLUMN content_hash VARCHAR(64)"))
             logger.info("Added 'content_hash' column to study_guides")
         conn.commit()
+    if "courses" in inspector.get_table_names():
+        existing_cols = {c["name"] for c in inspector.get_columns("courses")}
+        if "created_by_user_id" not in existing_cols:
+            conn.execute(text("ALTER TABLE courses ADD COLUMN created_by_user_id INTEGER REFERENCES users(id)"))
+            logger.info("Added 'created_by_user_id' column to courses")
+        if "is_private" not in existing_cols:
+            conn.execute(text("ALTER TABLE courses ADD COLUMN is_private BOOLEAN NOT NULL DEFAULT 0"))
+            logger.info("Added 'is_private' column to courses")
+        conn.commit()
 
 app = FastAPI(
     title=settings.app_name,
@@ -146,10 +155,8 @@ else:
 @app.on_event("startup")
 async def startup_event():
     from apscheduler.triggers.cron import CronTrigger
-    from apscheduler.triggers.interval import IntervalTrigger
     from app.services.scheduler import scheduler, start_scheduler
     from app.jobs.assignment_reminders import check_assignment_reminders
-    from app.jobs.teacher_comm_sync import check_teacher_communications
 
     scheduler.add_job(
         check_assignment_reminders,
@@ -157,12 +164,10 @@ async def startup_event():
         id="assignment_reminders",
         replace_existing=True,
     )
-    scheduler.add_job(
-        check_teacher_communications,
-        IntervalTrigger(minutes=15),
-        id="teacher_comm_sync",
-        replace_existing=True,
-    )
+    # Teacher comm sync disabled — all syncs are manual/on-demand per parent-first platform design
+    # from apscheduler.triggers.interval import IntervalTrigger
+    # from app.jobs.teacher_comm_sync import check_teacher_communications
+    # scheduler.add_job(check_teacher_communications, IntervalTrigger(minutes=15), id="teacher_comm_sync", replace_existing=True)
     start_scheduler()
     logger.info("EMAI application started successfully")
 

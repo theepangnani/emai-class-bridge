@@ -11,12 +11,13 @@ from app.models.user import User, UserRole
 from app.models.student import Student, parent_students, RelationshipType
 from app.models.course import Course, student_courses
 from app.models.assignment import Assignment
+from pydantic import BaseModel as PydanticBaseModel
 from app.models.study_guide import StudyGuide
 from app.models.invite import Invite, InviteType
 from app.api.deps import require_role
 from app.core.config import settings
 from app.schemas.parent import (
-    ChildSummary, ChildOverview, LinkChildRequest,
+    ChildSummary, ChildOverview, LinkChildRequest, CreateChildRequest,
     DiscoveredChild, DiscoverChildrenResponse, LinkChildrenBulkRequest,
 )
 from app.schemas.course import CourseResponse
@@ -55,6 +56,73 @@ def list_children(
         ))
 
     return result
+
+
+@router.post("/children/create", response_model=ChildSummary)
+def create_child(
+    request: CreateChildRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.PARENT)),
+):
+    """Create a new child (student) with just a name. Email is optional."""
+    invite_link = None
+
+    # If email is provided, check it's not already taken by a non-student
+    if request.email:
+        existing_user = db.query(User).filter(User.email == request.email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="An account with this email already exists. Use 'Link Child' instead.")
+
+    # Create student user (email may be None)
+    student_user = User(
+        email=request.email,
+        hashed_password="",
+        full_name=request.full_name,
+        role=UserRole.STUDENT,
+    )
+    db.add(student_user)
+    db.flush()
+
+    # Create invite if email is provided so child can set their password
+    if request.email:
+        token = secrets.token_urlsafe(32)
+        invite = Invite(
+            email=request.email,
+            invite_type=InviteType.STUDENT,
+            token=token,
+            expires_at=datetime.utcnow() + timedelta(days=30),
+            invited_by_user_id=current_user.id,
+            metadata_json={"relationship_type": request.relationship_type},
+        )
+        db.add(invite)
+        db.flush()
+        invite_link = f"{settings.frontend_url}/accept-invite?token={token}"
+
+    # Create Student record
+    student = Student(user_id=student_user.id)
+    db.add(student)
+    db.flush()
+
+    # Link parent to student
+    rel_type = RelationshipType(request.relationship_type)
+    db.execute(
+        insert(parent_students).values(
+            parent_id=current_user.id,
+            student_id=student.id,
+            relationship_type=rel_type,
+        )
+    )
+    db.commit()
+
+    return ChildSummary(
+        student_id=student.id,
+        user_id=student.user_id,
+        full_name=student_user.full_name,
+        grade_level=student.grade_level,
+        school_name=student.school_name,
+        relationship_type=rel_type.value,
+        invite_link=invite_link,
+    )
 
 
 @router.post("/children/link", response_model=ChildSummary)
@@ -460,3 +528,104 @@ def sync_child_courses(
         "message": f"Synced {len(synced)} courses for {child_user.full_name}",
         "courses": synced,
     }
+
+
+class AssignCoursesRequest(PydanticBaseModel):
+    course_ids: list[int]
+
+
+@router.post("/children/{student_id}/courses")
+def assign_courses_to_child(
+    student_id: int,
+    request: AssignCoursesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.PARENT)),
+):
+    """Assign courses to a linked child. Parent must own the courses or they must be public."""
+    # Verify parent-student link
+    link = (
+        db.query(parent_students)
+        .filter(
+            parent_students.c.parent_id == current_user.id,
+            parent_students.c.student_id == student_id,
+        )
+        .first()
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Student not found or not linked to your account")
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    assigned = []
+    for course_id in request.course_ids:
+        course = db.query(Course).filter(Course.id == course_id).first()
+        if not course:
+            continue
+
+        # Parent can assign their own courses or public courses
+        if course.is_private and course.created_by_user_id != current_user.id:
+            continue
+
+        # Check if already enrolled
+        existing = (
+            db.query(student_courses)
+            .filter(
+                student_courses.c.student_id == student.id,
+                student_courses.c.course_id == course.id,
+            )
+            .first()
+        )
+        if existing:
+            continue
+
+        db.execute(
+            insert(student_courses).values(
+                student_id=student.id,
+                course_id=course.id,
+            )
+        )
+        assigned.append({"course_id": course.id, "course_name": course.name})
+
+    db.commit()
+    return {"message": f"Assigned {len(assigned)} courses", "assigned": assigned}
+
+
+@router.delete("/children/{student_id}/courses/{course_id}")
+def unassign_course_from_child(
+    student_id: int,
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.PARENT)),
+):
+    """Remove a course from a linked child."""
+    # Verify parent-student link
+    link = (
+        db.query(parent_students)
+        .filter(
+            parent_students.c.parent_id == current_user.id,
+            parent_students.c.student_id == student_id,
+        )
+        .first()
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Student not found or not linked to your account")
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    from sqlalchemy import delete
+    result = db.execute(
+        delete(student_courses).where(
+            student_courses.c.student_id == student.id,
+            student_courses.c.course_id == course_id,
+        )
+    )
+    db.commit()
+
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Course not assigned to this student")
+
+    return {"message": "Course removed from student"}

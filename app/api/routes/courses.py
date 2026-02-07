@@ -16,18 +16,25 @@ router = APIRouter(prefix="/courses", tags=["Courses"])
 def create_course(
     course_data: CourseCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.TEACHER)),
+    current_user: User = Depends(get_current_user),
 ):
-    """Create a new course. Teachers are auto-assigned as the course teacher."""
-    teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
-    if not teacher:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Teacher profile not found",
-        )
+    """Create a new course. Parents, students, and teachers can all create courses."""
+    if current_user.role not in (UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT, UserRole.ADMIN):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to create courses")
 
-    course_dict = course_data.model_dump()
-    course_dict["teacher_id"] = teacher.id
+    course_dict = course_data.model_dump(exclude={"teacher_id"})
+    course_dict["created_by_user_id"] = current_user.id
+
+    if current_user.role == UserRole.TEACHER:
+        teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
+        if teacher:
+            course_dict["teacher_id"] = teacher.id
+        course_dict["is_private"] = False
+    elif current_user.role == UserRole.PARENT:
+        course_dict["is_private"] = True
+    elif current_user.role == UserRole.STUDENT:
+        course_dict["is_private"] = True
+
     course = Course(**course_dict)
     db.add(course)
     db.commit()
@@ -40,7 +47,47 @@ def list_courses(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Course).all()
+    """List courses visible to the current user (respects privacy)."""
+    from sqlalchemy import or_
+    from app.models.student import parent_students
+
+    # Public courses are visible to all
+    filters = [Course.is_private == False]  # noqa: E712
+
+    # Users can always see courses they created
+    filters.append(Course.created_by_user_id == current_user.id)
+
+    if current_user.role == UserRole.STUDENT:
+        # Students can see courses they're enrolled in
+        student = db.query(Student).filter(Student.user_id == current_user.id).first()
+        if student:
+            enrolled_ids = [c.id for c in student.courses]
+            if enrolled_ids:
+                filters.append(Course.id.in_(enrolled_ids))
+
+    elif current_user.role == UserRole.PARENT:
+        # Parents can see courses assigned to their children
+        child_student_ids = (
+            db.query(parent_students.c.student_id)
+            .filter(parent_students.c.parent_id == current_user.id)
+            .all()
+        )
+        child_sids = [r[0] for r in child_student_ids]
+        if child_sids:
+            enrolled_course_ids = (
+                db.query(student_courses.c.course_id)
+                .filter(student_courses.c.student_id.in_(child_sids))
+                .all()
+            )
+            ecids = [r[0] for r in enrolled_course_ids]
+            if ecids:
+                filters.append(Course.id.in_(ecids))
+
+    elif current_user.role == UserRole.ADMIN:
+        # Admins see everything
+        return db.query(Course).all()
+
+    return db.query(Course).filter(or_(*filters)).all()
 
 
 @router.get("/teaching", response_model=list[CourseResponse])
@@ -53,6 +100,15 @@ def list_teaching_courses(
     if not teacher:
         return []
     return db.query(Course).filter(Course.teacher_id == teacher.id).all()
+
+
+@router.get("/created/me", response_model=list[CourseResponse])
+def list_my_created_courses(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List courses created by the current user."""
+    return db.query(Course).filter(Course.created_by_user_id == current_user.id).all()
 
 
 @router.get("/enrolled/me", response_model=list[CourseResponse])

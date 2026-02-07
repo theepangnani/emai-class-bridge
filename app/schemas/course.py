@@ -16,6 +16,8 @@ class CourseResponse(BaseModel):
     subject: str | None
     google_classroom_id: str | None
     teacher_id: int | None
+    created_by_user_id: int | None = None
+    is_private: bool = False
     created_at: datetime
 
     class Config:

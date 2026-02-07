@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Table, Index
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -27,12 +27,18 @@ class Course(Base):
 
     teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
 
+    # Parent-first platform: track who created the course and visibility
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    is_private = Column(Boolean, default=False, nullable=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     teacher = relationship("Teacher")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
     students = relationship("Student", secondary=student_courses, backref="courses")
 
     __table_args__ = (
         Index("ix_courses_teacher", "teacher_id"),
+        Index("ix_courses_created_by", "created_by_user_id"),
     )
