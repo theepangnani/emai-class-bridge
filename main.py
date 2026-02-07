@@ -145,7 +145,10 @@ if FRONTEND_DIR.exists():
         file_path = FRONTEND_DIR / full_path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
-        return FileResponse(FRONTEND_DIR / "index.html")
+        return FileResponse(
+            FRONTEND_DIR / "index.html",
+            headers={"Cache-Control": "no-cache"},
+        )
 else:
     @app.get("/")
     def root():
