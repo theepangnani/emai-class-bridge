@@ -172,6 +172,7 @@ def discover_children_google(
 
     # Collect student emails from all courses
     student_emails: dict[str, list[str]] = {}  # email -> list of course names
+    student_names: dict[str, str] = {}  # email -> full name from Google profile
     for course in courses:
         course_id = course.get("id")
         course_name = course.get("name", "Unknown Course")
@@ -188,6 +189,10 @@ def discover_children_google(
                 email = profile.get("emailAddress", "").lower()
                 if email:
                     student_emails.setdefault(email, []).append(course_name)
+                    if email not in student_names:
+                        name = profile.get("name", {})
+                        full_name = name.get("fullName", "") or email.split("@")[0]
+                        student_names[email] = full_name
         except Exception as e:
             logger.warning(f"Failed to list students for course {course_id}: {e}")
             continue
@@ -195,12 +200,53 @@ def discover_children_google(
     if not student_emails:
         return DiscoverChildrenResponse(discovered=[], google_connected=True, courses_searched=len(courses))
 
-    # Match against local student users
+    # Match against existing student users
     matched_users = (
         db.query(User)
         .filter(User.email.in_(list(student_emails.keys())), User.role == UserRole.STUDENT)
         .all()
     )
+    matched_emails = {u.email.lower() for u in matched_users}
+
+    # Auto-create student accounts for emails not yet in ClassBridge
+    unmatched_emails = set(student_emails.keys()) - matched_emails
+    for email in unmatched_emails:
+        # Skip if a non-student user already has this email
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            continue
+
+        full_name = student_names.get(email, email.split("@")[0])
+        new_user = User(
+            email=email,
+            hashed_password="",
+            full_name=full_name,
+            role=UserRole.STUDENT,
+        )
+        db.add(new_user)
+        db.flush()
+
+        new_student = Student(user_id=new_user.id)
+        db.add(new_student)
+        db.flush()
+
+        # Create invite so child can set their password
+        token = secrets.token_urlsafe(32)
+        invite = Invite(
+            email=email,
+            invite_type=InviteType.STUDENT,
+            token=token,
+            expires_at=datetime.utcnow() + timedelta(days=30),
+            invited_by_user_id=current_user.id,
+            metadata_json={"relationship_type": "guardian"},
+        )
+        db.add(invite)
+        db.flush()
+        logger.info(f"Auto-created student account for {email} via Google Classroom discovery")
+
+        matched_users.append(new_user)
+
+    db.commit()
 
     discovered = []
     for user in matched_users:
