@@ -15,6 +15,16 @@ export function DashboardLayout({ children, welcomeSubtitle }: DashboardLayoutPr
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const dashboardTitle = useMemo(() => {
+    switch (user?.role) {
+      case 'parent': return "Parent's Dashboard";
+      case 'student': return "Student's Dashboard";
+      case 'teacher': return "Teacher's Dashboard";
+      case 'admin': return "Admin Dashboard";
+      default: return 'Dashboard';
+    }
+  }, [user?.role]);
+
   const navItems = useMemo(() => {
     const items = [
       { label: 'Dashboard', path: '/dashboard' },
@@ -48,7 +58,7 @@ export function DashboardLayout({ children, welcomeSubtitle }: DashboardLayoutPr
       <header className="dashboard-header">
         <div className="header-left">
           <img src="/logo-icon.png" alt="ClassBridge" className="header-logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }} />
-          <h1 className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>ClassBridge</h1>
+          <h1 className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>{dashboardTitle}</h1>
         </div>
         <div className="header-right">
           <button onClick={() => navigate('/messages')} className="messages-button">
