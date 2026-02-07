@@ -19,6 +19,14 @@ export function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
+  // Create course modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [courseName, setCourseName] = useState('');
+  const [courseSubject, setCourseSubject] = useState('');
+  const [courseDescription, setCourseDescription] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState('');
+
   useEffect(() => {
     loadData();
   }, []);
@@ -61,6 +69,34 @@ export function TeacherDashboard() {
       // Sync failed
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setCourseName('');
+    setCourseSubject('');
+    setCourseDescription('');
+    setCreateError('');
+  };
+
+  const handleCreateCourse = async () => {
+    if (!courseName.trim()) return;
+    setCreateLoading(true);
+    setCreateError('');
+    try {
+      await coursesApi.create({
+        name: courseName.trim(),
+        description: courseDescription.trim() || undefined,
+        subject: courseSubject.trim() || undefined,
+      });
+      closeCreateModal();
+      const coursesData = await coursesApi.teachingList();
+      setCourses(coursesData);
+    } catch (err: any) {
+      setCreateError(err.response?.data?.detail || 'Failed to create course');
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -114,7 +150,12 @@ export function TeacherDashboard() {
 
       <div className="dashboard-sections">
         <section className="section teacher-courses-section">
-          <h3>Your Courses</h3>
+          <div className="section-header">
+            <h3>Your Courses</h3>
+            <button className="create-custom-btn" onClick={() => setShowCreateModal(true)}>
+              + Create Course
+            </button>
+          </div>
           {courses.length > 0 ? (
             <div className="teacher-courses-grid">
               {courses.map((course) => (
@@ -132,21 +173,80 @@ export function TeacherDashboard() {
             </div>
           ) : (
             <div className="empty-state">
-              <p>No courses assigned yet</p>
+              <p>No courses yet</p>
               <small>
-                {googleConnected
-                  ? 'Click "Sync Courses" above to import your Google Classroom courses'
-                  : 'Connect Google Classroom to sync your courses'}
+                Create a course manually{googleConnected
+                  ? ' or click "Sync Courses" to import from Google Classroom'
+                  : ' or connect Google Classroom to sync your courses'}
               </small>
-              {googleConnected && (
-                <button className="connect-button" onClick={handleSyncCourses} disabled={syncing} style={{ marginTop: '12px' }}>
-                  {syncing ? 'Syncing...' : 'Sync Courses'}
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '12px' }}>
+                <button className="connect-button" onClick={() => setShowCreateModal(true)}>
+                  + Create Course
                 </button>
-              )}
+                {googleConnected && (
+                  <button className="connect-button" onClick={handleSyncCourses} disabled={syncing}>
+                    {syncing ? 'Syncing...' : 'Sync Courses'}
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </section>
       </div>
+      {/* Create Course Modal */}
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={closeCreateModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Create Course</h2>
+            <div className="modal-form">
+              <label>
+                Course Name *
+                <input
+                  type="text"
+                  value={courseName}
+                  onChange={(e) => { setCourseName(e.target.value); setCreateError(''); }}
+                  placeholder="e.g. Algebra I"
+                  disabled={createLoading}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateCourse()}
+                />
+              </label>
+              <label>
+                Subject
+                <input
+                  type="text"
+                  value={courseSubject}
+                  onChange={(e) => setCourseSubject(e.target.value)}
+                  placeholder="e.g. Mathematics"
+                  disabled={createLoading}
+                />
+              </label>
+              <label>
+                Description
+                <textarea
+                  value={courseDescription}
+                  onChange={(e) => setCourseDescription(e.target.value)}
+                  placeholder="Brief description of the course..."
+                  rows={3}
+                  disabled={createLoading}
+                />
+              </label>
+              {createError && <p className="link-error">{createError}</p>}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={closeCreateModal} disabled={createLoading}>
+                Cancel
+              </button>
+              <button
+                className="generate-btn"
+                onClick={handleCreateCourse}
+                disabled={createLoading || !courseName.trim()}
+              >
+                {createLoading ? 'Creating...' : 'Create Course'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

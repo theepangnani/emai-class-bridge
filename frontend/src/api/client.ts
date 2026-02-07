@@ -80,6 +80,11 @@ export const coursesApi = {
     const response = await api.get('/api/courses/teaching');
     return response.data;
   },
+
+  create: async (data: { name: string; description?: string; subject?: string }) => {
+    const response = await api.post('/api/courses/', data);
+    return response.data;
+  },
 };
 
 // Assignments API
