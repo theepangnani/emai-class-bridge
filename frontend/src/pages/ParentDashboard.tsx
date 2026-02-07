@@ -788,6 +788,20 @@ export function ParentDashboard() {
                     <button className="google-connect-btn" onClick={triggerDiscovery}>
                       Search Google Classroom
                     </button>
+                    <button
+                      className="cancel-btn"
+                      style={{ marginTop: '8px', fontSize: '13px' }}
+                      onClick={async () => {
+                        try {
+                          await googleApi.disconnect();
+                          setGoogleConnected(false);
+                        } catch {
+                          setLinkError('Failed to disconnect Google account');
+                        }
+                      }}
+                    >
+                      Disconnect Google
+                    </button>
                     {linkError && <p className="link-error">{linkError}</p>}
                   </div>
                 )}
