@@ -1,0 +1,334 @@
+import { useState, useEffect } from 'react';
+import { tasksApi } from '../api/client';
+import type { TaskItem, AssignableUser } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { DashboardLayout } from '../components/DashboardLayout';
+import './TasksPage.css';
+
+type FilterStatus = 'all' | 'pending' | 'completed';
+type FilterPriority = 'all' | 'low' | 'medium' | 'high';
+
+export function TasksPage() {
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filterPriority, setFilterPriority] = useState<FilterPriority>('all');
+
+  // Create task form
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newDueDate, setNewDueDate] = useState('');
+  const [newPriority, setNewPriority] = useState('medium');
+  const [newAssignee, setNewAssignee] = useState<number | ''>('');
+  const [creating, setCreating] = useState(false);
+
+  // Edit task
+  const [editTask, setEditTask] = useState<TaskItem | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editPriority, setEditPriority] = useState('medium');
+  const [editAssignee, setEditAssignee] = useState<number | ''>('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadTasks();
+    loadAssignableUsers();
+  }, []);
+
+  const loadTasks = async () => {
+    try {
+      const data = await tasksApi.list();
+      setTasks(data);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAssignableUsers = async () => {
+    try {
+      const data = await tasksApi.getAssignableUsers();
+      setAssignableUsers(data);
+    } catch {
+      // silently fail
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newTitle.trim()) return;
+    setCreating(true);
+    try {
+      await tasksApi.create({
+        title: newTitle.trim(),
+        description: newDescription.trim() || undefined,
+        due_date: newDueDate || undefined,
+        priority: newPriority,
+        assigned_to_user_id: newAssignee ? Number(newAssignee) : undefined,
+      });
+      setNewTitle('');
+      setNewDescription('');
+      setNewDueDate('');
+      setNewPriority('medium');
+      setNewAssignee('');
+      setShowCreate(false);
+      loadTasks();
+    } catch {
+      // silently fail
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleToggle = async (task: TaskItem) => {
+    try {
+      await tasksApi.update(task.id, { is_completed: !task.is_completed });
+      loadTasks();
+    } catch {
+      // silently fail
+    }
+  };
+
+  const handleDelete = async (taskId: number) => {
+    try {
+      await tasksApi.delete(taskId);
+      loadTasks();
+    } catch {
+      // silently fail
+    }
+  };
+
+  const openEdit = (task: TaskItem) => {
+    setEditTask(task);
+    setEditTitle(task.title);
+    setEditDescription(task.description || '');
+    setEditDueDate(task.due_date ? task.due_date.slice(0, 16) : '');
+    setEditPriority(task.priority || 'medium');
+    setEditAssignee(task.assigned_to_user_id || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTask || !editTitle.trim()) return;
+    setSaving(true);
+    try {
+      await tasksApi.update(editTask.id, {
+        title: editTitle.trim(),
+        description: editDescription.trim() || undefined,
+        due_date: editDueDate || undefined,
+        priority: editPriority,
+        assigned_to_user_id: editAssignee ? Number(editAssignee) : 0,
+      });
+      setEditTask(null);
+      loadTasks();
+    } catch {
+      // silently fail
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredTasks = tasks.filter(t => {
+    if (filterStatus === 'pending' && t.is_completed) return false;
+    if (filterStatus === 'completed' && !t.is_completed) return false;
+    if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
+    return true;
+  });
+
+  const isCreator = (task: TaskItem) => task.created_by_user_id === user?.id;
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return (
+    <DashboardLayout welcomeSubtitle="Manage your tasks">
+      <div className="tasks-page">
+        {/* Header */}
+        <div className="tasks-header">
+          <h3>Tasks</h3>
+          <button className="generate-btn" onClick={() => setShowCreate(!showCreate)}>
+            {showCreate ? 'Cancel' : '+ New Task'}
+          </button>
+        </div>
+
+        {/* Create form */}
+        {showCreate && (
+          <div className="tasks-create-form">
+            <input
+              type="text"
+              placeholder="Task title"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
+              className="form-input"
+              autoFocus
+            />
+            <textarea
+              placeholder="Description (optional)"
+              value={newDescription}
+              onChange={e => setNewDescription(e.target.value)}
+              className="form-input"
+              rows={2}
+            />
+            <div className="tasks-create-row">
+              <input
+                type="datetime-local"
+                value={newDueDate}
+                onChange={e => setNewDueDate(e.target.value)}
+                className="form-input"
+              />
+              <select value={newPriority} onChange={e => setNewPriority(e.target.value)} className="form-input">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+              {assignableUsers.length > 0 && (
+                <select value={newAssignee} onChange={e => setNewAssignee(e.target.value ? Number(e.target.value) : '')} className="form-input">
+                  <option value="">Assign to (optional)</option>
+                  {assignableUsers.map(u => (
+                    <option key={u.user_id} value={u.user_id}>{u.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <button onClick={handleCreate} disabled={creating || !newTitle.trim()} className="generate-btn">
+              {creating ? 'Creating...' : 'Create Task'}
+            </button>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="tasks-filters">
+          <div className="tasks-filter-group">
+            <label>Status:</label>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as FilterStatus)} className="form-input">
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div className="tasks-filter-group">
+            <label>Priority:</label>
+            <select value={filterPriority} onChange={e => setFilterPriority(e.target.value as FilterPriority)} className="form-input">
+              <option value="all">All</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <span className="tasks-count">{filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {/* Task list */}
+        {loading ? (
+          <div className="tasks-empty">Loading tasks...</div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="tasks-empty">
+            <p>No tasks found.</p>
+            <p>Click "+ New Task" to create one.</p>
+          </div>
+        ) : (
+          <div className="tasks-list">
+            {filteredTasks.map(task => (
+              <div key={task.id} className={`task-row${task.is_completed ? ' completed' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={task.is_completed}
+                  onChange={() => handleToggle(task)}
+                  className="task-row-checkbox"
+                />
+                <div className="task-row-body">
+                  <div className="task-row-title">{task.title}</div>
+                  <div className="task-row-meta">
+                    {task.priority && (
+                      <span className={`task-priority-badge ${task.priority}`}>
+                        {task.priority}
+                      </span>
+                    )}
+                    {task.due_date && (
+                      <span className="task-row-due">{formatDate(task.due_date)}</span>
+                    )}
+                    {task.assignee_name && (
+                      <span className="task-row-assignee">
+                        {isCreator(task) ? `→ ${task.assignee_name}` : `← ${task.creator_name}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {isCreator(task) && (
+                  <div className="task-row-actions">
+                    <button className="task-row-btn" onClick={() => openEdit(task)} title="Edit">&#9998;</button>
+                    <button className="task-row-btn danger" onClick={() => handleDelete(task.id)} title="Delete">&times;</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Edit modal */}
+        {editTask && (
+          <div className="modal-overlay" onClick={() => setEditTask(null)}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Edit Task</h2>
+                <button className="modal-close" onClick={() => setEditTask(null)}>&times;</button>
+              </div>
+              <div className="modal-body">
+                <label className="form-label">Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="form-input"
+                />
+                <label className="form-label">Description</label>
+                <textarea
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  className="form-input"
+                  rows={3}
+                />
+                <label className="form-label">Due Date</label>
+                <input
+                  type="datetime-local"
+                  value={editDueDate}
+                  onChange={e => setEditDueDate(e.target.value)}
+                  className="form-input"
+                />
+                <label className="form-label">Priority</label>
+                <select value={editPriority} onChange={e => setEditPriority(e.target.value)} className="form-input">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+                {assignableUsers.length > 0 && (
+                  <>
+                    <label className="form-label">Assign To</label>
+                    <select value={editAssignee} onChange={e => setEditAssignee(e.target.value ? Number(e.target.value) : '')} className="form-input">
+                      <option value="">Unassigned (personal)</option>
+                      {assignableUsers.map(u => (
+                        <option key={u.user_id} value={u.user_id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </>
+                )}
+              </div>
+              <div className="modal-actions">
+                <button className="modal-cancel" onClick={() => setEditTask(null)}>Cancel</button>
+                <button className="generate-btn" onClick={handleSaveEdit} disabled={saving || !editTitle.trim()}>
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+}

@@ -441,6 +441,28 @@
 }
 
 /* ================================================
+   Task Visual Distinction
+   ================================================ */
+.cal-entry-task.cal-entry-card {
+  border-left-style: dashed;
+}
+
+.cal-entry-task.cal-entry-chip {
+  border: 1px dashed currentColor;
+  border-radius: 4px;
+}
+
+.cal-entry-completed .cal-entry-title,
+.cal-entry-completed .cal-entry-chip-title {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.cal-entry-completed {
+  opacity: 0.6;
+}
+
+/* ================================================
    Responsive
    ================================================ */
 @media (max-width: 768px) {

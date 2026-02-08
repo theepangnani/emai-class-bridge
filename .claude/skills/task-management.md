@@ -1,7 +1,20 @@
 # Task Management System
 
 ## Overview
-ClassBridge includes a personal task/todo manager integrated into the calendar. Tasks have optional reminders and appear alongside assignments on the calendar. The parent dashboard is the primary consumer in Phase 1; other roles get task support in Phase 1.5.
+ClassBridge includes a cross-role task manager integrated into the calendar. Any authenticated user can create tasks and optionally assign them to related users. Tasks appear alongside assignments on the calendar with distinct visual treatment. A dedicated `/tasks` page provides full CRUD management.
+
+## Cross-Role Task Assignment
+
+| Creator Role | Can Assign To | Relationship Check |
+|-------------|---------------|-------------------|
+| **Parent** | Linked children (students) | `parent_students` join table |
+| **Teacher** | Students in their courses | `courses` + `student_courses` enrollment |
+| **Student** | Linked parents | `parent_students` join table (reverse) |
+| **Admin** | Self only | N/A |
+
+- Assigned tasks appear in both creator's and assignee's task lists
+- Assignee can view and complete but not edit/delete
+- Creator can edit, reassign, or delete
 
 ## Data Model
 
@@ -16,15 +29,17 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assigned_to_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    due_date = Column(Date, nullable=True)
+    due_date = Column(DateTime(timezone=True), nullable=True)
     reminder_at = Column(DateTime(timezone=True), nullable=True)
     is_completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     priority = Column(Enum(TaskPriority), default=TaskPriority.MEDIUM)
     category = Column(String(50), nullable=True)
-    linked_child_id = Column(Integer, ForeignKey("students.id"), nullable=True)
     linked_assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=True)
     google_calendar_event_id = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -32,21 +47,25 @@ class Task(Base):
 ```
 
 ### Key Relationships
-- `user_id` → Owner of the task (any role)
-- `linked_child_id` → Optional link to a specific child (parent tasks only)
-- `linked_assignment_id` → Optional link to an assignment (student tasks only)
+- `created_by_user_id` → User who created the task (any role)
+- `assigned_to_user_id` → User the task is assigned to (nullable = personal/self task)
+- `linked_assignment_id` → Optional link to an assignment
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/tasks/` | GET | List tasks (filters: date_from, date_to, child_id, is_completed, priority) |
-| `/api/tasks/` | POST | Create task (with optional reminder) |
-| `/api/tasks/{id}` | GET | Get task details |
-| `/api/tasks/{id}` | PUT | Update task |
-| `/api/tasks/{id}` | DELETE | Delete task |
-| `/api/tasks/{id}/complete` | POST | Toggle task completion |
-| `/api/tasks/by-date/{date}` | GET | Get all tasks for a specific date |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/tasks/` | GET | Any role | List tasks (creator OR assignee). Filters: date_from, date_to, assigned_to_user_id, is_completed, priority |
+| `/api/tasks/` | POST | Any role | Create task (with optional assignment + reminder) |
+| `/api/tasks/{id}` | GET | Any role | Get task details (creator or assignee only) |
+| `/api/tasks/{id}` | PATCH | Any role | Update task (creator only) |
+| `/api/tasks/{id}` | DELETE | Any role | Delete task (creator only) |
+
+### Relationship Verification on Assignment
+When `assigned_to_user_id` is provided, the API verifies:
+- **Parent → Student**: `parent_students` where parent_id = current_user.id AND student_id links to assigned user
+- **Teacher → Student**: teacher's courses contain the student
+- **Student → Parent**: `parent_students` where student has link to assigned parent user
 
 ## Pydantic Schemas
 
@@ -55,11 +74,10 @@ class Task(Base):
 class TaskCreate(BaseModel):
     title: str
     description: str | None = None
-    due_date: date | None = None
-    reminder_at: datetime | None = None
+    due_date: datetime | None = None
+    assigned_to_user_id: int | None = None
     priority: str = "medium"  # low, medium, high
     category: str | None = None
-    linked_child_id: int | None = None
     linked_assignment_id: int | None = None
 ```
 
@@ -68,8 +86,8 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
-    due_date: date | None = None
-    reminder_at: datetime | None = None
+    due_date: datetime | None = None
+    assigned_to_user_id: int | None = None
     is_completed: bool | None = None
     priority: str | None = None
     category: str | None = None
@@ -79,18 +97,19 @@ class TaskUpdate(BaseModel):
 ```python
 class TaskResponse(BaseModel):
     id: int
-    user_id: int
+    created_by_user_id: int
+    assigned_to_user_id: int | None
     title: str
     description: str | None
-    due_date: date | None
-    reminder_at: datetime | None
+    due_date: datetime | None
     is_completed: bool
+    completed_at: datetime | None
     priority: str
     category: str | None
-    linked_child_id: int | None
-    linked_assignment_id: int | None
+    creator_name: str
+    assignee_name: str | None
     created_at: datetime
-    updated_at: datetime
+    updated_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
 ```
@@ -105,12 +124,10 @@ class TaskResponse(BaseModel):
 
 ### Implementation Pattern
 ```python
-# In tasks router or service
 from apscheduler.schedulers.background import BackgroundScheduler
 
 def schedule_task_reminder(scheduler: BackgroundScheduler, task: Task):
     job_id = f"task_reminder_{task.id}"
-    # Remove existing job if any
     try:
         scheduler.remove_job(job_id)
     except JobLookupError:
@@ -126,8 +143,6 @@ def schedule_task_reminder(scheduler: BackgroundScheduler, task: Task):
 
 def send_task_reminder(task_id: int):
     # Create in-app notification
-    # notification.title = f"Reminder: {task.title}"
-    # notification.message = f"Task due: {task.due_date}"
     pass
 ```
 
@@ -137,20 +152,19 @@ def send_task_reminder(task_id: int):
 Tasks with `due_date` appear on the calendar alongside assignments. They use a distinct visual style:
 
 ```typescript
-// Frontend: CalendarItem type (extends CalendarAssignment)
-interface CalendarItem {
+interface CalendarAssignment {
   id: number;
   title: string;
   description: string | null;
-  courseId: number | null;      // null for tasks
-  courseName: string | null;    // null for tasks
-  courseColor: string;           // task priority color or neutral
+  courseId: number;
+  courseName: string;
+  courseColor: string;
   dueDate: Date;
   childName: string;
   maxPoints: number | null;
-  itemType: 'assignment' | 'task';
-  priority?: 'low' | 'medium' | 'high';
-  isCompleted?: boolean;
+  itemType?: 'assignment' | 'task';     // distinguishes tasks from assignments
+  priority?: 'low' | 'medium' | 'high'; // task priority
+  isCompleted?: boolean;                 // task completion state
 }
 ```
 
@@ -193,32 +207,37 @@ When a date is clicked on the calendar, the Day Detail Modal opens:
 ### Backend
 | File | Purpose |
 |------|---------|
-| `app/models/task.py` | Task SQLAlchemy model |
+| `app/models/task.py` | Task SQLAlchemy model with cross-role columns |
 | `app/schemas/task.py` | Pydantic request/response schemas |
-| `app/api/routes/tasks.py` | CRUD router |
-| `app/jobs/task_reminders.py` | Reminder scheduling logic |
-| `main.py` | Mount tasks router under `/api` |
+| `app/api/routes/tasks.py` | CRUD router (all roles, relationship verification) |
+| `app/api/deps.py` | `get_current_user()` dependency used for auth |
+| `main.py` | Mount tasks router under `/api`, lightweight migration |
 
 ### Frontend
 | File | Purpose |
 |------|---------|
-| `frontend/src/api/client.ts` | `tasksApi` methods (list, create, update, delete, complete, byDate) |
-| `frontend/src/components/calendar/DayDetailModal.tsx` | Day detail modal with CRUD |
-| `frontend/src/components/TaskModal.tsx` | Add/edit task modal |
-| `frontend/src/components/calendar/types.ts` | Updated CalendarItem type |
+| `frontend/src/api/client.ts` | `tasksApi` methods + `TaskItem` interface |
+| `frontend/src/pages/TasksPage.tsx` | Dedicated tasks page with full CRUD |
+| `frontend/src/pages/ParentDashboard.tsx` | Day Detail Modal, calendar task merging |
+| `frontend/src/components/calendar/types.ts` | Extended CalendarAssignment type |
+| `frontend/src/components/calendar/CalendarEntry.tsx` | Task visual treatment (dashed border) |
 | `frontend/src/components/calendar/CalendarView.tsx` | Accept tasks alongside assignments |
+| `frontend/src/components/DashboardLayout.tsx` | Tasks nav item in hamburger menu |
+| `frontend/src/App.tsx` | `/tasks` route registration |
 
 ## Implementation Order
-1. **Backend**: Task model → schemas → CRUD router → mount in main.py
-2. **Backend**: Reminder scheduling (APScheduler job)
-3. **Frontend**: `tasksApi` in client.ts
-4. **Frontend**: TaskModal component (add/edit)
-5. **Frontend**: Update CalendarView to accept tasks
-6. **Frontend**: DayDetailModal component
-7. **Frontend**: Wire into ParentDashboard
+1. **Backend**: Generalize Task model (created_by_user_id, assigned_to_user_id, priority, category)
+2. **Backend**: Update schemas + CRUD router for all roles
+3. **Backend**: Lightweight migration in main.py
+4. **Frontend**: Update `tasksApi` + `TaskItem` in client.ts
+5. **Frontend**: Create TasksPage + register route + add nav
+6. **Frontend**: Calendar integration (types, CalendarEntry, ParentDashboard)
+7. **Frontend**: Update Day Detail Modal with new fields
 
 ## Related Issues
-- #100: Task system backend
+- #104: Cross-role task assignment — backend model & API
+- #105: Dedicated Tasks page
+- #106: Tasks displayed in calendar
+- #100: Task system backend (original, superseded by #104)
 - #101: Day Detail Modal + calendar integration
-- #99: Left nav (Add Task button)
-- #44: Original Task/Todo CRUD issue (Phase 1.5, now pulled into Phase 1)
+- #44: Original Task/Todo CRUD issue

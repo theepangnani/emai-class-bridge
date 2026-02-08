@@ -1,32 +1,46 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Index
+import enum
+
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Enum, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.database import Base
 
 
+class TaskPriority(str, enum.Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    parent_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("students.id"), nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assigned_to_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     due_date = Column(DateTime(timezone=True), nullable=True)
+    priority = Column(Enum(TaskPriority), default=TaskPriority.MEDIUM)
+    category = Column(String(50), nullable=True)
 
     is_completed = Column(Boolean, default=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Legacy columns kept for backwards compat (SQLite can't DROP COLUMN easily)
+    parent_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    parent = relationship("User", foreign_keys=[parent_id], backref="created_tasks")
-    student = relationship("Student", backref="tasks")
+    creator = relationship("User", foreign_keys=[created_by_user_id], backref="created_tasks")
+    assignee = relationship("User", foreign_keys=[assigned_to_user_id], backref="assigned_tasks")
 
     __table_args__ = (
-        Index("ix_tasks_parent_completed", "parent_id", "is_completed"),
-        Index("ix_tasks_student_due", "student_id", "due_date"),
+        Index("ix_tasks_creator_completed", "created_by_user_id", "is_completed"),
+        Index("ix_tasks_assignee_due", "assigned_to_user_id", "due_date"),
     )

@@ -45,7 +45,10 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
       );
     }
 
-    items.push({ label: 'Messages', path: '/messages' });
+    items.push(
+      { label: 'Tasks', path: '/tasks' },
+      { label: 'Messages', path: '/messages' },
+    );
 
     if (user?.role === 'teacher') {
       items.push({ label: 'Teacher Comms', path: '/teacher-communications' });

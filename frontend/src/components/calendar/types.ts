@@ -8,7 +8,16 @@ export interface CalendarAssignment {
   dueDate: Date;
   childName: string;
   maxPoints: number | null;
+  itemType?: 'assignment' | 'task';
+  priority?: 'low' | 'medium' | 'high';
+  isCompleted?: boolean;
 }
+
+export const TASK_PRIORITY_COLORS: Record<string, string> = {
+  high: '#ef5350',
+  medium: '#ff9800',
+  low: '#66bb6a',
+};
 
 export const COURSE_COLORS = [
   '#49b8c0', '#f4801f', '#7c5cbf', '#e05a9e', '#4caf50',

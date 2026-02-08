@@ -7,26 +7,34 @@ class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     due_date: Optional[datetime] = None
-    student_id: Optional[int] = None
+    assigned_to_user_id: Optional[int] = None
+    priority: str = "medium"
+    category: Optional[str] = None
 
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     due_date: Optional[datetime] = None
-    student_id: Optional[int] = None
+    assigned_to_user_id: Optional[int] = None
     is_completed: Optional[bool] = None
+    priority: Optional[str] = None
+    category: Optional[str] = None
 
 
 class TaskResponse(BaseModel):
     id: int
-    parent_id: int
-    student_id: Optional[int]
+    created_by_user_id: int
+    assigned_to_user_id: Optional[int]
     title: str
     description: Optional[str]
     due_date: Optional[datetime]
     is_completed: bool
     completed_at: Optional[datetime]
+    priority: Optional[str]
+    category: Optional[str]
+    creator_name: str
+    assignee_name: Optional[str]
     created_at: datetime
     updated_at: Optional[datetime]
 

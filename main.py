@@ -56,6 +56,25 @@ with engine.connect() as conn:
             conn.execute(text("ALTER TABLE courses ADD COLUMN is_private BOOLEAN NOT NULL DEFAULT FALSE"))
             logger.info("Added 'is_private' column to courses")
         conn.commit()
+    if "tasks" in inspector.get_table_names():
+        existing_cols = {c["name"] for c in inspector.get_columns("tasks")}
+        if "created_by_user_id" not in existing_cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN created_by_user_id INTEGER REFERENCES users(id)"))
+            # Migrate existing parent_id data
+            conn.execute(text("UPDATE tasks SET created_by_user_id = parent_id WHERE created_by_user_id IS NULL AND parent_id IS NOT NULL"))
+            logger.info("Added 'created_by_user_id' column to tasks (migrated from parent_id)")
+        if "assigned_to_user_id" not in existing_cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN assigned_to_user_id INTEGER REFERENCES users(id)"))
+            # Migrate existing student_id data: resolve student.user_id
+            conn.execute(text("UPDATE tasks SET assigned_to_user_id = (SELECT s.user_id FROM students s WHERE s.id = tasks.student_id) WHERE assigned_to_user_id IS NULL AND student_id IS NOT NULL"))
+            logger.info("Added 'assigned_to_user_id' column to tasks (migrated from student_id)")
+        if "priority" not in existing_cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN priority VARCHAR(10) DEFAULT 'medium'"))
+            logger.info("Added 'priority' column to tasks")
+        if "category" not in existing_cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN category VARCHAR(50)"))
+            logger.info("Added 'category' column to tasks")
+        conn.commit()
 
 app = FastAPI(
     title=settings.app_name,

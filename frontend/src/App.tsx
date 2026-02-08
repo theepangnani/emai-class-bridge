@@ -16,6 +16,7 @@ const MessagesPage = lazy(() => import('./pages/MessagesPage').then((m) => ({ de
 const TeacherCommsPage = lazy(() => import('./pages/TeacherCommsPage').then((m) => ({ default: m.TeacherCommsPage })));
 const CoursesPage = lazy(() => import('./pages/CoursesPage').then((m) => ({ default: m.CoursesPage })));
 const StudyGuidesListPage = lazy(() => import('./pages/StudyGuidesPage').then((m) => ({ default: m.StudyGuidesPage })));
+const TasksPage = lazy(() => import('./pages/TasksPage').then((m) => ({ default: m.TasksPage })));
 const AcceptInvite = lazy(() => import('./pages/AcceptInvite').then((m) => ({ default: m.AcceptInvite })));
 
 const queryClient = new QueryClient({
@@ -85,6 +86,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <StudyGuidesListPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tasks"
+                element={
+                  <ProtectedRoute>
+                    <TasksPage />
                   </ProtectedRoute>
                 }
               />

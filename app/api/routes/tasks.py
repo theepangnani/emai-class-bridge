@@ -1,72 +1,209 @@
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from typing import Optional
 
 from app.db.database import get_db
 from app.models.user import User, UserRole
 from app.models.task import Task
-from app.models.student import parent_students
-from app.api.deps import require_role
+from app.models.student import Student, parent_students
+from app.models.course import Course, student_courses
+from app.models.teacher import Teacher
+from app.api.deps import get_current_user
 from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
-def _verify_student_link(db: Session, parent_id: int, student_id: int):
-    """Verify parent has a link to the given student."""
-    link = (
-        db.query(parent_students)
-        .filter(
-            parent_students.c.parent_id == parent_id,
-            parent_students.c.student_id == student_id,
+def _verify_assignment_relationship(db: Session, creator: User, assigned_to_user_id: int):
+    """Verify the creator has a valid relationship with the assignee."""
+    assignee = db.query(User).filter(User.id == assigned_to_user_id).first()
+    if not assignee:
+        raise HTTPException(status_code=404, detail="Assigned user not found")
+
+    if creator.role == UserRole.PARENT:
+        # Parent can assign to linked students
+        link = (
+            db.query(parent_students)
+            .join(Student, Student.id == parent_students.c.student_id)
+            .filter(
+                parent_students.c.parent_id == creator.id,
+                Student.user_id == assigned_to_user_id,
+            )
+            .first()
         )
-        .first()
-    )
-    if not link:
-        raise HTTPException(status_code=404, detail="Student not linked to your account")
+        if not link:
+            raise HTTPException(status_code=403, detail="You can only assign tasks to your linked children")
+
+    elif creator.role == UserRole.TEACHER:
+        # Teacher can assign to students in their courses
+        teacher = db.query(Teacher).filter(Teacher.user_id == creator.id).first()
+        if not teacher:
+            raise HTTPException(status_code=403, detail="Teacher profile not found")
+        student = db.query(Student).filter(Student.user_id == assigned_to_user_id).first()
+        if not student:
+            raise HTTPException(status_code=403, detail="Assigned user is not a student")
+        # Check student is enrolled in one of teacher's courses
+        link = (
+            db.query(student_courses)
+            .join(Course, Course.id == student_courses.c.course_id)
+            .filter(
+                Course.teacher_id == teacher.id,
+                student_courses.c.student_id == student.id,
+            )
+            .first()
+        )
+        if not link:
+            raise HTTPException(status_code=403, detail="Student is not enrolled in any of your courses")
+
+    elif creator.role == UserRole.STUDENT:
+        # Student can assign to linked parents
+        student = db.query(Student).filter(Student.user_id == creator.id).first()
+        if not student:
+            raise HTTPException(status_code=403, detail="Student profile not found")
+        link = (
+            db.query(parent_students)
+            .filter(
+                parent_students.c.student_id == student.id,
+                parent_students.c.parent_id == assigned_to_user_id,
+            )
+            .first()
+        )
+        if not link:
+            raise HTTPException(status_code=403, detail="You can only assign tasks to your linked parents")
+
+    else:
+        # Admin can only create personal tasks
+        raise HTTPException(status_code=403, detail="You can only create personal tasks")
+
+
+def _task_to_response(task: Task, db: Session) -> dict:
+    """Convert a Task ORM object to a response dict with creator/assignee names."""
+    creator = db.query(User).filter(User.id == task.created_by_user_id).first()
+    assignee = None
+    if task.assigned_to_user_id:
+        assignee = db.query(User).filter(User.id == task.assigned_to_user_id).first()
+
+    return {
+        "id": task.id,
+        "created_by_user_id": task.created_by_user_id,
+        "assigned_to_user_id": task.assigned_to_user_id,
+        "title": task.title,
+        "description": task.description,
+        "due_date": task.due_date,
+        "is_completed": task.is_completed,
+        "completed_at": task.completed_at,
+        "priority": task.priority.value if task.priority else "medium",
+        "category": task.category,
+        "creator_name": creator.full_name if creator else "Unknown",
+        "assignee_name": assignee.full_name if assignee else None,
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
+    }
+
+
+@router.get("/assignable-users")
+def get_assignable_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get users that the current user can assign tasks to."""
+    users = []
+
+    if current_user.role == UserRole.PARENT:
+        # Parent can assign to linked children
+        rows = (
+            db.query(Student, User)
+            .join(parent_students, parent_students.c.student_id == Student.id)
+            .join(User, User.id == Student.user_id)
+            .filter(parent_students.c.parent_id == current_user.id)
+            .all()
+        )
+        for _, u in rows:
+            users.append({"user_id": u.id, "name": u.full_name, "role": u.role.value})
+
+    elif current_user.role == UserRole.TEACHER:
+        teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
+        if teacher:
+            rows = (
+                db.query(Student, User)
+                .join(student_courses, student_courses.c.student_id == Student.id)
+                .join(Course, Course.id == student_courses.c.course_id)
+                .join(User, User.id == Student.user_id)
+                .filter(Course.teacher_id == teacher.id)
+                .distinct()
+                .all()
+            )
+            for _, u in rows:
+                users.append({"user_id": u.id, "name": u.full_name, "role": u.role.value})
+
+    elif current_user.role == UserRole.STUDENT:
+        student = db.query(Student).filter(Student.user_id == current_user.id).first()
+        if student:
+            rows = (
+                db.query(User)
+                .join(parent_students, parent_students.c.parent_id == User.id)
+                .filter(parent_students.c.student_id == student.id)
+                .all()
+            )
+            for u in rows:
+                users.append({"user_id": u.id, "name": u.full_name, "role": u.role.value})
+
+    return users
 
 
 @router.get("/", response_model=list[TaskResponse])
 def list_tasks(
-    student_id: Optional[int] = Query(None),
+    assigned_to_user_id: Optional[int] = Query(None),
     is_completed: Optional[bool] = Query(None),
+    priority: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.PARENT)),
+    current_user: User = Depends(get_current_user),
 ):
-    """List tasks created by the current parent, optionally filtered."""
-    query = db.query(Task).filter(Task.parent_id == current_user.id)
+    """List tasks where the current user is creator OR assignee."""
+    query = db.query(Task).filter(
+        or_(
+            Task.created_by_user_id == current_user.id,
+            Task.assigned_to_user_id == current_user.id,
+        )
+    )
 
-    if student_id is not None:
-        query = query.filter(Task.student_id == student_id)
+    if assigned_to_user_id is not None:
+        query = query.filter(Task.assigned_to_user_id == assigned_to_user_id)
     if is_completed is not None:
         query = query.filter(Task.is_completed == is_completed)
+    if priority is not None:
+        query = query.filter(Task.priority == priority)
 
-    return query.order_by(Task.due_date.asc().nullslast(), Task.created_at.desc()).all()
+    tasks = query.order_by(Task.due_date.asc().nullslast(), Task.created_at.desc()).all()
+    return [_task_to_response(t, db) for t in tasks]
 
 
 @router.post("/", response_model=TaskResponse, status_code=201)
 def create_task(
     request: TaskCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.PARENT)),
+    current_user: User = Depends(get_current_user),
 ):
-    """Create a new task for a child (or unassigned)."""
-    if request.student_id:
-        _verify_student_link(db, current_user.id, request.student_id)
+    """Create a new task, optionally assigned to another user."""
+    if request.assigned_to_user_id:
+        _verify_assignment_relationship(db, current_user, request.assigned_to_user_id)
 
     task = Task(
-        parent_id=current_user.id,
-        student_id=request.student_id,
+        created_by_user_id=current_user.id,
+        assigned_to_user_id=request.assigned_to_user_id,
         title=request.title,
         description=request.description,
         due_date=request.due_date,
+        priority=request.priority,
+        category=request.category,
     )
     db.add(task)
     db.commit()
     db.refresh(task)
-    return task
+    return _task_to_response(task, db)
 
 
 @router.patch("/{task_id}", response_model=TaskResponse)
@@ -74,16 +211,38 @@ def update_task(
     task_id: int,
     request: TaskUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.PARENT)),
+    current_user: User = Depends(get_current_user),
 ):
-    """Update a task. Automatically sets completed_at when marking complete."""
-    task = db.query(Task).filter(Task.id == task_id, Task.parent_id == current_user.id).first()
+    """Update a task. Only the creator can edit. Assignee can only toggle completion."""
+    task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    if request.student_id is not None:
-        _verify_student_link(db, current_user.id, request.student_id)
-        task.student_id = request.student_id
+    is_creator = task.created_by_user_id == current_user.id
+    is_assignee = task.assigned_to_user_id == current_user.id
+
+    if not is_creator and not is_assignee:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Assignees can only toggle completion
+    if not is_creator:
+        if request.is_completed is not None:
+            task.is_completed = request.is_completed
+            task.completed_at = datetime.utcnow() if request.is_completed else None
+            db.commit()
+            db.refresh(task)
+            return _task_to_response(task, db)
+        else:
+            raise HTTPException(status_code=403, detail="Only the task creator can edit task details")
+
+    # Creator can update all fields
+    if request.assigned_to_user_id is not None:
+        if request.assigned_to_user_id == 0:
+            # Convention: 0 means unassign
+            task.assigned_to_user_id = None
+        else:
+            _verify_assignment_relationship(db, current_user, request.assigned_to_user_id)
+            task.assigned_to_user_id = request.assigned_to_user_id
 
     if request.title is not None:
         task.title = request.title
@@ -94,20 +253,27 @@ def update_task(
     if request.is_completed is not None:
         task.is_completed = request.is_completed
         task.completed_at = datetime.utcnow() if request.is_completed else None
+    if request.priority is not None:
+        task.priority = request.priority
+    if request.category is not None:
+        task.category = request.category
 
     db.commit()
     db.refresh(task)
-    return task
+    return _task_to_response(task, db)
 
 
 @router.delete("/{task_id}", status_code=204)
 def delete_task(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.PARENT)),
+    current_user: User = Depends(get_current_user),
 ):
-    """Delete a task."""
-    task = db.query(Task).filter(Task.id == task_id, Task.parent_id == current_user.id).first()
+    """Delete a task. Only the creator can delete."""
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        Task.created_by_user_id == current_user.id,
+    ).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 

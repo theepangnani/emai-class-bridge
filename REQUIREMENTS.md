@@ -352,19 +352,35 @@ Teacher connects Google → Clicks "Sync Courses"
 
 ### 6.13 Task Manager & Calendar (Phase 1)
 
-A personal task/todo manager integrated into the calendar, available to all EMAI users. Provides a unified view of what's due, with role-aware data sources. Parent Dashboard is the primary consumer in Phase 1.
+A cross-role task/todo manager integrated into the calendar, available to all EMAI users. Any role can create tasks and assign them to related users. Provides a unified view of what's due, with role-aware data sources.
 
 #### Task/Todo Manager
-- Create, edit, complete, and delete personal tasks
+- Create, edit, complete, and delete tasks (personal or assigned to others)
 - Task fields: title, description, due date, reminder date+time (time optional), priority (low, medium, high), category
-- Tasks can optionally be linked to a child (for parents) or an assignment (for students)
-- Quick-add from calendar date click or "Add Task" button
-- Filter by status (pending, completed), priority, date range
+- Tasks can optionally be assigned to another user (`assigned_to_user_id`) or linked to an assignment
+- Quick-add from calendar date click, Day Detail Modal, or dedicated Tasks page
+- Filter by status (pending, completed), priority, date range, assignee
+- Dedicated `/tasks` page for full task management (all roles)
+
+#### Cross-Role Task Assignment
+Any user can create a task and assign it to a related user. Relationship verification is enforced server-side:
+
+| Creator Role | Can Assign To | Relationship Check |
+|-------------|---------------|-------------------|
+| **Parent** | Linked children (students) | `parent_students` join table |
+| **Teacher** | Students in their courses | `courses` + `student_courses` enrollment |
+| **Student** | Linked parents | `parent_students` join table (reverse) |
+| **Admin** | Self only (personal tasks) | N/A |
+
+- Assigned tasks appear in both the creator's and assignee's task lists
+- The assignee can view and complete assigned tasks but cannot edit or delete them
+- The creator can edit, reassign, or delete tasks they created
 
 #### Calendar Integration
-- Tasks appear on the calendar alongside assignments, color-coded differently (assignments by course color, tasks by priority or distinct task color)
+- Tasks appear on the calendar alongside assignments, visually distinct (dashed left border, priority-based color vs. solid border with course color for assignments)
+- Completed tasks show strikethrough text + muted opacity
 - Clicking a calendar date opens a **Day Detail Modal** showing all assignments + tasks for that date
-- Day Detail Modal supports: viewing items, adding new tasks, editing/deleting existing items
+- Day Detail Modal supports: viewing items, adding new tasks, toggling completion, editing/deleting existing items
 - Clicking a task on the calendar opens the task for editing
 
 #### Reminders
@@ -376,9 +392,9 @@ A personal task/todo manager integrated into the calendar, available to all EMAI
 #### Role-Aware Calendar Data Sources
 | Role | Calendar Shows |
 |------|---------------|
-| **Student** | Assignment due dates + personal tasks/reminders |
-| **Parent** | Children's assignment due dates + parent's personal tasks/reminders |
-| **Teacher** | Course assignment deadlines + personal tasks/reminders |
+| **Student** | Assignment due dates + personal tasks + tasks assigned by parents/teachers |
+| **Parent** | Children's assignment due dates + personal tasks + tasks assigned by children |
+| **Teacher** | Course assignment deadlines + personal tasks + tasks assigned by students |
 | **Admin** | Personal tasks/reminders only |
 
 #### Google Calendar Integration (One-Way Push) — Phase 1.5
@@ -388,10 +404,12 @@ A personal task/todo manager integrated into the calendar, available to all EMAI
 - `google_calendar_event_id` stored on tasks for update/delete sync
 
 #### Data Model
-- `tasks` table: id, user_id, title, description, due_date, reminder_at (nullable), is_completed, priority (low/medium/high), category (nullable), linked_child_id (nullable, FK→students.id), linked_assignment_id (nullable, FK→assignments.id), google_calendar_event_id (nullable), created_at, updated_at
+- `tasks` table: id, created_by_user_id (FK→users.id), assigned_to_user_id (FK→users.id, nullable), title, description, due_date, reminder_at (nullable), is_completed, completed_at (nullable), priority (low/medium/high, default medium), category (nullable), linked_assignment_id (nullable, FK→assignments.id), google_calendar_event_id (nullable), created_at, updated_at
+- `created_by_user_id` — the user who created the task (any role)
+- `assigned_to_user_id` — the user the task is assigned to (nullable = personal/self task)
 - Assignment due dates queried from existing `assignments` table (not duplicated)
 - Parent calendar aggregates children's assignments via `parent_students` + `student_courses` + `assignments`
-- Parent tasks can optionally be linked to a specific child via `linked_child_id`
+- GET `/api/tasks/` returns tasks where user is creator OR assignee
 
 ### 6.14 AI Email Communication Agent (Phase 5)
 - Compose messages inside ClassBridge

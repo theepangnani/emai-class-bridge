@@ -683,35 +683,50 @@ export const adminApi = {
 // Task Types
 export interface TaskItem {
   id: number;
-  parent_id: number;
-  student_id: number | null;
+  created_by_user_id: number;
+  assigned_to_user_id: number | null;
   title: string;
   description: string | null;
   due_date: string | null;
   is_completed: boolean;
   completed_at: string | null;
+  priority: string | null;
+  category: string | null;
+  creator_name: string;
+  assignee_name: string | null;
   created_at: string;
   updated_at: string | null;
 }
 
+export interface AssignableUser {
+  user_id: number;
+  name: string;
+  role: string;
+}
+
 // Tasks API
 export const tasksApi = {
-  list: async (params?: { student_id?: number; is_completed?: boolean }) => {
+  list: async (params?: { assigned_to_user_id?: number; is_completed?: boolean; priority?: string }) => {
     const response = await api.get('/api/tasks/', { params });
     return response.data as TaskItem[];
   },
 
-  create: async (data: { title: string; description?: string; due_date?: string; student_id?: number }) => {
+  create: async (data: { title: string; description?: string; due_date?: string; assigned_to_user_id?: number; priority?: string; category?: string }) => {
     const response = await api.post('/api/tasks/', data);
     return response.data as TaskItem;
   },
 
-  update: async (taskId: number, data: { title?: string; description?: string; due_date?: string; student_id?: number; is_completed?: boolean }) => {
+  update: async (taskId: number, data: { title?: string; description?: string; due_date?: string; assigned_to_user_id?: number; is_completed?: boolean; priority?: string; category?: string }) => {
     const response = await api.patch(`/api/tasks/${taskId}`, data);
     return response.data as TaskItem;
   },
 
   delete: async (taskId: number) => {
     await api.delete(`/api/tasks/${taskId}`);
+  },
+
+  getAssignableUsers: async () => {
+    const response = await api.get('/api/tasks/assignable-users');
+    return response.data as AssignableUser[];
   },
 };

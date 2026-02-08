@@ -5,7 +5,7 @@ import type { ChildSummary, ChildOverview, DiscoveredChild, SupportedFormats, Du
 import { DashboardLayout } from '../components/DashboardLayout';
 import { CalendarView } from '../components/calendar/CalendarView';
 import type { CalendarAssignment } from '../components/calendar/types';
-import { getCourseColor, dateKey } from '../components/calendar/types';
+import { getCourseColor, dateKey, TASK_PRIORITY_COLORS } from '../components/calendar/types';
 import './ParentDashboard.css';
 
 const MAX_FILE_SIZE_MB = 100;
@@ -514,10 +514,14 @@ export function ParentDashboard() {
     if (!newTaskTitle.trim() || !dayModalDate) return;
     setNewTaskCreating(true);
     try {
+      // Find the child's user_id for assignment (if a child is selected)
+      const childUserId = selectedChild
+        ? children.find(c => c.student_id === selectedChild)?.user_id
+        : undefined;
       const task = await tasksApi.create({
         title: newTaskTitle.trim(),
         due_date: dayModalDate.toISOString(),
-        student_id: selectedChild || undefined,
+        assigned_to_user_id: childUserId,
       });
       setDayTasks(prev => [...prev, task]);
       setAllTasks(prev => [...prev, task]);
@@ -565,7 +569,7 @@ export function ParentDashboard() {
   }, [activeOverviews]);
 
   const calendarAssignments: CalendarAssignment[] = useMemo(() => {
-    return activeOverviews.flatMap(overview =>
+    const assignments = activeOverviews.flatMap(overview =>
       overview.assignments
         .filter(a => a.due_date)
         .map(a => ({
@@ -578,9 +582,30 @@ export function ParentDashboard() {
           dueDate: new Date(a.due_date!),
           childName: children.length > 1 ? overview.full_name : '',
           maxPoints: a.max_points,
+          itemType: 'assignment' as const,
         }))
     );
-  }, [activeOverviews, courseIds, children.length]);
+
+    // Merge tasks with due dates into calendar
+    const taskItems: CalendarAssignment[] = allTasks
+      .filter(t => t.due_date)
+      .map(t => ({
+        id: t.id + 1_000_000, // offset to avoid ID collisions with assignments
+        title: t.title,
+        description: t.description,
+        courseId: 0,
+        courseName: '',
+        courseColor: TASK_PRIORITY_COLORS[t.priority || 'medium'],
+        dueDate: new Date(t.due_date!),
+        childName: t.assignee_name || '',
+        maxPoints: null,
+        itemType: 'task' as const,
+        priority: (t.priority || 'medium') as 'low' | 'medium' | 'high',
+        isCompleted: t.is_completed,
+      }));
+
+    return [...assignments, ...taskItems];
+  }, [activeOverviews, courseIds, children.length, allTasks]);
 
   const undatedAssignments: CalendarAssignment[] = useMemo(() => {
     return activeOverviews.flatMap(overview =>
@@ -1023,7 +1048,13 @@ export function ParentDashboard() {
                       onChange={() => handleToggleTask(task)}
                       className="task-checkbox"
                     />
-                    <span className={`day-modal-item-title${task.is_completed ? ' completed' : ''}`}>{task.title}</span>
+                    <div className="day-modal-item-info">
+                      <span className={`day-modal-item-title${task.is_completed ? ' completed' : ''}`}>{task.title}</span>
+                      <span className="day-modal-item-meta">
+                        {task.priority && <span className={`task-priority-badge ${task.priority}`}>{task.priority}</span>}
+                        {task.assignee_name && <span> &rarr; {task.assignee_name}</span>}
+                      </span>
+                    </div>
                     <button className="task-delete-btn" onClick={() => handleDeleteTask(task.id)} title="Delete task">&times;</button>
                   </div>
                 ))}
