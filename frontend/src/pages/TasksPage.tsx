@@ -13,6 +13,7 @@ export function TasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterPriority, setFilterPriority] = useState<FilterPriority>('all');
 
@@ -41,10 +42,12 @@ export function TasksPage() {
 
   const loadTasks = async () => {
     try {
+      setError(null);
       const data = await tasksApi.list();
       setTasks(data);
-    } catch {
-      // silently fail
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load tasks';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -227,6 +230,11 @@ export function TasksPage() {
         {/* Task list */}
         {loading ? (
           <div className="tasks-empty">Loading tasks...</div>
+        ) : error ? (
+          <div className="tasks-empty">
+            <p>Error loading tasks: {error}</p>
+            <button className="generate-btn" onClick={loadTasks}>Retry</button>
+          </div>
         ) : filteredTasks.length === 0 ? (
           <div className="tasks-empty">
             <p>No tasks found.</p>

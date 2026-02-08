@@ -1013,7 +1013,7 @@ export function ParentDashboard() {
             {/* Assignments for this day */}
             {(() => {
               const dk = dateKey(dayModalDate);
-              const dayAssigns = calendarAssignments.filter(a => dateKey(a.dueDate) === dk);
+              const dayAssigns = calendarAssignments.filter(a => dateKey(a.dueDate) === dk && a.itemType !== 'task');
               return dayAssigns.length > 0 ? (
                 <div className="day-modal-section">
                   <div className="day-modal-section-title">Assignments</div>
