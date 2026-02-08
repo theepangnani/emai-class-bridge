@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { DashboardLayout } from '../components/DashboardLayout';
 import './TasksPage.css';
 
-type FilterStatus = 'all' | 'pending' | 'completed';
+type FilterStatus = 'all' | 'pending' | 'completed' | 'archived';
 type FilterPriority = 'all' | 'low' | 'medium' | 'high';
 
 export function TasksPage() {
@@ -38,12 +38,12 @@ export function TasksPage() {
   useEffect(() => {
     loadTasks();
     loadAssignableUsers();
-  }, []);
+  }, [filterStatus]);
 
   const loadTasks = async () => {
     try {
       setError(null);
-      const data = await tasksApi.list();
+      const data = await tasksApi.list({ include_archived: filterStatus === 'archived' });
       setTasks(data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load tasks';
@@ -105,6 +105,25 @@ export function TasksPage() {
     }
   };
 
+  const handleRestore = async (taskId: number) => {
+    try {
+      await tasksApi.restore(taskId);
+      loadTasks();
+    } catch {
+      // silently fail
+    }
+  };
+
+  const handlePermanentDelete = async (taskId: number) => {
+    if (!window.confirm('Permanently delete this task? This cannot be undone.')) return;
+    try {
+      await tasksApi.permanentDelete(taskId);
+      loadTasks();
+    } catch {
+      // silently fail
+    }
+  };
+
   const openEdit = (task: TaskItem) => {
     setEditTask(task);
     setEditTitle(task.title);
@@ -135,6 +154,7 @@ export function TasksPage() {
   };
 
   const filteredTasks = tasks.filter(t => {
+    if (filterStatus === 'archived') return !!t.archived_at;
     if (filterStatus === 'pending' && t.is_completed) return false;
     if (filterStatus === 'completed' && !t.is_completed) return false;
     if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
@@ -210,9 +230,10 @@ export function TasksPage() {
           <div className="tasks-filter-group">
             <label>Status:</label>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as FilterStatus)} className="form-input">
-              <option value="all">All</option>
+              <option value="all">Active</option>
               <option value="pending">Pending</option>
               <option value="completed">Completed</option>
+              <option value="archived">Archived</option>
             </select>
           </div>
           <div className="tasks-filter-group">
@@ -243,12 +264,13 @@ export function TasksPage() {
         ) : (
           <div className="tasks-list">
             {filteredTasks.map(task => (
-              <div key={task.id} className={`task-row${task.is_completed ? ' completed' : ''}`}>
+              <div key={task.id} className={`task-row${task.is_completed ? ' completed' : ''}${task.archived_at ? ' archived' : ''}`}>
                 <input
                   type="checkbox"
                   checked={task.is_completed}
                   onChange={() => handleToggle(task)}
                   className="task-row-checkbox"
+                  disabled={!!task.archived_at}
                 />
                 <div className="task-row-body">
                   <div className="task-row-title">{task.title}</div>
@@ -268,12 +290,17 @@ export function TasksPage() {
                     )}
                   </div>
                 </div>
-                {isCreator(task) && (
+                {isCreator(task) && task.archived_at ? (
+                  <div className="task-row-actions">
+                    <button className="task-row-btn restore" onClick={() => handleRestore(task.id)} title="Restore">&#8634;</button>
+                    <button className="task-row-btn permanent-delete" onClick={() => handlePermanentDelete(task.id)} title="Delete Forever">&#128465;</button>
+                  </div>
+                ) : isCreator(task) ? (
                   <div className="task-row-actions">
                     <button className="task-row-btn" onClick={() => openEdit(task)} title="Edit">&#9998;</button>
-                    <button className="task-row-btn danger" onClick={() => handleDelete(task.id)} title="Delete">&times;</button>
+                    <button className="task-row-btn danger" onClick={() => handleDelete(task.id)} title="Archive">&times;</button>
                   </div>
-                )}
+                ) : null}
               </div>
             ))}
           </div>

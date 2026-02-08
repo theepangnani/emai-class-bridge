@@ -31,6 +31,7 @@ class TaskResponse(BaseModel):
     due_date: Optional[datetime]
     is_completed: bool
     completed_at: Optional[datetime]
+    archived_at: Optional[datetime]
     priority: Optional[str]
     category: Optional[str]
     creator_name: str

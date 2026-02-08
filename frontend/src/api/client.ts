@@ -690,6 +690,7 @@ export interface TaskItem {
   due_date: string | null;
   is_completed: boolean;
   completed_at: string | null;
+  archived_at: string | null;
   priority: string | null;
   category: string | null;
   creator_name: string;
@@ -706,7 +707,7 @@ export interface AssignableUser {
 
 // Tasks API
 export const tasksApi = {
-  list: async (params?: { assigned_to_user_id?: number; is_completed?: boolean; priority?: string }) => {
+  list: async (params?: { assigned_to_user_id?: number; is_completed?: boolean; priority?: string; include_archived?: boolean }) => {
     const response = await api.get('/api/tasks/', { params });
     return response.data as TaskItem[];
   },
@@ -723,6 +724,15 @@ export const tasksApi = {
 
   delete: async (taskId: number) => {
     await api.delete(`/api/tasks/${taskId}`);
+  },
+
+  restore: async (taskId: number) => {
+    const response = await api.patch(`/api/tasks/${taskId}/restore`);
+    return response.data as TaskItem;
+  },
+
+  permanentDelete: async (taskId: number) => {
+    await api.delete(`/api/tasks/${taskId}/permanent`);
   },
 
   getAssignableUsers: async () => {

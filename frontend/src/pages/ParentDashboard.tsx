@@ -78,6 +78,7 @@ export function ParentDashboard() {
   const [allTasks, setAllTasks] = useState<TaskItem[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskCreating, setNewTaskCreating] = useState(false);
+  const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null);
 
   // Create child (name-only) state
   const [createChildName, setCreateChildName] = useState('');
@@ -1040,24 +1041,44 @@ export function ParentDashboard() {
                 {dayTasks.length === 0 && (
                   <div className="day-modal-empty">No tasks for this day</div>
                 )}
-                {dayTasks.map(task => (
-                  <div key={task.id} className={`day-modal-item task-item${task.is_completed ? ' completed' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={task.is_completed}
-                      onChange={() => handleToggleTask(task)}
-                      className="task-checkbox"
-                    />
-                    <div className="day-modal-item-info">
-                      <span className={`day-modal-item-title${task.is_completed ? ' completed' : ''}`}>{task.title}</span>
-                      <span className="day-modal-item-meta">
-                        {task.priority && <span className={`task-priority-badge ${task.priority}`}>{task.priority}</span>}
-                        {task.assignee_name && <span> &rarr; {task.assignee_name}</span>}
-                      </span>
+                {dayTasks.map(task => {
+                  const isExpanded = expandedTaskId === task.id;
+                  const priorityClass = task.priority || 'medium';
+                  return (
+                    <div
+                      key={task.id}
+                      className={`task-sticky-note ${priorityClass}${task.is_completed ? ' completed' : ''}`}
+                      onClick={() => setExpandedTaskId(prev => prev === task.id ? null : task.id)}
+                    >
+                      <div className="task-sticky-header">
+                        <input
+                          type="checkbox"
+                          checked={task.is_completed}
+                          onChange={(e) => { e.stopPropagation(); handleToggleTask(task); }}
+                          className="task-checkbox"
+                        />
+                        <div className="task-sticky-body">
+                          <span className={`task-sticky-title${task.is_completed ? ' completed' : ''}`}>{task.title}</span>
+                          <span className="task-sticky-meta">
+                            <span className={`task-priority-badge ${priorityClass}`}>{priorityClass}</span>
+                            {task.assignee_name && <span className="task-sticky-assignee">&rarr; {task.assignee_name}</span>}
+                          </span>
+                        </div>
+                        <button className="task-delete-btn" onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }} title="Archive task">&times;</button>
+                      </div>
+                      {isExpanded && (
+                        <div className="task-sticky-detail">
+                          {task.description && <p className="task-sticky-desc">{task.description}</p>}
+                          <div className="task-sticky-detail-row">
+                            {task.due_date && <span>Due: {new Date(task.due_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}
+                            {task.creator_name && <span>Created by: {task.creator_name}</span>}
+                            {task.category && <span>Category: {task.category}</span>}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <button className="task-delete-btn" onClick={() => handleDeleteTask(task.id)} title="Delete task">&times;</button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="day-modal-add-task">
                 <input

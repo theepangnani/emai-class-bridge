@@ -55,11 +55,13 @@ class Task(Base):
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/tasks/` | GET | Any role | List tasks (creator OR assignee). Filters: date_from, date_to, assigned_to_user_id, is_completed, priority |
-| `/api/tasks/` | POST | Any role | Create task (with optional assignment + reminder) |
-| `/api/tasks/{id}` | GET | Any role | Get task details (creator or assignee only) |
-| `/api/tasks/{id}` | PATCH | Any role | Update task (creator only) |
-| `/api/tasks/{id}` | DELETE | Any role | Delete task (creator only) |
+| `/api/tasks/` | GET | Any role | List tasks (creator OR assignee). Filters: assigned_to_user_id, is_completed, priority, include_archived |
+| `/api/tasks/` | POST | Any role | Create task (with optional assignment) |
+| `/api/tasks/{id}` | PATCH | Any role | Update task (creator: all fields; assignee: completion only) |
+| `/api/tasks/{id}` | DELETE | Any role | Soft-delete (archive) task (creator only) |
+| `/api/tasks/{id}/restore` | PATCH | Any role | Restore archived task (creator only) |
+| `/api/tasks/{id}/permanent` | DELETE | Any role | Permanently delete archived task (creator only) |
+| `/api/tasks/assignable-users` | GET | Any role | List users the current user can assign tasks to |
 
 ### Relationship Verification on Assignment
 When `assigned_to_user_id` is provided, the API verifies:
@@ -182,23 +184,83 @@ const TASK_PRIORITY_COLORS = {
 - **Tasks**: Dashed left border with priority color
 - **Completed tasks**: Strikethrough text + muted opacity
 
-## Day Detail Modal
+## Task Archival System
 
-When a date is clicked on the calendar, the Day Detail Modal opens:
+Tasks use **soft-delete** (archive) instead of hard-delete. This preserves task history and allows users to restore accidentally deleted tasks.
+
+### How It Works
+- **Delete** (`DELETE /api/tasks/{id}`) → Sets `archived_at = now()` instead of removing the row
+- **Restore** (`PATCH /api/tasks/{id}/restore`) → Clears `archived_at`, resets `is_completed` to false
+- **Permanent Delete** (`DELETE /api/tasks/{id}/permanent`) → Hard-deletes from database (task must be archived first)
+- **Auto-Archive on Completion** → When `is_completed` is set to `true`, `archived_at` is also set
+- **Un-Archive on Un-Completion** → When `is_completed` is set back to `false`, `archived_at` is cleared
+
+### Listing Behavior
+- `GET /api/tasks/` → Returns only **active** tasks (where `archived_at IS NULL`) by default
+- `GET /api/tasks/?include_archived=true` → Returns ALL tasks including archived ones
+
+### Frontend (TasksPage)
+- Status filter has 4 options: Active, Pending, Completed, Archived
+- Selecting "Archived" fetches with `include_archived=true` and filters client-side to only show tasks with `archived_at`
+- Archived tasks show dashed border, muted opacity, strikethrough title
+- Archived rows show "Restore" (↺) and "Delete Forever" (🗑) buttons instead of Edit/Delete
+- Permanent delete prompts `window.confirm` before executing
+
+### Data Model Addition
+```python
+archived_at = Column(DateTime(timezone=True), nullable=True)
+# Index: ix_tasks_archived on archived_at
+```
+
+## Day Detail Modal — Sticky Note Cards
+
+When a date is clicked on the calendar, the Day Detail Modal opens. Tasks are displayed as **sticky note cards** with priority-colored left borders and expandable details.
+
+### Sticky Note Visual Treatment
+- Each task rendered as a card with:
+  - **Priority-colored left border** (4px solid): red (high), orange (medium), green (low)
+  - **Tinted background** matching priority color (5% opacity)
+  - **Box shadow** for card-like feel
+  - **Hover elevation** (shadow increases on hover)
+- Completed tasks have reduced opacity (0.5)
+- Click anywhere on the card body to **expand/collapse** details
+
+### Expanded View
+When a sticky note is clicked, it expands to show:
+- Description (if present)
+- Due date/time
+- Creator name
+- Category (if set)
+
+### CSS Classes
+- `.task-sticky-note` — Base card styling
+- `.task-sticky-note.high` / `.medium` / `.low` — Priority variants
+- `.task-sticky-note.completed` — Muted completed state
+- `.task-sticky-header` — Checkbox + title + delete button row
+- `.task-sticky-detail` — Expandable detail section (animated slide-down)
 
 ```
 ┌─────────────────────────────────────┐
 │  February 8, 2026          [Close]  │
 │─────────────────────────────────────│
 │  ASSIGNMENTS                        │
-│  ● Math Homework (Math 5)    3:00pm │
-│  ● Science Lab Report (Sci)  EOD    │
+│  ● Math Homework (Math 5)    [Study]│
+│  ● Science Lab Report (Sci)  [Study]│
 │                                     │
 │  TASKS                              │
-│  ☐ Review flashcards     [Edit][Del]│
-│  ☑ Buy school supplies   [Edit][Del]│
+│  ┌──────────────────────────────┐   │
+│  │▌☐ Review flashcards    [×]   │   │
+│  │▌   medium  → Alex            │   │
+│  │▌   ─────────────────────     │   │
+│  │▌   Due: Feb 8, 3:00 PM      │   │
+│  │▌   Created by: Task Parent   │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │▌☑ Buy school supplies  [×]   │   │
+│  │▌   low                       │   │
+│  └──────────────────────────────┘   │
 │                                     │
-│  [+ Add Task]  [+ Create Study Guide]│
+│  [Add a task...              ] [Add]│
 └─────────────────────────────────────┘
 ```
 
@@ -238,6 +300,8 @@ When a date is clicked on the calendar, the Day Detail Modal opens:
 - #104: Cross-role task assignment — backend model & API
 - #105: Dedicated Tasks page
 - #106: Tasks displayed in calendar
+- #107: Task archival (soft-delete, restore, permanent delete, auto-archive on completion)
+- #108: Calendar sticky note cards (priority-colored, expandable details)
 - #100: Task system backend (original, superseded by #104)
 - #101: Day Detail Modal + calendar integration
 - #44: Original Task/Todo CRUD issue

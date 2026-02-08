@@ -196,6 +196,28 @@
   color: var(--color-danger);
 }
 
+.task-row-btn.restore:hover {
+  border-color: #66bb6a;
+  color: #66bb6a;
+}
+
+.task-row-btn.permanent-delete:hover {
+  border-color: #d32f2f;
+  color: #d32f2f;
+}
+
+/* Archived row */
+.task-row.archived {
+  opacity: 0.55;
+  border-style: dashed;
+  background: var(--color-background, #fafafa);
+}
+
+.task-row.archived .task-row-title {
+  text-decoration: line-through;
+  color: var(--color-ink-muted);
+}
+
 /* Empty state */
 .tasks-empty {
   text-align: center;

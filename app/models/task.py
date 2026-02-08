@@ -28,6 +28,7 @@ class Task(Base):
 
     is_completed = Column(Boolean, default=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
 
     # Legacy columns kept for backwards compat (SQLite can't DROP COLUMN easily)
     parent_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -43,4 +44,5 @@ class Task(Base):
     __table_args__ = (
         Index("ix_tasks_creator_completed", "created_by_user_id", "is_completed"),
         Index("ix_tasks_assignee_due", "assigned_to_user_id", "due_date"),
+        Index("ix_tasks_archived", "archived_at"),
     )

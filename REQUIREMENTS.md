@@ -586,9 +586,11 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [ ] **Parent Dashboard v2: Day Detail Modal** — click date to open modal with CRUD for all tasks/assignments on that date
 - [ ] **Parent Dashboard v2: Dedicated Courses page** — `/courses` route with full CRUD, multi-child assignment, study guide creation from course
 - [ ] **Parent Dashboard v2: Dedicated Study Guides page** — `/study-guides` route with full CRUD, course assignment, filtering
-- [ ] **Task system: Backend** — `tasks` table, CRUD API endpoints (`/api/tasks/`), reminder scheduling via APScheduler
-- [ ] **Task system: Frontend** — Add Task modal, task entries on calendar, task editing, reminder time picker
-- [ ] **Task system: Calendar integration** — tasks appear alongside assignments on calendar, Day Detail Modal shows both
+- [x] **Task system: Backend** — `tasks` table, CRUD API endpoints (`/api/tasks/`), cross-role assignment (IMPLEMENTED)
+- [x] **Task system: Frontend** — Dedicated Tasks page, task entries on calendar, task editing (IMPLEMENTED)
+- [x] **Task system: Calendar integration** — tasks appear alongside assignments on calendar, Day Detail Modal with sticky note cards (IMPLEMENTED)
+- [x] **Task archival** — Soft-delete, restore, permanent delete, auto-archive on completion (IMPLEMENTED)
+- [x] **Calendar sticky notes** — Priority-colored task cards with expandable details in Day Detail Modal (IMPLEMENTED)
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -735,6 +737,13 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 | `/api/invites/sent` | GET | List invites sent by current user |
 | `/api/admin/users` | GET | Paginated user list with search/filter (admin only) |
 | `/api/admin/stats` | GET | Platform statistics (admin only) |
+| `/api/tasks/` | GET | List tasks (creator or assignee, filters: is_completed, priority, include_archived) |
+| `/api/tasks/` | POST | Create task (with optional cross-role assignment) |
+| `/api/tasks/{id}` | PATCH | Update task (creator: all fields; assignee: completion only) |
+| `/api/tasks/{id}` | DELETE | Soft-delete (archive) task (creator only) |
+| `/api/tasks/{id}/restore` | PATCH | Restore archived task (creator only) |
+| `/api/tasks/{id}/permanent` | DELETE | Permanently delete archived task (creator only) |
+| `/api/tasks/assignable-users` | GET | List users the current user can assign tasks to |
 | `/api/logs/` | POST | Frontend log ingestion |
 | `/api/logs/batch` | POST | Frontend batch log ingestion |
 
@@ -752,13 +761,12 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 | `/api/teacher/google-accounts` | POST | Link a new Google account | #41, #62 |
 | `/api/teacher/google-accounts/{id}` | DELETE | Unlink a Google account | #41, #62 |
 | `/api/parent/children/{student_id}` | PATCH | Edit child details (name, email, grade, school) | #99 |
-| `/api/tasks/` | GET | List tasks (with filters: date range, child, status) | #100 |
-| `/api/tasks/` | POST | Create task (with optional reminder) | #100 |
-| `/api/tasks/{id}` | GET | Get task details | #100 |
-| `/api/tasks/{id}` | PUT | Update task | #100 |
-| `/api/tasks/{id}` | DELETE | Delete task | #100 |
-| `/api/tasks/{id}/complete` | POST | Mark task completed | #100 |
-| `/api/tasks/by-date/{date}` | GET | Get all tasks for a specific date | #101 |
+| ~~`/api/tasks/`~~ | ~~GET~~ | ~~List tasks~~ | ~~#100~~ (IMPLEMENTED) |
+| ~~`/api/tasks/`~~ | ~~POST~~ | ~~Create task~~ | ~~#100~~ (IMPLEMENTED) |
+| ~~`/api/tasks/{id}`~~ | ~~PATCH~~ | ~~Update task~~ | ~~#100~~ (IMPLEMENTED) |
+| ~~`/api/tasks/{id}`~~ | ~~DELETE~~ | ~~Soft-delete (archive) task~~ | ~~#100~~ (IMPLEMENTED) |
+| ~~`/api/tasks/{id}/restore`~~ | ~~PATCH~~ | ~~Restore archived task~~ | ~~#107~~ (IMPLEMENTED) |
+| ~~`/api/tasks/{id}/permanent`~~ | ~~DELETE~~ | ~~Permanently delete archived task~~ | ~~#107~~ (IMPLEMENTED) |
 | `/api/calendar/events` | GET | Calendar events (role-aware, assignments + tasks) | #45 |
 | `/api/calendar/google-sync` | POST | Push to Google Calendar (Phase 1.5) | #46 |
 
@@ -860,6 +868,11 @@ Current feature issues are tracked in GitHub:
 - Issue #87: Frontend study guide management UI
 - Issue #88: Update REQUIREMENTS.md with study guide management
 - Issue #89: Auto-create student account when parent links by email
+- Issue #104: Cross-role task assignment — backend model & API (IMPLEMENTED)
+- Issue #105: Dedicated Tasks page (IMPLEMENTED)
+- Issue #106: Tasks displayed in calendar (IMPLEMENTED)
+- Issue #107: Task archival — soft-delete, restore, permanent delete, auto-archive (IMPLEMENTED)
+- Issue #108: Calendar sticky note cards — priority-colored, expandable (IMPLEMENTED)
 - Issue #51: ~~Deprecate POST /api/courses/ endpoint~~ (SUPERSEDED — endpoint now serves all roles)
 
 ### Phase 1.5 - Calendar Extension, Content & School Integration

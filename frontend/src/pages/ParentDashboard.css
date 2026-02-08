@@ -1034,6 +1034,108 @@
   color: #66bb6a;
 }
 
+/* ============================================
+   Sticky Note Task Cards
+   ============================================ */
+
+.task-sticky-note {
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-sticky-note:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.task-sticky-note.completed {
+  opacity: 0.5;
+}
+
+.task-sticky-note.high {
+  border-color: #ef5350;
+  background: rgba(239, 83, 80, 0.05);
+}
+
+.task-sticky-note.medium {
+  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.05);
+}
+
+.task-sticky-note.low {
+  border-color: #66bb6a;
+  background: rgba(102, 187, 106, 0.05);
+}
+
+.task-sticky-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-sticky-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.task-sticky-title {
+  font-weight: 500;
+  color: var(--color-ink);
+  font-size: 14px;
+}
+
+.task-sticky-title.completed {
+  text-decoration: line-through;
+  color: var(--color-ink-muted);
+}
+
+.task-sticky-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+
+.task-sticky-assignee {
+  font-weight: 500;
+  color: var(--color-accent-strong);
+}
+
+.task-sticky-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 200px; }
+}
+
+.task-sticky-desc {
+  font-size: 13px;
+  color: var(--color-ink);
+  margin: 0 0 8px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.task-sticky-detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+
 .day-modal-add-task {
   display: flex;
   gap: 8px;

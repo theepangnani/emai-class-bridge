@@ -95,6 +95,7 @@ def _task_to_response(task: Task, db: Session) -> dict:
         "due_date": task.due_date,
         "is_completed": task.is_completed,
         "completed_at": task.completed_at,
+        "archived_at": task.archived_at,
         "priority": task.priority.value if task.priority else "medium",
         "category": task.category,
         "creator_name": creator.full_name if creator else "Unknown",
@@ -159,6 +160,7 @@ def list_tasks(
     assigned_to_user_id: Optional[int] = Query(None),
     is_completed: Optional[bool] = Query(None),
     priority: Optional[str] = Query(None),
+    include_archived: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -169,6 +171,10 @@ def list_tasks(
             Task.assigned_to_user_id == current_user.id,
         )
     )
+
+    # Exclude archived tasks by default
+    if not include_archived:
+        query = query.filter(Task.archived_at.is_(None))
 
     if assigned_to_user_id is not None:
         query = query.filter(Task.assigned_to_user_id == assigned_to_user_id)
@@ -238,6 +244,7 @@ def update_task(
         if request.is_completed is not None:
             task.is_completed = request.is_completed
             task.completed_at = datetime.utcnow() if request.is_completed else None
+            task.archived_at = datetime.utcnow() if request.is_completed else None
             db.commit()
             db.refresh(task)
             return _task_to_response(task, db)
@@ -262,6 +269,8 @@ def update_task(
     if request.is_completed is not None:
         task.is_completed = request.is_completed
         task.completed_at = datetime.utcnow() if request.is_completed else None
+        # Auto-archive on completion, un-archive on un-completion
+        task.archived_at = datetime.utcnow() if request.is_completed else None
     if request.priority is not None:
         task.priority = request.priority
     if request.category is not None:
@@ -278,13 +287,57 @@ def delete_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Delete a task. Only the creator can delete."""
+    """Soft-delete (archive) a task. Only the creator can archive."""
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.created_by_user_id == current_user.id,
     ).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    task.archived_at = datetime.utcnow()
+    db.commit()
+
+
+@router.patch("/{task_id}/restore", response_model=TaskResponse)
+def restore_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Restore an archived task. Only the creator can restore."""
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        Task.created_by_user_id == current_user.id,
+    ).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not task.archived_at:
+        raise HTTPException(status_code=400, detail="Task is not archived")
+
+    task.archived_at = None
+    task.is_completed = False
+    task.completed_at = None
+    db.commit()
+    db.refresh(task)
+    return _task_to_response(task, db)
+
+
+@router.delete("/{task_id}/permanent", status_code=204)
+def permanent_delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Permanently delete an archived task. Only the creator can permanently delete."""
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        Task.created_by_user_id == current_user.id,
+    ).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not task.archived_at:
+        raise HTTPException(status_code=400, detail="Task must be archived before permanent deletion")
 
     db.delete(task)
     db.commit()

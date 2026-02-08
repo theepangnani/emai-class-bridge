@@ -443,3 +443,135 @@ class TestEdgeCases:
         assert resp.status_code == 201
         assert resp.json()["assigned_to_user_id"] is None
         assert resp.json()["creator_name"] == "Task Teacher"
+
+
+# ===========================================================================
+# 9. Task Archival — soft-delete, restore, permanent delete, auto-archive
+# ===========================================================================
+
+class TestTaskArchival:
+    def test_delete_soft_deletes(self, client, users):
+        """DELETE sets archived_at instead of removing the task."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Soft delete me"}, headers=headers)
+        task_id = create.json()["id"]
+
+        resp = client.delete(f"/api/tasks/{task_id}", headers=headers)
+        assert resp.status_code == 204
+
+        # Not visible in default listing
+        listing = client.get("/api/tasks/", headers=headers)
+        ids = [t["id"] for t in listing.json()]
+        assert task_id not in ids
+
+        # Visible when include_archived=true
+        listing2 = client.get("/api/tasks/?include_archived=true", headers=headers)
+        archived = [t for t in listing2.json() if t["id"] == task_id]
+        assert len(archived) == 1
+        assert archived[0]["archived_at"] is not None
+
+    def test_restore_archived_task(self, client, users):
+        """Restoring an archived task clears archived_at and is_completed."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Restore me"}, headers=headers)
+        task_id = create.json()["id"]
+
+        # Archive it
+        client.delete(f"/api/tasks/{task_id}", headers=headers)
+
+        # Restore it
+        resp = client.patch(f"/api/tasks/{task_id}/restore", headers=headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["archived_at"] is None
+        assert body["is_completed"] is False
+        assert body["completed_at"] is None
+
+        # Now visible in default listing again
+        listing = client.get("/api/tasks/", headers=headers)
+        ids = [t["id"] for t in listing.json()]
+        assert task_id in ids
+
+    def test_restore_non_archived_returns_400(self, client, users):
+        """Cannot restore a task that is not archived."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Not archived"}, headers=headers)
+        task_id = create.json()["id"]
+
+        resp = client.patch(f"/api/tasks/{task_id}/restore", headers=headers)
+        assert resp.status_code == 400
+
+    def test_permanent_delete_removes_from_db(self, client, users):
+        """Permanent delete only works on archived tasks and hard-deletes."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Perm delete me"}, headers=headers)
+        task_id = create.json()["id"]
+
+        # Archive first
+        client.delete(f"/api/tasks/{task_id}", headers=headers)
+
+        # Permanently delete
+        resp = client.delete(f"/api/tasks/{task_id}/permanent", headers=headers)
+        assert resp.status_code == 204
+
+        # Gone even with include_archived
+        listing = client.get("/api/tasks/?include_archived=true", headers=headers)
+        ids = [t["id"] for t in listing.json()]
+        assert task_id not in ids
+
+    def test_permanent_delete_non_archived_returns_400(self, client, users):
+        """Cannot permanently delete a task that is not archived first."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Still active"}, headers=headers)
+        task_id = create.json()["id"]
+
+        resp = client.delete(f"/api/tasks/{task_id}/permanent", headers=headers)
+        assert resp.status_code == 400
+
+    def test_completion_auto_archives(self, client, users):
+        """Completing a task auto-sets archived_at."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Auto archive on complete"}, headers=headers)
+        task_id = create.json()["id"]
+
+        resp = client.patch(f"/api/tasks/{task_id}", json={"is_completed": True}, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["is_completed"] is True
+        assert resp.json()["archived_at"] is not None
+
+    def test_uncompletion_unarchives(self, client, users):
+        """Un-completing a task clears archived_at."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Un-archive on uncomplete"}, headers=headers)
+        task_id = create.json()["id"]
+
+        # Complete (auto-archives)
+        client.patch(f"/api/tasks/{task_id}", json={"is_completed": True}, headers=headers)
+
+        # Un-complete (un-archives)
+        resp = client.patch(f"/api/tasks/{task_id}", json={"is_completed": False}, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["is_completed"] is False
+        assert resp.json()["archived_at"] is None
+
+    def test_outsider_cannot_restore(self, client, users):
+        """Only the creator can restore archived tasks."""
+        parent_headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Only creator restores"}, headers=parent_headers)
+        task_id = create.json()["id"]
+        client.delete(f"/api/tasks/{task_id}", headers=parent_headers)
+
+        outsider_headers = _auth(client, users["outsider"].email)
+        resp = client.patch(f"/api/tasks/{task_id}/restore", headers=outsider_headers)
+        assert resp.status_code == 404
+
+    def test_outsider_cannot_permanent_delete(self, client, users):
+        """Only the creator can permanently delete archived tasks."""
+        parent_headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Only creator perm deletes"}, headers=parent_headers)
+        task_id = create.json()["id"]
+        client.delete(f"/api/tasks/{task_id}", headers=parent_headers)
+
+        outsider_headers = _auth(client, users["outsider"].email)
+        resp = client.delete(f"/api/tasks/{task_id}/permanent", headers=outsider_headers)
+        assert resp.status_code == 404
