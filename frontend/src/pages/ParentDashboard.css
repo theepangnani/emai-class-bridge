@@ -819,32 +819,55 @@
 }
 
 /* ============================================
-   Responsive: stack calendar + sidebar
+   Undated Assignments Section
    ============================================ */
 
-@media (max-width: 1024px) {
-  .parent-layout {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "action-bar"
-      "child-filter"
-      "calendar"
-      "sidebar";
-  }
-
-  .parent-sidebar-area {
-    margin-top: 20px;
-  }
+.undated-section {
+  margin-top: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
 }
 
-@media (max-width: 600px) {
-  .parent-action-bar {
-    flex-wrap: wrap;
-  }
+.undated-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
-  .action-icon-btn {
-    flex: 1;
-    justify-content: center;
-    min-width: 100px;
-  }
+.undated-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.undated-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.undated-item:hover {
+  background: var(--color-surface-alt);
+}
+
+.undated-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.undated-course {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+  flex-shrink: 0;
 }

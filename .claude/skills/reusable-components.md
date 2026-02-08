@@ -9,7 +9,7 @@ ClassBridge has a library of reusable frontend components designed for consisten
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `DashboardLayout` | `frontend/src/components/DashboardLayout.tsx` | Shared layout wrapper for all role dashboards — header, nav, welcome subtitle |
+| `DashboardLayout` | `frontend/src/components/DashboardLayout.tsx` | Shared layout wrapper — header, left nav sidebar (role-specific items), welcome subtitle. Parent role adds: Courses, Study Guides, Messages nav + action buttons (Add Child, Add Course, Create Study Guide, Add Task) |
 | `ProtectedRoute` | `frontend/src/components/ProtectedRoute.tsx` | Route guard with `allowedRoles` prop for RBAC |
 | `NotificationBell` | `frontend/src/components/NotificationBell.tsx` | Notification dropdown in header |
 
@@ -27,6 +27,8 @@ Reusable calendar system for displaying date-based items (assignments, tasks, ev
 | `CalendarDayGrid` | Single-column day list view |
 | `CalendarEntry` | Assignment rendered as `chip` (month) or `card` (week/day), color-coded by course |
 | `CalendarEntryPopover` | Click popover — title, course, due time, description, action button |
+| `DayDetailModal` | Full CRUD modal for a specific date — lists assignments + tasks, add/edit/delete (planned) |
+| `TaskModal` | Add/edit task modal with reminder time picker (planned) |
 | `useCalendarNav` | Hook — currentDate, viewMode, goNext/goPrev/goToday, rangeStart/rangeEnd, headerLabel |
 
 **Key types** (`frontend/src/components/calendar/types.ts`):

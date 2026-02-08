@@ -1,18 +1,25 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { messagesApi } from '../api/client';
 import { NotificationBell } from './NotificationBell';
 import '../pages/Dashboard.css';
 
+interface SidebarAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
   welcomeSubtitle?: string;
+  sidebarActions?: SidebarAction[];
 }
 
-export function DashboardLayout({ children, welcomeSubtitle }: DashboardLayoutProps) {
+export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
 
   const dashboardTitle = useMemo(() => {
@@ -26,10 +33,18 @@ export function DashboardLayout({ children, welcomeSubtitle }: DashboardLayoutPr
   }, [user?.role]);
 
   const navItems = useMemo(() => {
-    const items = [
+    const items: Array<{ label: string; path: string }> = [
       { label: 'Dashboard', path: '/dashboard' },
-      { label: 'Messages', path: '/messages' },
     ];
+
+    if (user?.role === 'parent') {
+      items.push(
+        { label: 'Courses', path: '/courses' },
+        { label: 'Study Guides', path: '/study-guides' },
+      );
+    }
+
+    items.push({ label: 'Messages', path: '/messages' });
 
     if (user?.role === 'teacher') {
       items.push({ label: 'Teacher Comms', path: '/teacher-communications' });
@@ -61,15 +76,6 @@ export function DashboardLayout({ children, welcomeSubtitle }: DashboardLayoutPr
           <h1 className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>{dashboardTitle}</h1>
         </div>
         <div className="header-right">
-          <button onClick={() => navigate('/messages')} className="messages-button">
-            Messages
-            {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
-          </button>
-          {user?.role === 'teacher' && (
-            <button onClick={() => navigate('/teacher-communications')} className="messages-button secondary">
-              Teacher Comms
-            </button>
-          )}
           <NotificationBell />
           <div className="user-chip">
             <span className="user-name">{user?.full_name}</span>
@@ -88,13 +94,33 @@ export function DashboardLayout({ children, welcomeSubtitle }: DashboardLayoutPr
             {navItems.map((item) => (
               <button
                 key={item.path}
-                className="sidebar-link"
+                className={`sidebar-link${location.pathname === item.path ? ' active' : ''}`}
                 onClick={() => navigate(item.path)}
               >
                 {item.label}
+                {item.path === '/messages' && unreadCount > 0 && (
+                  <span className="sidebar-badge">{unreadCount}</span>
+                )}
               </button>
             ))}
           </nav>
+          {sidebarActions && sidebarActions.length > 0 && (
+            <>
+              <div className="sidebar-divider" />
+              <div className="sidebar-title">Quick Actions</div>
+              <div className="sidebar-nav">
+                {sidebarActions.map((action, i) => (
+                  <button
+                    key={i}
+                    className="sidebar-action"
+                    onClick={action.onClick}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <div className="sidebar-footer">
             <div className="sidebar-stat">
               <span>Unread</span>

@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { parentApi, googleApi, invitesApi, studyApi, coursesApi } from '../api/client';
-import type { ChildSummary, ChildOverview, DiscoveredChild, SupportedFormats, StudyGuide, DuplicateCheckResponse } from '../api/client';
+import { parentApi, googleApi, invitesApi, studyApi } from '../api/client';
+import type { ChildSummary, ChildOverview, DiscoveredChild, SupportedFormats, DuplicateCheckResponse } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { CalendarView } from '../components/calendar/CalendarView';
-import { ParentActionBar } from '../components/parent/ParentActionBar';
-import { ParentSidebar } from '../components/parent/ParentSidebar';
 import type { CalendarAssignment } from '../components/calendar/types';
 import { getCourseColor } from '../components/calendar/types';
 import './ParentDashboard.css';
@@ -14,15 +12,6 @@ const MAX_FILE_SIZE_MB = 100;
 
 type LinkTab = 'create' | 'email' | 'google';
 type DiscoveryState = 'idle' | 'discovering' | 'results' | 'no_results';
-type SyncState = 'idle' | 'syncing' | 'done' | 'error';
-
-interface ParentCourse {
-  id: number;
-  name: string;
-  description: string | null;
-  subject: string | null;
-  created_at: string;
-}
 
 export function ParentDashboard() {
   const navigate = useNavigate();
@@ -59,10 +48,6 @@ export function ParentDashboard() {
   const [coursesSearched, setCoursesSearched] = useState(0);
   const [bulkLinking, setBulkLinking] = useState(false);
 
-  // Child sync state
-  const [syncState, setSyncState] = useState<SyncState>('idle');
-  const [syncMessage, setSyncMessage] = useState('');
-
   // Study tools modal state
   const [showStudyModal, setShowStudyModal] = useState(false);
   const [studyTitle, setStudyTitle] = useState('');
@@ -74,8 +59,6 @@ export function ParentDashboard() {
   const [studyError, setStudyError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [supportedFormats, setSupportedFormats] = useState<SupportedFormats | null>(null);
-  const [myStudyGuides, setMyStudyGuides] = useState<StudyGuide[]>([]);
-  const [childStudyGuides, setChildStudyGuides] = useState<StudyGuide[]>([]);
   const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,18 +69,6 @@ export function ParentDashboard() {
   const [createChildLoading, setCreateChildLoading] = useState(false);
   const [createChildError, setCreateChildError] = useState('');
   const [createChildInviteLink, setCreateChildInviteLink] = useState('');
-
-  // Course management state
-  const [showCreateCourseModal, setShowCreateCourseModal] = useState(false);
-  const [courseName, setCourseName] = useState('');
-  const [courseSubject, setCourseSubject] = useState('');
-  const [courseDescription, setCourseDescription] = useState('');
-  const [createCourseLoading, setCreateCourseLoading] = useState(false);
-  const [createCourseError, setCreateCourseError] = useState('');
-  const [parentCourses, setParentCourses] = useState<ParentCourse[]>([]);
-  const [showAssignCourseModal, setShowAssignCourseModal] = useState(false);
-  const [selectedCoursesForAssign, setSelectedCoursesForAssign] = useState<Set<number>>(new Set());
-  const [assignLoading, setAssignLoading] = useState(false);
 
   // ============================================
   // Data Loading
@@ -121,18 +92,7 @@ export function ParentDashboard() {
 
     loadChildren();
     checkGoogleStatus();
-    loadMyStudyGuides();
-    loadParentCourses();
   }, []);
-
-  const loadMyStudyGuides = async () => {
-    try {
-      const data = await studyApi.listGuides();
-      setMyStudyGuides(data);
-    } catch {
-      // Failed to load study guides
-    }
-  };
 
   useEffect(() => {
     if (selectedChild) {
@@ -163,25 +123,13 @@ export function ParentDashboard() {
     }
   };
 
-  const loadParentCourses = async () => {
-    try {
-      const data = await coursesApi.createdByMe();
-      setParentCourses(data);
-    } catch {
-      // Failed to load courses
-    }
-  };
-
   const loadChildOverview = async (studentId: number) => {
     setOverviewLoading(true);
     try {
       const data = await parentApi.getChildOverview(studentId);
       setChildOverview(data);
-      const childGuides = await studyApi.listGuides({ include_children: true, student_user_id: data.user_id });
-      setChildStudyGuides(childGuides.filter(g => g.user_id !== data.user_id ? false : true));
     } catch {
       setChildOverview(null);
-      setChildStudyGuides([]);
     } finally {
       setOverviewLoading(false);
     }
@@ -343,70 +291,6 @@ export function ParentDashboard() {
   };
 
   // ============================================
-  // Course Management Handlers
-  // ============================================
-
-  const handleCreateCourse = async () => {
-    if (!courseName.trim()) return;
-    setCreateCourseError('');
-    setCreateCourseLoading(true);
-    try {
-      await coursesApi.create({
-        name: courseName.trim(),
-        subject: courseSubject.trim() || undefined,
-        description: courseDescription.trim() || undefined,
-      });
-      closeCreateCourseModal();
-      await loadParentCourses();
-      if (selectedChild) loadChildOverview(selectedChild);
-    } catch (err: any) {
-      setCreateCourseError(err.response?.data?.detail || 'Failed to create course');
-    } finally {
-      setCreateCourseLoading(false);
-    }
-  };
-
-  const closeCreateCourseModal = () => {
-    setShowCreateCourseModal(false);
-    setCourseName('');
-    setCourseSubject('');
-    setCourseDescription('');
-    setCreateCourseError('');
-  };
-
-  const handleAssignCourses = async () => {
-    if (!selectedChild || selectedCoursesForAssign.size === 0) return;
-    setAssignLoading(true);
-    try {
-      await parentApi.assignCoursesToChild(selectedChild, Array.from(selectedCoursesForAssign));
-      setShowAssignCourseModal(false);
-      setSelectedCoursesForAssign(new Set());
-      loadChildOverview(selectedChild);
-    } catch {
-      // silently fail
-    } finally {
-      setAssignLoading(false);
-    }
-  };
-
-  const handleSyncChildCourses = async () => {
-    if (!selectedChild) return;
-    setSyncState('syncing');
-    setSyncMessage('');
-    try {
-      const result = await parentApi.syncChildCourses(selectedChild);
-      setSyncMessage(result.message);
-      setSyncState('done');
-      loadChildOverview(selectedChild);
-      setTimeout(() => { setSyncState('idle'); setSyncMessage(''); }, 4000);
-    } catch (err: any) {
-      setSyncMessage(err.response?.data?.detail || 'Failed to sync courses');
-      setSyncState('error');
-      setTimeout(() => { setSyncState('idle'); setSyncMessage(''); }, 4000);
-    }
-  };
-
-  // ============================================
   // Study Tools Handlers
   // ============================================
 
@@ -492,7 +376,6 @@ export function ParentDashboard() {
         }
       }
       resetStudyModal();
-      loadMyStudyGuides();
       if (studyType === 'study_guide') navigate(`/study/guide/${result.id}`);
       else if (studyType === 'quiz') navigate(`/study/quiz/${result.id}`);
       else navigate(`/study/flashcards/${result.id}`);
@@ -564,7 +447,13 @@ export function ParentDashboard() {
   }
 
   return (
-    <DashboardLayout welcomeSubtitle="Monitor your child's progress">
+    <DashboardLayout
+      welcomeSubtitle="Monitor your child's progress"
+      sidebarActions={[
+        { label: '+ Add Child', onClick: () => setShowLinkModal(true) },
+        { label: '+ Create Study Guide', onClick: () => setShowStudyModal(true) },
+      ]}
+    >
       {children.length === 0 ? (
         <div className="no-children-state">
           <h3>Get Started</h3>
@@ -573,85 +462,65 @@ export function ParentDashboard() {
             <button className="link-child-btn" onClick={() => setShowLinkModal(true)}>
               + Add Child
             </button>
-            <button className="link-child-btn" onClick={() => setShowCreateCourseModal(true)}>
-              + Create Course
-            </button>
           </div>
         </div>
       ) : (
-        <div className="parent-layout">
-          {/* Action Bar */}
-          <div className="parent-action-bar-area">
-            <ParentActionBar
-              onAddChild={() => setShowLinkModal(true)}
-              onAddCourse={() => setShowCreateCourseModal(true)}
-              onCreateStudyGuide={() => setShowStudyModal(true)}
-            />
-          </div>
-
+        <>
           {/* Child Filter */}
           {children.length > 1 && (
-            <div className="parent-child-filter">
-              <div className="child-selector">
-                {children.map((child) => (
-                  <button
-                    key={child.student_id}
-                    className={`child-tab ${selectedChild === child.student_id ? 'active' : ''}`}
-                    onClick={() => setSelectedChild(child.student_id)}
-                  >
-                    {child.full_name}
-                    {child.relationship_type && (
-                      <span className="relationship-badge">{child.relationship_type}</span>
-                    )}
-                    {child.grade_level && <span className="grade-badge">Grade {child.grade_level}</span>}
-                  </button>
-                ))}
-              </div>
+            <div className="child-selector">
+              {children.map((child) => (
+                <button
+                  key={child.student_id}
+                  className={`child-tab ${selectedChild === child.student_id ? 'active' : ''}`}
+                  onClick={() => setSelectedChild(child.student_id)}
+                >
+                  {child.full_name}
+                  {child.relationship_type && (
+                    <span className="relationship-badge">{child.relationship_type}</span>
+                  )}
+                  {child.grade_level && <span className="grade-badge">Grade {child.grade_level}</span>}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Main Content: Calendar + Sidebar */}
+          {/* Calendar */}
           {overviewLoading ? (
-            <div className="parent-calendar-area">
-              <div className="loading-state">Loading child data...</div>
-            </div>
+            <div className="loading-state">Loading child data...</div>
           ) : (
             <>
-              <div className="parent-calendar-area">
-                <CalendarView
-                  assignments={calendarAssignments}
-                  onCreateStudyGuide={handleCalendarCreateStudyGuide}
-                />
-              </div>
+              <CalendarView
+                assignments={calendarAssignments}
+                onCreateStudyGuide={handleCalendarCreateStudyGuide}
+              />
 
-              <div className="parent-sidebar-area">
-                <ParentSidebar
-                  childCourses={childOverview?.courses || []}
-                  parentCourses={parentCourses}
-                  myStudyGuides={myStudyGuides}
-                  childStudyGuides={childStudyGuides}
-                  childName={childOverview?.full_name || ''}
-                  undatedAssignments={undatedAssignments}
-                  onAssignCourse={() => { setSelectedCoursesForAssign(new Set()); setShowAssignCourseModal(true); }}
-                  onCreateCourse={() => setShowCreateCourseModal(true)}
-                  onSyncCourses={handleSyncChildCourses}
-                  onDeleteGuide={(id) => setMyStudyGuides(prev => prev.filter(g => g.id !== id))}
-                  onUpdateGuides={setMyStudyGuides}
-                  onAssignmentClick={handleCalendarCreateStudyGuide}
-                  syncState={syncState}
-                  syncMessage={syncMessage}
-                  googleConnected={childOverview?.google_connected || false}
-                  hasParentCourses={parentCourses.length > 0}
-                  hasChild={!!childOverview}
-                />
-              </div>
+              {/* Undated Assignments */}
+              {undatedAssignments.length > 0 && (
+                <div className="undated-section">
+                  <h4>Undated Assignments ({undatedAssignments.length})</h4>
+                  <div className="undated-list">
+                    {undatedAssignments.map(a => (
+                      <div
+                        key={a.id}
+                        className="undated-item"
+                        onClick={() => handleCalendarCreateStudyGuide(a)}
+                      >
+                        <span className="cal-entry-dot" style={{ background: a.courseColor }} />
+                        <span className="undated-title">{a.title}</span>
+                        <span className="undated-course">{a.courseName}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
-        </div>
+        </>
       )}
 
       {/* ============================================
-          Modals (unchanged)
+          Modals
           ============================================ */}
 
       {/* Link Child Modal */}
@@ -957,77 +826,6 @@ export function ParentDashboard() {
               <button className="cancel-btn" onClick={() => { resetStudyModal(); setDuplicateCheck(null); }} disabled={isGenerating}>Cancel</button>
               <button className="generate-btn" onClick={handleGenerateStudy} disabled={isGenerating || (studyMode === 'file' ? !selectedFile : !studyContent.trim())}>
                 {isGenerating ? 'Generating...' : 'Generate'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Course Modal */}
-      {showCreateCourseModal && (
-        <div className="modal-overlay" onClick={closeCreateCourseModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Create Course</h2>
-            <p className="modal-desc">Create a course for your child. No teacher or school required.</p>
-            <div className="modal-form">
-              <label>
-                Course Name *
-                <input type="text" value={courseName} onChange={(e) => setCourseName(e.target.value)} placeholder="e.g. Math Grade 5" disabled={createCourseLoading} onKeyDown={(e) => e.key === 'Enter' && handleCreateCourse()} />
-              </label>
-              <label>
-                Subject (optional)
-                <input type="text" value={courseSubject} onChange={(e) => setCourseSubject(e.target.value)} placeholder="e.g. Mathematics" disabled={createCourseLoading} />
-              </label>
-              <label>
-                Description (optional)
-                <textarea value={courseDescription} onChange={(e) => setCourseDescription(e.target.value)} placeholder="Course details..." rows={3} disabled={createCourseLoading} />
-              </label>
-              {createCourseError && <p className="link-error">{createCourseError}</p>}
-            </div>
-            <div className="modal-actions">
-              <button className="cancel-btn" onClick={closeCreateCourseModal} disabled={createCourseLoading}>Cancel</button>
-              <button className="generate-btn" onClick={handleCreateCourse} disabled={createCourseLoading || !courseName.trim()}>
-                {createCourseLoading ? 'Creating...' : 'Create Course'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Assign Course to Child Modal */}
-      {showAssignCourseModal && selectedChild && (
-        <div className="modal-overlay" onClick={() => setShowAssignCourseModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Assign Course to {childOverview?.full_name}</h2>
-            <p className="modal-desc">Select courses to assign to your child.</p>
-            <div className="modal-form">
-              {parentCourses.length === 0 ? (
-                <div className="empty-state">
-                  <p>No courses created yet</p>
-                  <button className="link-child-btn-small" onClick={() => { setShowAssignCourseModal(false); setShowCreateCourseModal(true); }}>+ Create Course</button>
-                </div>
-              ) : (
-                <div className="discovered-list">
-                  {parentCourses.map((course) => {
-                    const alreadyAssigned = childOverview?.courses.some(c => c.id === course.id) ?? false;
-                    return (
-                      <label key={course.id} className={`discovered-item ${alreadyAssigned ? 'disabled' : ''}`}>
-                        <input type="checkbox" checked={selectedCoursesForAssign.has(course.id)} onChange={() => { setSelectedCoursesForAssign(prev => { const next = new Set(prev); if (next.has(course.id)) next.delete(course.id); else next.add(course.id); return next; }); }} disabled={alreadyAssigned} />
-                        <div className="discovered-info">
-                          <span className="discovered-name">{course.name}</span>
-                          {course.subject && <span className="discovered-email">{course.subject}</span>}
-                          {alreadyAssigned && <span className="discovered-linked-badge">Already assigned</span>}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="modal-actions">
-              <button className="cancel-btn" onClick={() => setShowAssignCourseModal(false)} disabled={assignLoading}>Cancel</button>
-              <button className="generate-btn" onClick={handleAssignCourses} disabled={assignLoading || selectedCoursesForAssign.size === 0}>
-                {assignLoading ? 'Assigning...' : `Assign ${selectedCoursesForAssign.size} Course${selectedCoursesForAssign.size !== 1 ? 's' : ''}`}
               </button>
             </div>
           </div>

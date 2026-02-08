@@ -350,41 +350,48 @@ Teacher connects Google → Clicks "Sync Courses"
 | `GET /api/teacher/google-accounts` | Future: list linked Google accounts |
 | `POST /api/teacher/google-accounts` | Future: link additional Google account |
 
-### 6.13 Task Manager & Calendar (Phase 1.5)
+### 6.13 Task Manager & Calendar (Phase 1)
 
-A personal task/todo manager and visual calendar available to all EMAI users. Provides a unified view of what's due, with role-aware data sources and Google Calendar integration.
+A personal task/todo manager integrated into the calendar, available to all EMAI users. Provides a unified view of what's due, with role-aware data sources. Parent Dashboard is the primary consumer in Phase 1.
 
 #### Task/Todo Manager
 - Create, edit, complete, and delete personal tasks
-- Task fields: title, description, due date, reminder time, priority (low, medium, high), category
-- Quick-add from any dashboard
+- Task fields: title, description, due date, reminder date+time (time optional), priority (low, medium, high), category
+- Tasks can optionally be linked to a child (for parents) or an assignment (for students)
+- Quick-add from calendar date click or "Add Task" button
 - Filter by status (pending, completed), priority, date range
-- Tasks can optionally be linked to an assignment (for students)
 
-#### Visual Calendar (Outlook-style)
-- Day, week, and month views
-- Color-coded items by type (assignments, tasks, reminders)
-- Click to view/edit items
-- Drag-and-drop to reschedule tasks
+#### Calendar Integration
+- Tasks appear on the calendar alongside assignments, color-coded differently (assignments by course color, tasks by priority or distinct task color)
+- Clicking a calendar date opens a **Day Detail Modal** showing all assignments + tasks for that date
+- Day Detail Modal supports: viewing items, adding new tasks, editing/deleting existing items
+- Clicking a task on the calendar opens the task for editing
+
+#### Reminders
+- Each task can have an optional reminder with date and time
+- Time is optional — if omitted, reminder defaults to start of day (e.g., 8:00 AM)
+- Reminders trigger in-app notifications (Phase 1) and optionally email (Phase 2)
+- Reminder scheduling uses existing APScheduler infrastructure
 
 #### Role-Aware Calendar Data Sources
 | Role | Calendar Shows |
 |------|---------------|
 | **Student** | Assignment due dates + personal tasks/reminders |
-| **Parent** | Children's assignment due dates + personal tasks/reminders |
+| **Parent** | Children's assignment due dates + parent's personal tasks/reminders |
 | **Teacher** | Course assignment deadlines + personal tasks/reminders |
 | **Admin** | Personal tasks/reminders only |
 
-#### Google Calendar Integration (One-Way Push)
+#### Google Calendar Integration (One-Way Push) — Phase 1.5
 - Push EMAI reminders and deadlines to the user's Google Calendar
 - Uses existing Google OAuth connection
 - User can toggle which items sync to Google Calendar (per-task or global setting)
 - `google_calendar_event_id` stored on tasks for update/delete sync
 
 #### Data Model
-- `tasks` table: user_id, title, description, due_date, reminder_at, is_completed, priority, category, linked_assignment_id (nullable), google_calendar_event_id (nullable), created_at, updated_at
+- `tasks` table: id, user_id, title, description, due_date, reminder_at (nullable), is_completed, priority (low/medium/high), category (nullable), linked_child_id (nullable, FK→students.id), linked_assignment_id (nullable, FK→assignments.id), google_calendar_event_id (nullable), created_at, updated_at
 - Assignment due dates queried from existing `assignments` table (not duplicated)
 - Parent calendar aggregates children's assignments via `parent_students` + `student_courses` + `assignments`
+- Parent tasks can optionally be linked to a specific child via `linked_child_id`
 
 ### 6.14 AI Email Communication Agent (Phase 5)
 - Compose messages inside ClassBridge
@@ -400,40 +407,96 @@ Each user role has a customized dashboard (dispatcher pattern via `Dashboard.tsx
 
 | Dashboard | Key Features | Status |
 |-----------|--------------|--------|
-| **Parent Dashboard** | Calendar-centric layout: assignment calendar (Day/3-Day/Week/Month views), child filter tabs, action bar (Add Child, Add Course, Create Study Guide), collapsible sidebar (Courses, Study Materials, Messages, Undated Assignments), course color-coding, assignment popover with "Create Study Guide" | Implemented |
+| **Parent Dashboard** | Left nav (Courses, Study Guides, Messages), calendar-centric main area (Day/3-Day/Week/Month views), child filter tabs with edit child modal, day detail modal (CRUD tasks/assignments), task management with reminders, course color-coding | Implemented (v2 in progress) |
 | **Student Dashboard** | Courses, assignments, study tools, Google Classroom sync, file upload | Implemented |
 | **Teacher Dashboard** | Courses teaching, manual course creation, multi-Google account management, messages, teacher communications | Implemented (partial) |
 | **Admin Dashboard** | Platform stats, user management table (search, filter, pagination) | Implemented |
 
 > **Note:** Phase 4 adds marketplace features (bookings, availability, profiles) to the existing Teacher Dashboard for teachers with `teacher_type=private_tutor`. No separate "Tutor Dashboard" is needed.
 
-### Parent Dashboard Layout (Calendar-Centric) - IMPLEMENTED
+### Parent Dashboard Layout (v2) - IN PROGRESS
 
-The Parent Dashboard uses a **calendar-centric layout** where upcoming assignments are the primary focus.
+The Parent Dashboard uses a **three-panel layout**: left navigation, calendar-centric main area, and modal-based management views.
 
 #### Layout Structure
 ```
-[Action Bar: + Add Child | + Add Course | + Create Study Guide]
-[Child Filter Tabs: Child 1 | Child 2 | ... (when multiple children)]
-[Calendar (main ~75%)         | Sidebar (~25%)              ]
-[  Header: < Today > Title    |  Courses (collapsible)      ]
-[  View: Day|3-Day|Week|Month |  Study Materials (collaps.) ]
-[  Grid with assignments      |  Messages link              ]
-[                              |  Undated Assignments        ]
+[Header (compact padding)                                    ]
+[Left Nav        | Child Tabs: Child1 | Child2 | ...         ]
+[  Dashboard     | Calendar                                  ]
+[  Courses       |   Header: < Today > Title                 ]
+[  Study Guides  |   View: Day|3-Day|Week|Month              ]
+[  Messages      |   Grid with assignments + tasks           ]
+[  + Add Child   |                                           ]
+[  + Add Course  |                                           ]
+[  + Study Guide |                                           ]
+[  + Add Task    |                                           ]
 ```
 
-#### Calendar Views
-- **Month View**: 7-column grid with assignment chips (color-coded by course), click day to drill into Day view
-- **Week View**: 7-column layout with stacked assignment cards showing title, course, and time
-- **3-Day View**: 3-column layout identical to Week but showing only 3 days
-- **Day View**: Single-column list of all assignments for one day
+#### 1. Header Row
+- Compact padding (reduced from default) to maximize content area
 
-#### Key Features
-- **Course Color-Coding**: 10-color palette assigned to courses by index; consistent across calendar entries, sidebar, and popovers
-- **Assignment Popover**: Click any assignment to see title, course (with color dot), due date/time, description, and "Create Study Guide" button
-- **Child Filtering**: When parent has multiple children, tabs allow switching between children to view their assignments
-- **Undated Assignments**: Assignments without due dates appear in the sidebar's "Undated" section
-- **Responsive**: At < 1024px, layout stacks calendar above sidebar
+#### 2. Left Navigation
+The `DashboardLayout` sidebar includes role-specific navigation items for parents:
+- **Dashboard** — Home view (calendar)
+- **Courses** — Opens dedicated Courses management view
+- **Study Guides** — Opens dedicated Study Guides management view
+- **Messages** — Opens messaging view
+- **+ Add Child** — Opens Add Child modal
+- **+ Add Course** — Opens Create Course modal
+- **+ Create Study Guide** — Opens Study Tools modal
+- **+ Add Task** — Opens Add Task modal
+
+#### 3. Child Filter Tabs (Toggle Behavior)
+- Each child appears as a clickable tab button above the calendar
+- **Click** a child tab → filters calendar, courses, and study guides to that child only
+- **Click again** (unclick) → deselects child, shows **all children's data combined** plus parent's own tasks
+- In "All" mode: calendar merges all children's assignments with child-name labels on each entry
+- Single-child families: no tabs shown, child is implicitly selected
+
+#### 4. Edit Child Modal
+- Child name in the tab shows an **edit link** (replaces the old "parent/guardian" role label)
+- Clicking edit opens a modal with tabs:
+  - **Details** — Edit child name, email, grade level, school
+  - **Courses** — View/manage assigned courses, assign new courses
+  - **Reminders** — Configure reminders for the child (after Task system is built)
+
+#### 5. Calendar Views
+- **Month View**: 7-column grid with assignment chips + task dots, click day to open Day Detail Modal
+- **Week View**: 7-column layout with stacked assignment/task cards
+- **3-Day View**: 3-column layout identical to Week but showing only 3 days
+- **Day View**: Single-column list of all assignments + tasks for one day
+
+#### 6. Day Detail Modal
+Clicking a **date** on the calendar opens a modal showing all items for that day:
+- Lists all assignments and tasks for the selected date
+- Each item shows: title, type (assignment/task), course (if applicable), time, status
+- **Add Task** button to create a new task for that date
+- **Edit/Delete** actions on each item (CRUD)
+- For assignments: "Create Study Guide" action
+- Scoped to selected child or all children based on filter state
+
+#### 7. Tasks with Reminders
+- **Add Task** button in left nav and in Day Detail Modal
+- Task modal fields: title, description, due date, reminder date+time (time optional), priority, linked child (optional)
+- Tasks appear on calendar alongside assignments (visually distinct)
+- Clicking a task on the calendar opens it for editing
+- Reminders trigger in-app notifications
+
+#### 8. Courses View (Left Nav → `/courses`)
+Dedicated page for course management:
+- **List all courses** — parent-created + child-enrolled courses, with CRUD actions
+- **Create new course** — name, subject, description
+- **Assign to children** — during creation or after, supports assigning one course to multiple children
+- **Create Study Guide** — generate study material from course content
+- Course cards show: name, subject, assigned children, assignment count
+
+#### 9. Study Guides View (Left Nav → `/study-guides`)
+Dedicated page for study guide management:
+- **List all guides** — parent's own + children's guides
+- **Create study guide** — opens Study Tools modal (text or file upload)
+- **Assign to course** — CourseAssignSelect dropdown on each guide
+- **CRUD operations** — view, edit metadata, delete
+- Filter by: type (guide/quiz/flashcards), course, child
 
 #### Calendar Components (Reusable)
 Located in `frontend/src/components/calendar/`:
@@ -443,8 +506,15 @@ Located in `frontend/src/components/calendar/`:
 - `CalendarMonthGrid` / `CalendarDayCell` — Month view grid
 - `CalendarWeekGrid` — Week/3-day column layout
 - `CalendarDayGrid` — Single-day list view
-- `CalendarEntry` — Assignment chip (month) or card (week/day)
-- `CalendarEntryPopover` — Assignment detail popover
+- `CalendarEntry` — Assignment/task rendered as chip (month) or card (week/day)
+- `CalendarEntryPopover` — Assignment/task detail popover
+- `DayDetailModal` — Full CRUD modal for a specific date (new)
+
+#### Key Design Details
+- **Course Color-Coding**: 10-color palette assigned by course index, consistent everywhere
+- **Task vs Assignment**: Assignments have course color border; tasks have a distinct style (e.g., dashed border or priority-based color)
+- **Responsive**: At < 1024px, left nav collapses to icons; calendar takes full width
+- **Right sidebar removed**: Courses and Study Guides promoted to dedicated pages via left nav
 
 ### Parent-Student Relationship
 Parents and students have a **many-to-many** relationship via the `parent_students` join table. A student can have multiple parents (mother, father, guardian), and parent linking is optional.
@@ -491,7 +561,16 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] Role-based study guide visibility
 - [x] Study guide list/management UI for parents and students
 - [x] Study guide course assignment (PATCH endpoint + CourseAssignSelect component)
-- [x] **Parent Dashboard calendar-centric redesign** — calendar views (Day/3-Day/Week/Month), action bar, sidebar, course color-coding, assignment popover
+- [x] **Parent Dashboard calendar-centric redesign (v1)** — calendar views (Day/3-Day/Week/Month), action bar, sidebar, course color-coding, assignment popover
+- [ ] **Parent Dashboard v2: Left navigation** — move Add Child, Add Course, Create Study Guide, Add Task to DashboardLayout left nav; compact header padding
+- [ ] **Parent Dashboard v2: Child filter toggle** — click/unclick child tabs; "All" mode merges all children's data + parent tasks; child-name labels in All mode
+- [ ] **Parent Dashboard v2: Edit Child modal** — edit child details, manage course assignments, setup reminders
+- [ ] **Parent Dashboard v2: Day Detail Modal** — click date to open modal with CRUD for all tasks/assignments on that date
+- [ ] **Parent Dashboard v2: Dedicated Courses page** — `/courses` route with full CRUD, multi-child assignment, study guide creation from course
+- [ ] **Parent Dashboard v2: Dedicated Study Guides page** — `/study-guides` route with full CRUD, course assignment, filtering
+- [ ] **Task system: Backend** — `tasks` table, CRUD API endpoints (`/api/tasks/`), reminder scheduling via APScheduler
+- [ ] **Task system: Frontend** — Add Task modal, task entries on calendar, task editing, reminder time picker
+- [ ] **Task system: Calendar integration** — tasks appear alongside assignments on calendar, Day Detail Modal shows both
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -499,20 +578,17 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [ ] **Student creates courses** — allow STUDENT role to create courses (visible to self only)
 - [ ] **Add `created_by_user_id` and `is_private` to Course model**
 - [ ] **Disable auto-sync jobs by default** — all Google Classroom/Gmail sync is manual, on-demand only
-- [ ] **Parent Dashboard: course management UI** — create courses, assign to children, view child courses
 - [ ] Manual course creation for teachers
 - [ ] Manual assignment creation for teachers
 - [ ] Multi-Google account support for teachers
 - [ ] Auto-send invite email to shadow teachers on creation
 - [ ] Teacher Dashboard course management view with source badges
 
-### Phase 1.5 (Task Manager, Calendar, Content & School Integration)
+### Phase 1.5 (Calendar Extension, Content & School Integration)
 - [ ] Student email identity merging (personal + school email on same account)
 - [ ] School board email integration (when DTAP approved)
-- [ ] Task/Todo CRUD API and model
-- [ ] Visual calendar component (day/week/month views)
-- [ ] Google Calendar push integration
-- [ ] Frontend Task Manager UI
+- [ ] Extend calendar to Student and Teacher dashboards with role-aware data
+- [ ] Google Calendar push integration (sync tasks/reminders to Google Calendar)
 - [ ] Central document repository
 - [ ] Manual content upload with OCR (enhanced)
 - [ ] Background periodic Google Classroom course/assignment sync for teachers (opt-in)
@@ -657,11 +733,16 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 | `/api/teacher/google-accounts` | GET | List linked Google accounts | #41, #62 |
 | `/api/teacher/google-accounts` | POST | Link a new Google account | #41, #62 |
 | `/api/teacher/google-accounts/{id}` | DELETE | Unlink a Google account | #41, #62 |
-| `/api/tasks/` | GET/POST | Task CRUD (Phase 1.5) | #44 |
-| `/api/tasks/{id}` | PUT/DELETE | Update/delete task | #44 |
-| `/api/tasks/{id}/complete` | POST | Mark task completed | #44 |
-| `/api/calendar/events` | GET | Calendar events (role-aware) | #45 |
-| `/api/calendar/google-sync` | POST | Push to Google Calendar | #46 |
+| `/api/parent/children/{student_id}` | PATCH | Edit child details (name, email, grade, school) | #99 |
+| `/api/tasks/` | GET | List tasks (with filters: date range, child, status) | #100 |
+| `/api/tasks/` | POST | Create task (with optional reminder) | #100 |
+| `/api/tasks/{id}` | GET | Get task details | #100 |
+| `/api/tasks/{id}` | PUT | Update task | #100 |
+| `/api/tasks/{id}` | DELETE | Delete task | #100 |
+| `/api/tasks/{id}/complete` | POST | Mark task completed | #100 |
+| `/api/tasks/by-date/{date}` | GET | Get all tasks for a specific date | #101 |
+| `/api/calendar/events` | GET | Calendar events (role-aware, assignments + tasks) | #45 |
+| `/api/calendar/google-sync` | POST | Push to Google Calendar (Phase 1.5) | #46 |
 
 ---
 
@@ -737,8 +818,13 @@ Current feature issues are tracked in GitHub:
 - Issue #93: Add `created_by_user_id` and `is_private` fields to Course model
 - Issue #94: Disable auto-sync jobs — all Google/Gmail sync must be manual and on-demand
 - Issue #95: Parent Dashboard: course management UI (create, assign, view)
-- Issue #97: Parent Dashboard calendar-centric redesign (IMPLEMENTED)
+- Issue #97: Parent Dashboard calendar-centric redesign v1 (IMPLEMENTED)
 - Issue #98: Study guide course assignment — PATCH endpoint + CourseAssignSelect component (IMPLEMENTED)
+- Issue #99: Parent Dashboard v2: Left navigation + Edit Child modal + child filter toggle
+- Issue #100: Task system: backend model, CRUD API, reminder scheduling
+- Issue #101: Parent Dashboard v2: Day Detail Modal + task calendar integration
+- Issue #102: Parent Dashboard v2: Dedicated Courses page (`/courses`)
+- Issue #103: Parent Dashboard v2: Dedicated Study Guides page (`/study-guides`)
 - Issue #42: Manual course creation for teachers
 - Issue #49: Manual assignment creation for teachers
 - Issue #41: Multi-Google account support for teachers
@@ -758,12 +844,10 @@ Current feature issues are tracked in GitHub:
 - Issue #89: Auto-create student account when parent links by email
 - Issue #51: ~~Deprecate POST /api/courses/ endpoint~~ (SUPERSEDED — endpoint now serves all roles)
 
-### Phase 1.5 - Task Manager, Calendar Extension, Content & School Integration
+### Phase 1.5 - Calendar Extension, Content & School Integration
 - Issue #96: Student email identity merging (personal + school email)
-- Issue #44: Task/Todo CRUD API and model
 - Issue #45: Extend calendar to other roles (student, teacher) with role-aware data (parent calendar done in #97)
 - Issue #46: Google Calendar push integration for tasks
-- Issue #47: Frontend Task Manager UI
 - Issue #25: Manual Content Upload with OCR (enhanced)
 - Issue #28: Central Document Repository
 - Issue #53: Background periodic Google Classroom sync for teachers

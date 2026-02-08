@@ -5,7 +5,7 @@
 
 .dashboard-header {
   background: rgba(255, 255, 255, 0.9);
-  padding: 18px 32px;
+  padding: 8px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -23,14 +23,14 @@
 }
 
 .header-logo {
-  height: 108px;
+  height: 48px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
 }
 
 .logo {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1;
   font-family: var(--font-display);
@@ -40,7 +40,6 @@
   background-clip: text;
   margin: 0;
   padding: 0;
-  transform: translateY(-6px);
 }
 
 .brand-tagline {
@@ -178,6 +177,52 @@
 .sidebar-link:hover {
   border-color: rgba(73, 184, 192, 0.35);
   background: rgba(73, 184, 192, 0.14);
+}
+
+.sidebar-link.active {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-warm));
+  color: white;
+  border-color: transparent;
+}
+
+.sidebar-badge {
+  background: white;
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+.sidebar-link.active .sidebar-badge {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}
+
+.sidebar-action {
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  color: var(--color-accent-strong);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sidebar-action:hover {
+  border-color: var(--color-accent);
+  background: rgba(73, 184, 192, 0.08);
+  border-style: solid;
 }
 
 .sidebar-footer {
