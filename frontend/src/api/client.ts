@@ -601,6 +601,11 @@ export const parentApi = {
     return response.data as ChildSummary;
   },
 
+  updateChild: async (studentId: number, data: { full_name?: string; grade_level?: number; school_name?: string }) => {
+    const response = await api.patch(`/api/parent/children/${studentId}`, data);
+    return response.data as ChildSummary;
+  },
+
   assignCoursesToChild: async (studentId: number, courseIds: number[]) => {
     const response = await api.post(`/api/parent/children/${studentId}/courses`, {
       course_ids: courseIds,

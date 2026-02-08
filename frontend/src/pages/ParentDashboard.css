@@ -35,6 +35,30 @@
   color: white;
 }
 
+.child-tab-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.child-edit-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-ink-muted);
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.child-edit-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(73, 184, 192, 0.08);
+}
+
 .grade-badge {
   font-size: 11px;
   padding: 2px 8px;

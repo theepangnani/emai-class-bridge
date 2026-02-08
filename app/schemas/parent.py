@@ -55,6 +55,12 @@ class CourseWithTeacher(CourseResponse):
     teacher_email: str | None = None
 
 
+class ChildUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    grade_level: Optional[int] = None
+    school_name: Optional[str] = None
+
+
 class ChildOverview(BaseModel):
     student_id: int
     user_id: int

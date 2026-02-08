@@ -18,7 +18,8 @@ from app.api.deps import require_role
 from app.core.config import settings
 from app.schemas.parent import (
     ChildSummary, ChildOverview, LinkChildRequest, CreateChildRequest,
-    DiscoveredChild, DiscoverChildrenResponse, LinkChildrenBulkRequest,
+    ChildUpdateRequest, DiscoveredChild, DiscoverChildrenResponse,
+    LinkChildrenBulkRequest,
 )
 from app.schemas.course import CourseResponse
 from app.schemas.assignment import AssignmentResponse
@@ -493,6 +494,52 @@ def get_child_overview(
         courses=courses_with_teachers,
         assignments=assignments,
         study_guides_count=study_guides_count,
+    )
+
+
+@router.patch("/children/{student_id}", response_model=ChildSummary)
+def update_child(
+    student_id: int,
+    request: ChildUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.PARENT)),
+):
+    """Update a linked child's profile information."""
+    # Verify parent-student link
+    link = (
+        db.query(parent_students)
+        .filter(
+            parent_students.c.parent_id == current_user.id,
+            parent_students.c.student_id == student_id,
+        )
+        .first()
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Student not found or not linked to your account")
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    user = student.user
+
+    if request.full_name is not None and user:
+        user.full_name = request.full_name
+    if request.grade_level is not None:
+        student.grade_level = request.grade_level
+    if request.school_name is not None:
+        student.school_name = request.school_name
+
+    db.commit()
+    db.refresh(student)
+
+    return ChildSummary(
+        student_id=student.id,
+        user_id=student.user_id,
+        full_name=user.full_name if user else "Unknown",
+        grade_level=student.grade_level,
+        school_name=student.school_name,
+        relationship_type=link.relationship_type.value if link.relationship_type else None,
     )
 
 

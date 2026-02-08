@@ -19,6 +19,7 @@ export function ParentDashboard() {
   const [children, setChildren] = useState<ChildSummary[]>([]);
   const [selectedChild, setSelectedChild] = useState<number | null>(null);
   const [childOverview, setChildOverview] = useState<ChildOverview | null>(null);
+  const [allOverviews, setAllOverviews] = useState<ChildOverview[]>([]);
   const [loading, setLoading] = useState(true);
   const [overviewLoading, setOverviewLoading] = useState(false);
 
@@ -62,6 +63,15 @@ export function ParentDashboard() {
   const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Edit child modal state
+  const [showEditChildModal, setShowEditChildModal] = useState(false);
+  const [editChild, setEditChild] = useState<ChildSummary | null>(null);
+  const [editChildName, setEditChildName] = useState('');
+  const [editChildGrade, setEditChildGrade] = useState('');
+  const [editChildSchool, setEditChildSchool] = useState('');
+  const [editChildLoading, setEditChildLoading] = useState(false);
+  const [editChildError, setEditChildError] = useState('');
+
   // Create child (name-only) state
   const [createChildName, setCreateChildName] = useState('');
   const [createChildEmail, setCreateChildEmail] = useState('');
@@ -97,8 +107,10 @@ export function ParentDashboard() {
   useEffect(() => {
     if (selectedChild) {
       loadChildOverview(selectedChild);
+    } else if (children.length > 0) {
+      loadAllOverviews();
     }
-  }, [selectedChild]);
+  }, [selectedChild, children]);
 
   const checkGoogleStatus = async () => {
     try {
@@ -113,8 +125,11 @@ export function ParentDashboard() {
     try {
       const data = await parentApi.getChildren();
       setChildren(data);
-      if (data.length > 0) {
+      if (data.length > 0 && data.length === 1) {
         setSelectedChild(data[0].student_id);
+      } else if (data.length > 1) {
+        // Show all children by default
+        setSelectedChild(null);
       }
     } catch {
       // Failed to load children
@@ -130,6 +145,20 @@ export function ParentDashboard() {
       setChildOverview(data);
     } catch {
       setChildOverview(null);
+    } finally {
+      setOverviewLoading(false);
+    }
+  };
+
+  const loadAllOverviews = async () => {
+    setOverviewLoading(true);
+    try {
+      const overviews = await Promise.all(
+        children.map(c => parentApi.getChildOverview(c.student_id))
+      );
+      setAllOverviews(overviews);
+    } catch {
+      setAllOverviews([]);
     } finally {
       setOverviewLoading(false);
     }
@@ -291,6 +320,59 @@ export function ParentDashboard() {
   };
 
   // ============================================
+  // Edit Child Handlers
+  // ============================================
+
+  const openEditChild = (child: ChildSummary) => {
+    setEditChild(child);
+    setEditChildName(child.full_name);
+    setEditChildGrade(child.grade_level != null ? String(child.grade_level) : '');
+    setEditChildSchool(child.school_name || '');
+    setEditChildError('');
+    setShowEditChildModal(true);
+  };
+
+  const closeEditChildModal = () => {
+    setShowEditChildModal(false);
+    setEditChild(null);
+    setEditChildName('');
+    setEditChildGrade('');
+    setEditChildSchool('');
+    setEditChildError('');
+  };
+
+  const handleEditChild = async () => {
+    if (!editChild || !editChildName.trim()) return;
+    setEditChildLoading(true);
+    setEditChildError('');
+    try {
+      await parentApi.updateChild(editChild.student_id, {
+        full_name: editChildName.trim(),
+        grade_level: editChildGrade ? parseInt(editChildGrade, 10) : undefined,
+        school_name: editChildSchool.trim() || undefined,
+      });
+      closeEditChildModal();
+      await loadChildren();
+      if (selectedChild === editChild.student_id) {
+        await loadChildOverview(editChild.student_id);
+      }
+    } catch (err: any) {
+      setEditChildError(err.response?.data?.detail || 'Failed to update child');
+    } finally {
+      setEditChildLoading(false);
+    }
+  };
+
+  const handleChildTabClick = (studentId: number) => {
+    if (selectedChild === studentId) {
+      setSelectedChild(null);
+      setChildOverview(null);
+    } else {
+      setSelectedChild(studentId);
+    }
+  };
+
+  // ============================================
   // Study Tools Handlers
   // ============================================
 
@@ -390,43 +472,52 @@ export function ParentDashboard() {
   // Calendar Data Derivation
   // ============================================
 
+  // Use selected child overview or merge all overviews
+  const activeOverviews = useMemo(() => {
+    if (selectedChild && childOverview) return [childOverview];
+    if (!selectedChild && allOverviews.length > 0) return allOverviews;
+    return [];
+  }, [selectedChild, childOverview, allOverviews]);
+
   const courseIds = useMemo(() => {
-    return (childOverview?.courses || []).map(c => c.id);
-  }, [childOverview]);
+    return activeOverviews.flatMap(o => o.courses.map(c => c.id));
+  }, [activeOverviews]);
 
   const calendarAssignments: CalendarAssignment[] = useMemo(() => {
-    if (!childOverview) return [];
-    return childOverview.assignments
-      .filter(a => a.due_date)
-      .map(a => ({
-        id: a.id,
-        title: a.title,
-        description: a.description,
-        courseId: a.course_id,
-        courseName: childOverview.courses.find(c => c.id === a.course_id)?.name || 'Unknown',
-        courseColor: getCourseColor(a.course_id, courseIds),
-        dueDate: new Date(a.due_date!),
-        childName: children.length > 1 ? childOverview.full_name : '',
-        maxPoints: a.max_points,
-      }));
-  }, [childOverview, courseIds, children.length]);
+    return activeOverviews.flatMap(overview =>
+      overview.assignments
+        .filter(a => a.due_date)
+        .map(a => ({
+          id: a.id,
+          title: a.title,
+          description: a.description,
+          courseId: a.course_id,
+          courseName: overview.courses.find(c => c.id === a.course_id)?.name || 'Unknown',
+          courseColor: getCourseColor(a.course_id, courseIds),
+          dueDate: new Date(a.due_date!),
+          childName: children.length > 1 ? overview.full_name : '',
+          maxPoints: a.max_points,
+        }))
+    );
+  }, [activeOverviews, courseIds, children.length]);
 
   const undatedAssignments: CalendarAssignment[] = useMemo(() => {
-    if (!childOverview) return [];
-    return childOverview.assignments
-      .filter(a => !a.due_date)
-      .map(a => ({
-        id: a.id,
-        title: a.title,
-        description: a.description,
-        courseId: a.course_id,
-        courseName: childOverview.courses.find(c => c.id === a.course_id)?.name || 'Unknown',
-        courseColor: getCourseColor(a.course_id, courseIds),
-        dueDate: new Date(),
-        childName: '',
-        maxPoints: a.max_points,
-      }));
-  }, [childOverview, courseIds]);
+    return activeOverviews.flatMap(overview =>
+      overview.assignments
+        .filter(a => !a.due_date)
+        .map(a => ({
+          id: a.id,
+          title: a.title,
+          description: a.description,
+          courseId: a.course_id,
+          courseName: overview.courses.find(c => c.id === a.course_id)?.name || 'Unknown',
+          courseColor: getCourseColor(a.course_id, courseIds),
+          dueDate: new Date(),
+          childName: children.length > 1 ? overview.full_name : '',
+          maxPoints: a.max_points,
+        }))
+    );
+  }, [activeOverviews, courseIds, children.length]);
 
   const handleCalendarCreateStudyGuide = (assignment: CalendarAssignment) => {
     setStudyTitle(assignment.title);
@@ -467,23 +558,34 @@ export function ParentDashboard() {
       ) : (
         <>
           {/* Child Filter */}
-          {children.length > 1 && (
-            <div className="child-selector">
-              {children.map((child) => (
+          <div className="child-selector">
+            {children.length > 1 && (
+              <button
+                className={`child-tab ${selectedChild === null ? 'active' : ''}`}
+                onClick={() => { setSelectedChild(null); setChildOverview(null); }}
+              >
+                All Children
+              </button>
+            )}
+            {children.map((child) => (
+              <div key={child.student_id} className="child-tab-wrapper">
                 <button
-                  key={child.student_id}
                   className={`child-tab ${selectedChild === child.student_id ? 'active' : ''}`}
-                  onClick={() => setSelectedChild(child.student_id)}
+                  onClick={() => handleChildTabClick(child.student_id)}
                 >
                   {child.full_name}
-                  {child.relationship_type && (
-                    <span className="relationship-badge">{child.relationship_type}</span>
-                  )}
-                  {child.grade_level && <span className="grade-badge">Grade {child.grade_level}</span>}
+                  {child.grade_level != null && <span className="grade-badge">Grade {child.grade_level}</span>}
                 </button>
-              ))}
-            </div>
-          )}
+                <button
+                  className="child-edit-btn"
+                  onClick={(e) => { e.stopPropagation(); openEditChild(child); }}
+                  title="Edit child info"
+                >
+                  &#9998;
+                </button>
+              </div>
+            ))}
+          </div>
 
           {/* Calendar */}
           {overviewLoading ? (
@@ -753,6 +855,42 @@ export function ParentDashboard() {
               <button className="cancel-btn" onClick={closeInviteModal} disabled={inviteLoading}>Close</button>
               <button className="generate-btn" onClick={handleInviteStudent} disabled={inviteLoading || !inviteEmail.trim() || !!inviteSuccess}>
                 {inviteLoading ? 'Creating...' : 'Create Invite'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Child Modal */}
+      {showEditChildModal && editChild && (
+        <div className="modal-overlay" onClick={closeEditChildModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Edit Child</h2>
+            <p className="modal-desc">Update {editChild.full_name}'s profile information.</p>
+            <div className="modal-form">
+              <label>
+                Name
+                <input type="text" value={editChildName} onChange={(e) => setEditChildName(e.target.value)} placeholder="Child's name" disabled={editChildLoading} onKeyDown={(e) => e.key === 'Enter' && handleEditChild()} />
+              </label>
+              <label>
+                Grade Level
+                <select value={editChildGrade} onChange={(e) => setEditChildGrade(e.target.value)} disabled={editChildLoading}>
+                  <option value="">Not set</option>
+                  {Array.from({ length: 13 }, (_, i) => (
+                    <option key={i} value={String(i)}>{i === 0 ? 'Kindergarten' : `Grade ${i}`}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                School
+                <input type="text" value={editChildSchool} onChange={(e) => setEditChildSchool(e.target.value)} placeholder="e.g., Lincoln Elementary" disabled={editChildLoading} />
+              </label>
+              {editChildError && <p className="link-error">{editChildError}</p>}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={closeEditChildModal} disabled={editChildLoading}>Cancel</button>
+              <button className="generate-btn" onClick={handleEditChild} disabled={editChildLoading || !editChildName.trim()}>
+                {editChildLoading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
