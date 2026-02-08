@@ -74,6 +74,13 @@ with engine.connect() as conn:
         if "category" not in existing_cols:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN category VARCHAR(50)"))
             logger.info("Added 'category' column to tasks")
+        # Make parent_id nullable (was NOT NULL in original schema) — PostgreSQL only
+        if "sqlite" not in settings.database_url:
+            try:
+                conn.execute(text("ALTER TABLE tasks ALTER COLUMN parent_id DROP NOT NULL"))
+                logger.info("Made 'parent_id' nullable on tasks table")
+            except Exception:
+                pass  # Already nullable or not applicable
         conn.commit()
 
 app = FastAPI(

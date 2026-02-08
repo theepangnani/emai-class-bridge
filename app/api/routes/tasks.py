@@ -191,9 +191,18 @@ def create_task(
     if request.assigned_to_user_id:
         _verify_assignment_relationship(db, current_user, request.assigned_to_user_id)
 
+    # Resolve legacy student_id from assigned_to_user_id for backwards compat
+    legacy_student_id = None
+    if request.assigned_to_user_id:
+        student = db.query(Student).filter(Student.user_id == request.assigned_to_user_id).first()
+        if student:
+            legacy_student_id = student.id
+
     task = Task(
         created_by_user_id=current_user.id,
         assigned_to_user_id=request.assigned_to_user_id,
+        parent_id=current_user.id,  # Legacy column — existing DB has NOT NULL constraint
+        student_id=legacy_student_id,  # Legacy column
         title=request.title,
         description=request.description,
         due_date=request.due_date,
