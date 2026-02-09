@@ -1,9 +1,115 @@
 import { useState, useEffect } from 'react';
+import type { ReactElement } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { studyApi } from '../api/client';
 import type { StudyGuide } from '../api/client';
 import { CourseAssignSelect } from '../components/CourseAssignSelect';
 import './StudyGuidePage.css';
+
+function renderInline(text: string) {
+  // Minimal inline markdown support for bold text.
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return <strong key={idx}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={idx}>{part}</span>;
+  });
+}
+
+function renderGuideContent(content: string) {
+  const lines = content.split('\n');
+  const blocks: ReactElement[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const rawLine = lines[i];
+    const line = rawLine.trim();
+
+    if (!line) {
+      i++;
+      continue;
+    }
+
+    if (line.startsWith('# ')) {
+      blocks.push(<h1 key={`h1-${i}`}>{line.substring(2)}</h1>);
+      i++;
+      continue;
+    }
+
+    if (line.startsWith('## ')) {
+      blocks.push(<h2 key={`h2-${i}`}>{line.substring(3)}</h2>);
+      i++;
+      continue;
+    }
+
+    if (line.startsWith('### ')) {
+      blocks.push(<h3 key={`h3-${i}`}>{line.substring(4)}</h3>);
+      i++;
+      continue;
+    }
+
+    const isUnordered = line.startsWith('- ') || line.startsWith('* ');
+    const isOrdered = /^\d+\.\s/.test(line);
+
+    if (isUnordered || isOrdered) {
+      const listItems: ReactElement[] = [];
+      const ordered = isOrdered;
+
+      while (i < lines.length) {
+        const candidate = lines[i].trim();
+        if (!candidate) break;
+
+        if (ordered && /^\d+\.\s/.test(candidate)) {
+          listItems.push(
+            <li key={`li-${i}`}>{renderInline(candidate.replace(/^\d+\.\s/, ''))}</li>
+          );
+          i++;
+          continue;
+        }
+
+        if (!ordered && (candidate.startsWith('- ') || candidate.startsWith('* '))) {
+          listItems.push(<li key={`li-${i}`}>{renderInline(candidate.substring(2))}</li>);
+          i++;
+          continue;
+        }
+
+        break;
+      }
+
+      blocks.push(
+        ordered ? <ol key={`ol-${i}`}>{listItems}</ol> : <ul key={`ul-${i}`}>{listItems}</ul>
+      );
+      continue;
+    }
+
+    const paragraphLines: string[] = [];
+    while (i < lines.length) {
+      const candidate = lines[i].trim();
+      if (!candidate) break;
+      if (
+        candidate.startsWith('# ') ||
+        candidate.startsWith('## ') ||
+        candidate.startsWith('### ') ||
+        candidate.startsWith('- ') ||
+        candidate.startsWith('* ') ||
+        /^\d+\.\s/.test(candidate)
+      ) {
+        break;
+      }
+      paragraphLines.push(candidate);
+      i++;
+    }
+
+    blocks.push(
+      <p key={`p-${i}`}>
+        {renderInline(paragraphLines.join(' '))}
+      </p>
+    );
+  }
+
+  return blocks;
+}
 
 export function StudyGuidePage() {
   const { id } = useParams<{ id: string }>();
@@ -94,28 +200,7 @@ export function StudyGuidePage() {
           Created: {new Date(guide.created_at).toLocaleDateString()}
         </p>
         <div className="guide-body">
-          {guide.content.split('\n').map((line, index) => {
-            // Simple markdown-like rendering
-            if (line.startsWith('# ')) {
-              return <h1 key={index}>{line.substring(2)}</h1>;
-            } else if (line.startsWith('## ')) {
-              return <h2 key={index}>{line.substring(3)}</h2>;
-            } else if (line.startsWith('### ')) {
-              return <h3 key={index}>{line.substring(4)}</h3>;
-            } else if (line.startsWith('**') && line.endsWith('**')) {
-              return <p key={index}><strong>{line.slice(2, -2)}</strong></p>;
-            } else if (line.startsWith('- ')) {
-              return <li key={index}>{line.substring(2)}</li>;
-            } else if (line.startsWith('* ')) {
-              return <li key={index}>{line.substring(2)}</li>;
-            } else if (line.match(/^\d+\. /)) {
-              return <li key={index}>{line.replace(/^\d+\. /, '')}</li>;
-            } else if (line.trim() === '') {
-              return <br key={index} />;
-            } else {
-              return <p key={index}>{line}</p>;
-            }
-          })}
+          {renderGuideContent(guide.content)}
         </div>
       </div>
     </div>
