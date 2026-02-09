@@ -19,16 +19,15 @@ Reusable calendar system for displaying date-based items (assignments, tasks, ev
 
 | Component | Purpose |
 |-----------|---------|
-| `CalendarView` | Main orchestrator — renders header + active grid view + popover |
+| `CalendarView` | Main orchestrator — renders header + active grid view + popover. Props: `assignments`, `onCreateStudyGuide`, `onDayClick?`, `onTaskDrop?` |
 | `CalendarHeader` | Navigation buttons (< Today >), title label, view toggle (Day/3-Day/Week/Month) |
-| `CalendarMonthGrid` | 7-column month grid with day cells |
-| `CalendarDayCell` | Single day cell — day number + assignment chips + "+N more" overflow |
-| `CalendarWeekGrid` | N-column layout (7 for week, 3 for 3-day) with stacked assignment cards |
+| `CalendarMonthGrid` | 7-column month grid with day cells. Accepts `onTaskDrop?` |
+| `CalendarDayCell` | Single day cell — day number + assignment chips + "+N more" overflow. **Drop target** for task drag-and-drop |
+| `CalendarWeekGrid` | N-column layout (7 for week, 3 for 3-day) with stacked assignment cards. **Drop targets** on column bodies |
 | `CalendarDayGrid` | Single-column day list view |
-| `CalendarEntry` | Assignment rendered as `chip` (month) or `card` (week/day), color-coded by course |
+| `CalendarEntry` | Assignment/task rendered as `chip` (month) or `card` (week/day), color-coded by course/priority. **Tasks are draggable** via native HTML5 DnD |
 | `CalendarEntryPopover` | Click popover — title, course, due time, description, action button |
-| `DayDetailModal` | Full CRUD modal for a specific date — lists assignments + tasks, add/edit/delete (planned) |
-| `TaskModal` | Add/edit task modal with reminder time picker (planned) |
+| `DayDetailModal` | Full CRUD modal for a specific date — lists assignments + tasks as sticky note cards, inline add task |
 | `useCalendarNav` | Hook — currentDate, viewMode, goNext/goPrev/goToday, rangeStart/rangeEnd, headerLabel |
 
 **Key types** (`frontend/src/components/calendar/types.ts`):
@@ -65,6 +64,8 @@ const calendarAssignments: CalendarAssignment[] = assignments.map(a => ({
 <CalendarView
   assignments={calendarAssignments}
   onCreateStudyGuide={(assignment) => { /* open study modal */ }}
+  onDayClick={(date) => { /* open day detail modal */ }}
+  onTaskDrop={(calendarId, newDate) => { /* reschedule task via API */ }}
 />
 ```
 

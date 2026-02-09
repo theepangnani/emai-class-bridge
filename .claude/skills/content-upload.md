@@ -1,5 +1,7 @@
 # /content-upload - Scaffold Content Upload Feature
 
+> **Note:** This skill describes a standalone file upload system (PDF, Word, images with OCR). For course-specific content types (notes, syllabus, labs, assignments with reference links), see GitHub Issue #116 which uses a lighter-weight `course_contents` table approach. Prefer #116 for course materials.
+
 Create the content upload system for manual course material uploads.
 
 ## Feature Overview

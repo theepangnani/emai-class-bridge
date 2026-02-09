@@ -12,7 +12,7 @@ Example: `/feature ai-study-guide`
 
 1. Ensure working directory is clean (no uncommitted changes)
 2. Fetch latest from origin
-3. Create new branch from main: `feature/<feature-name>`
+3. Create new branch from master: `feature/<feature-name>`
 4. Push the branch to origin with tracking
 
 ## Commands
@@ -25,7 +25,7 @@ git status
 git fetch origin
 
 # Create and checkout new branch
-git checkout -b feature/<feature-name> origin/main
+git checkout -b feature/<feature-name> origin/master
 
 # Push branch with tracking
 git push -u origin feature/<feature-name>

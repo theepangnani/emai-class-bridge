@@ -212,6 +212,18 @@ archived_at = Column(DateTime(timezone=True), nullable=True)
 # Index: ix_tasks_archived on archived_at
 ```
 
+## Drag-and-Drop Task Rescheduling (#118 — Implemented)
+
+Tasks can be dragged between calendar cells to change their due date using native HTML5 Drag and Drop API.
+
+- Only tasks are draggable (not assignments)
+- `CalendarEntry` sets `draggable={true}` and `dataTransfer` with `{ id, itemType: 'task' }`
+- `CalendarDayCell` and `CalendarWeekGrid` columns are drop targets
+- `ParentDashboard.handleTaskDrop()` does optimistic UI update + `PATCH /api/tasks/{id}` with rollback on failure
+- Calendar task IDs use `id + 1_000_000` offset to avoid collisions with assignment IDs
+
+See `task-calendar.md` for full calendar drag-and-drop details.
+
 ## Day Detail Modal — Sticky Note Cards
 
 When a date is clicked on the calendar, the Day Detail Modal opens. Tasks are displayed as **sticky note cards** with priority-colored left borders and expandable details.
