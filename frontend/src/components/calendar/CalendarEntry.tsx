@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CalendarAssignment } from './types';
 import { TASK_PRIORITY_COLORS } from './types';
 
@@ -13,14 +14,34 @@ export function CalendarEntry({ assignment, variant, onClick }: CalendarEntryPro
     ? TASK_PRIORITY_COLORS[assignment.priority || 'medium']
     : assignment.courseColor;
   const completedClass = isTask && assignment.isCompleted ? ' cal-entry-completed' : '';
+  const [dragging, setDragging] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ id: assignment.id, itemType: 'task' }));
+    e.dataTransfer.effectAllowed = 'move';
+    setDragging(true);
+  };
+
+  const handleDragEnd = () => {
+    setDragging(false);
+  };
+
+  const dragProps = isTask ? {
+    draggable: true,
+    onDragStart: handleDragStart,
+    onDragEnd: handleDragEnd,
+  } : {};
+
+  const draggingClass = dragging ? ' cal-entry-dragging' : '';
 
   if (variant === 'chip') {
     return (
       <div
-        className={`cal-entry-chip${isTask ? ' cal-entry-task' : ''}${completedClass}`}
+        className={`cal-entry-chip${isTask ? ' cal-entry-task' : ''}${completedClass}${draggingClass}`}
         style={{ background: `${color}18` }}
         onClick={onClick}
         title={assignment.title}
+        {...dragProps}
       >
         <span className="cal-entry-dot" style={{ background: color }} />
         <span className="cal-entry-chip-title">{assignment.title}</span>
@@ -33,9 +54,10 @@ export function CalendarEntry({ assignment, variant, onClick }: CalendarEntryPro
 
   return (
     <div
-      className={`cal-entry-card${isTask ? ' cal-entry-task' : ''}${completedClass}`}
+      className={`cal-entry-card${isTask ? ' cal-entry-task' : ''}${completedClass}${draggingClass}`}
       style={{ borderLeftColor: color }}
       onClick={onClick}
+      {...dragProps}
     >
       <div className="cal-entry-title">{assignment.title}</div>
       <div className="cal-entry-meta">

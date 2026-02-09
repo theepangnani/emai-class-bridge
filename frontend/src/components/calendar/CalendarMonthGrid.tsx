@@ -8,6 +8,7 @@ interface CalendarMonthGridProps {
   assignments: CalendarAssignment[];
   onAssignmentClick: (assignment: CalendarAssignment, anchorRect: DOMRect) => void;
   onDayClick: (date: Date) => void;
+  onTaskDrop?: (assignmentId: number, newDate: Date) => void;
 }
 
 const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -26,7 +27,7 @@ function getMonthGridDates(year: number, month: number): Date[] {
   return dates;
 }
 
-export function CalendarMonthGrid({ currentDate, assignments, onAssignmentClick, onDayClick }: CalendarMonthGridProps) {
+export function CalendarMonthGrid({ currentDate, assignments, onAssignmentClick, onDayClick, onTaskDrop }: CalendarMonthGridProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const gridDates = useMemo(() => getMonthGridDates(year, month), [year, month]);
@@ -56,6 +57,7 @@ export function CalendarMonthGrid({ currentDate, assignments, onAssignmentClick,
             assignments={assignmentsByDate.get(dateKey(date)) || []}
             onAssignmentClick={onAssignmentClick}
             onDayClick={onDayClick}
+            onTaskDrop={onTaskDrop}
           />
         ))}
       </div>

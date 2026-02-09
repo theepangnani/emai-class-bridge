@@ -463,6 +463,35 @@
 }
 
 /* ================================================
+   Drag and Drop
+   ================================================ */
+.cal-entry-chip[draggable="true"],
+.cal-entry-card[draggable="true"] {
+  cursor: grab;
+}
+
+.cal-entry-chip[draggable="true"]:active,
+.cal-entry-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.cal-entry-dragging {
+  opacity: 0.35;
+}
+
+.cal-day-cell.cal-day-drag-over {
+  background: rgba(59, 130, 246, 0.08);
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+}
+
+.cal-week-column-body.cal-day-drag-over {
+  background: rgba(59, 130, 246, 0.08);
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+}
+
+/* ================================================
    Responsive
    ================================================ */
 @media (max-width: 768px) {

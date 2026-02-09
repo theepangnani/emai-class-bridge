@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { CalendarEntry } from './CalendarEntry';
 import type { CalendarAssignment } from './types';
 import { dateKey, isSameDay } from './types';
@@ -7,12 +7,14 @@ interface CalendarWeekGridProps {
   dates: Date[];
   assignments: CalendarAssignment[];
   onAssignmentClick: (assignment: CalendarAssignment, anchorRect: DOMRect) => void;
+  onTaskDrop?: (assignmentId: number, newDate: Date) => void;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function CalendarWeekGrid({ dates, assignments, onAssignmentClick }: CalendarWeekGridProps) {
+export function CalendarWeekGrid({ dates, assignments, onAssignmentClick, onTaskDrop }: CalendarWeekGridProps) {
   const today = new Date();
+  const [dragOverCol, setDragOverCol] = useState<number | null>(null);
 
   const assignmentsByDate = useMemo(() => {
     const map = new Map<string, CalendarAssignment[]>();
@@ -25,6 +27,24 @@ export function CalendarWeekGrid({ dates, assignments, onAssignmentClick }: Cale
     return map;
   }, [assignments]);
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, date: Date) => {
+    e.preventDefault();
+    setDragOverCol(null);
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.itemType === 'task' && onTaskDrop) {
+        onTaskDrop(data.id, date);
+      }
+    } catch {
+      // Invalid drag data
+    }
+  };
+
   return (
     <div className="cal-week-grid" style={{ gridTemplateColumns: `repeat(${dates.length}, 1fr)` }}>
       {dates.map((date, i) => {
@@ -36,7 +56,15 @@ export function CalendarWeekGrid({ dates, assignments, onAssignmentClick }: Cale
               <div className="cal-week-day-name">{DAY_NAMES[date.getDay()]}</div>
               <div className={`cal-week-day-num${isToday ? ' today' : ''}`}>{date.getDate()}</div>
             </div>
-            <div className="cal-week-column-body">
+            <div
+              className={`cal-week-column-body${dragOverCol === i ? ' cal-day-drag-over' : ''}`}
+              onDragOver={handleDragOver}
+              onDragEnter={(e) => { e.preventDefault(); setDragOverCol(i); }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverCol(null);
+              }}
+              onDrop={(e) => handleDrop(e, date)}
+            >
               {dayAssignments.length === 0 ? (
                 <div className="cal-week-empty" />
               ) : (

@@ -561,6 +561,28 @@ export function ParentDashboard() {
     }
   };
 
+  const handleTaskDrop = async (calendarId: number, newDate: Date) => {
+    // Calendar uses id + 1_000_000 offset for tasks
+    const taskId = calendarId - 1_000_000;
+    const task = allTasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const prevTasks = allTasks;
+    const newDueDate = newDate.toISOString();
+
+    // Optimistic update
+    setAllTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: newDueDate } : t));
+
+    try {
+      const updated = await tasksApi.update(taskId, { due_date: newDueDate });
+      setAllTasks(prev => prev.map(t => t.id === taskId ? updated : t));
+    } catch {
+      // Revert on failure
+      setAllTasks(prevTasks);
+      alert('Failed to reschedule task. You may not have permission to edit this task.');
+    }
+  };
+
   // ============================================
   // Calendar Data Derivation
   // ============================================
@@ -710,6 +732,7 @@ export function ParentDashboard() {
                 assignments={calendarAssignments}
                 onCreateStudyGuide={handleCalendarCreateStudyGuide}
                 onDayClick={openDayModal}
+                onTaskDrop={handleTaskDrop}
               />
 
               {/* Undated Assignments */}

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { CalendarEntry } from './CalendarEntry';
 import type { CalendarAssignment } from './types';
 import { isSameDay } from './types';
@@ -8,17 +9,53 @@ interface CalendarDayCellProps {
   assignments: CalendarAssignment[];
   onAssignmentClick: (assignment: CalendarAssignment, anchorRect: DOMRect) => void;
   onDayClick: (date: Date) => void;
+  onTaskDrop?: (assignmentId: number, newDate: Date) => void;
 }
 
 const MAX_VISIBLE = 3;
 
-export function CalendarDayCell({ date, isCurrentMonth, assignments, onAssignmentClick, onDayClick }: CalendarDayCellProps) {
+export function CalendarDayCell({ date, isCurrentMonth, assignments, onAssignmentClick, onDayClick, onTaskDrop }: CalendarDayCellProps) {
   const isToday = isSameDay(date, new Date());
   const overflow = assignments.length - MAX_VISIBLE;
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear if leaving the cell entirely (not entering a child element)
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOver(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.itemType === 'task' && onTaskDrop) {
+        onTaskDrop(data.id, date);
+      }
+    } catch {
+      // Invalid drag data
+    }
+  };
 
   return (
     <div
-      className={`cal-day-cell${!isCurrentMonth ? ' outside-month' : ''}${isToday ? ' today' : ''}`}
+      className={`cal-day-cell${!isCurrentMonth ? ' outside-month' : ''}${isToday ? ' today' : ''}${dragOver ? ' cal-day-drag-over' : ''}`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div
         className="cal-day-number"

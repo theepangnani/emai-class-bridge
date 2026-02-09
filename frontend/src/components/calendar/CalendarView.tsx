@@ -13,6 +13,7 @@ interface CalendarViewProps {
   assignments: CalendarAssignment[];
   onCreateStudyGuide: (assignment: CalendarAssignment) => void;
   onDayClick?: (date: Date) => void;
+  onTaskDrop?: (assignmentId: number, newDate: Date) => void;
 }
 
 function addDays(d: Date, n: number): Date {
@@ -27,7 +28,7 @@ function getMonday(d: Date): Date {
   return addDays(new Date(d.getFullYear(), d.getMonth(), d.getDate()), diff);
 }
 
-export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: externalDayClick }: CalendarViewProps) {
+export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: externalDayClick, onTaskDrop }: CalendarViewProps) {
   const nav = useCalendarNav('month');
   const [popover, setPopover] = useState<{ assignment: CalendarAssignment; rect: DOMRect } | null>(null);
 
@@ -118,6 +119,7 @@ export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: exte
           assignments={visibleAssignments}
           onAssignmentClick={handleAssignmentClick}
           onDayClick={handleDayClick}
+          onTaskDrop={onTaskDrop}
         />
       )}
 
@@ -126,6 +128,7 @@ export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: exte
           dates={weekDates}
           assignments={visibleAssignments}
           onAssignmentClick={handleAssignmentClick}
+          onTaskDrop={onTaskDrop}
         />
       )}
 

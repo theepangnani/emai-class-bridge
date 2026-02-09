@@ -3,7 +3,7 @@
 **Product Name:** ClassBridge
 **Author:** Theepan Gnanasabapathy
 **Version:** 1.0 (Based on PRD v4)
-**Last Updated:** 2026-02-07
+**Last Updated:** 2026-02-09
 
 ---
 
@@ -382,6 +382,7 @@ Any user can create a task and assign it to a related user. Relationship verific
 - Clicking a calendar date opens a **Day Detail Modal** showing all assignments + tasks for that date
 - Day Detail Modal supports: viewing items, adding new tasks, toggling completion, editing/deleting existing items
 - Clicking a task on the calendar opens the task for editing
+- **Drag-and-drop rescheduling**: Users can drag task entries (chips in month view, cards in week/3-day view) to a different day to reschedule. Uses native HTML5 DnD with optimistic UI and rollback on failure. Only tasks are draggable — assignments remain fixed. Drop targets highlight with a blue dashed outline during drag.
 
 #### Reminders
 - Each task can have an optional reminder with date and time
@@ -524,9 +525,17 @@ Located in `frontend/src/components/calendar/`:
 - `CalendarMonthGrid` / `CalendarDayCell` — Month view grid
 - `CalendarWeekGrid` — Week/3-day column layout
 - `CalendarDayGrid` — Single-day list view
-- `CalendarEntry` — Assignment/task rendered as chip (month) or card (week/day)
+- `CalendarEntry` — Assignment/task rendered as chip (month) or card (week/day); tasks are draggable for rescheduling
 - `CalendarEntryPopover` — Assignment/task detail popover
 - `DayDetailModal` — Full CRUD modal for a specific date (new)
+
+#### Drag-and-Drop Task Rescheduling
+- Tasks can be dragged to a different day in month view (chips) or week/3-day view (cards)
+- Uses native HTML5 Drag and Drop API (no external library)
+- Drop targets (day cells, week columns) highlight with blue dashed outline during drag
+- Optimistic UI: task moves immediately on drop, reverts if API update fails
+- Only tasks are draggable — classroom assignments remain fixed
+- Drag data carries task ID and `itemType: 'task'` for validation
 
 #### Key Design Details
 - **Course Color-Coding**: 10-color palette assigned by course index, consistent everywhere
@@ -591,6 +600,12 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Task system: Calendar integration** — tasks appear alongside assignments on calendar, Day Detail Modal with sticky note cards (IMPLEMENTED)
 - [x] **Task archival** — Soft-delete, restore, permanent delete, auto-archive on completion (IMPLEMENTED)
 - [x] **Calendar sticky notes** — Priority-colored task cards with expandable details in Day Detail Modal (IMPLEMENTED)
+- [x] **Study guide formatting** — Markdown rendering with GFM support for study guide view (IMPLEMENTED)
+- [x] **Task status filters fix** — Task dropdown filters on Tasks page working correctly (IMPLEMENTED)
+- [x] **Calendar drag-and-drop** — Drag tasks to reschedule due dates in month/week views with optimistic UI (IMPLEMENTED)
+- [x] **Calendar child filter fix** — Tasks now properly filtered by selected child in calendar view (IMPLEMENTED)
+- [x] **Course page CTA** — Create Course entry point added to Courses page (IMPLEMENTED)
+- [x] **Tasks page modal** — Create New Task converted to well-formatted modal (IMPLEMENTED)
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -834,46 +849,64 @@ Current feature issues are tracked in GitHub:
 - Issue #40: ~~Shadow + invite flow for non-EMAI school teachers~~ (CLOSED)
 - Issue #43: ~~Teacher type distinction (school_teacher vs private_tutor)~~ (CLOSED)
 - Issue #48: ~~Unified invite system (shared invites table)~~ (CLOSED)
+- Issue #44: ~~Google Classroom courses auto-sync for students~~ (CLOSED)
+- Issue #47: ~~Student enrollment in courses~~ (CLOSED)
 - Issue #52: ~~Teacher Google Classroom course sync (set teacher_id on synced courses)~~ (CLOSED)
 - Issue #56: ~~Parent-student-Google sync flow (onboarding, parent sync, teacher info)~~ (CLOSED)
 
-### Phase 1 - Open (Parent-First Platform Revision)
-- Issue #90: Make student email optional — parent creates child with name only
-- Issue #91: Allow parents and students to create courses
-- Issue #92: Parent assigns courses to linked children
-- Issue #93: Add `created_by_user_id` and `is_private` fields to Course model
-- Issue #94: Disable auto-sync jobs — all Google/Gmail sync must be manual and on-demand
-- Issue #95: Parent Dashboard: course management UI (create, assign, view)
-- Issue #97: Parent Dashboard calendar-centric redesign v1 (IMPLEMENTED)
-- Issue #98: Study guide course assignment — PATCH endpoint + CourseAssignSelect component (IMPLEMENTED)
-- Issue #99: Parent Dashboard v2: Left navigation + Edit Child modal + child filter toggle
-- Issue #100: Task system: backend model, CRUD API, reminder scheduling
-- Issue #101: Parent Dashboard v2: Day Detail Modal + task calendar integration
-- Issue #102: Parent Dashboard v2: Dedicated Courses page (`/courses`)
-- Issue #103: Parent Dashboard v2: Dedicated Study Guides page (`/study-guides`)
+### Phase 1 - Implemented (Parent-First Platform Revision)
+- Issue #60: ~~Parent registers child directly (name, email, grade, school)~~ (CLOSED)
+- Issue #82: ~~Study guide model: add version, parent_guide_id, content_hash~~ (CLOSED)
+- Issue #83: ~~Role-based study guide limits~~ (CLOSED)
+- Issue #84: ~~Study guide duplicate detection endpoint~~ (CLOSED)
+- Issue #85: ~~Study guide versioning~~ (CLOSED)
+- Issue #86: ~~Role-based study guide visibility~~ (CLOSED)
+- Issue #87: ~~Frontend study guide management UI~~ (CLOSED)
+- Issue #88: ~~Update REQUIREMENTS.md with study guide management~~ (CLOSED)
+- Issue #90: ~~Make student email optional — parent creates child with name only~~ (CLOSED)
+- Issue #91: ~~Allow parents and students to create courses~~ (CLOSED)
+- Issue #92: ~~Parent assigns courses to linked children~~ (CLOSED)
+- Issue #93: ~~Add `created_by_user_id` and `is_private` fields to Course model~~ (CLOSED)
+- Issue #94: ~~Disable auto-sync jobs — all Google/Gmail sync must be manual and on-demand~~ (CLOSED)
+- Issue #95: ~~Parent Dashboard: course management UI (create, assign, view)~~ (CLOSED)
+- Issue #97: ~~Parent Dashboard calendar-centric redesign v1~~ (CLOSED)
+- Issue #98: ~~Study guide course assignment — PATCH endpoint + CourseAssignSelect component~~ (CLOSED)
+- Issue #99: ~~Parent Dashboard v2: Left navigation + Edit Child modal + child filter toggle~~ (CLOSED)
+- Issue #100: ~~Task system: backend model, CRUD API, cross-role assignment~~ (CLOSED)
+- Issue #101: ~~Parent Dashboard v2: Day Detail Modal + task calendar integration~~ (CLOSED)
+- Issue #102: ~~Parent Dashboard v2: Dedicated Courses page (`/courses`)~~ (CLOSED)
+- Issue #103: ~~Parent Dashboard v2: Dedicated Study Guides page (`/study-guides`)~~ (CLOSED)
+- Issue #104: ~~Cross-role task assignment — backend model & API~~ (CLOSED)
+- Issue #105: ~~Dedicated Tasks page~~ (CLOSED)
+- Issue #106: ~~Tasks displayed in calendar~~ (CLOSED)
+- Issue #107: ~~Task archival — soft-delete, restore, permanent delete, auto-archive~~ (CLOSED)
+- Issue #108: ~~Calendar sticky note cards — priority-colored, expandable~~ (CLOSED)
+- Issue #115: ~~Study Guide: Improve formatting and readability~~ (CLOSED)
+- Issue #117: ~~Bug: Task status dropdown filters are not working~~ (CLOSED)
+- Issue #118: Calendar: Enable editing task due date via drag-and-drop (IMPLEMENTED)
+- Issue #123: ~~Bug: Calendar tasks not filtered by selected child in Calendar view~~ (CLOSED)
+- Issue #124: ~~Course Page: Add Create Course CTA and flow entry point~~ (CLOSED)
+- Issue #125: ~~Tasks Page: Convert Create New Task into a well-formatted modal~~ (CLOSED)
+- Issue #51: ~~Deprecate POST /api/courses/ endpoint~~ (SUPERSEDED — endpoint now serves all roles)
+
+### Phase 1 - Open
+- Issue #41: Multi-Google account support for teachers
 - Issue #42: Manual course creation for teachers
 - Issue #49: Manual assignment creation for teachers
-- Issue #41: Multi-Google account support for teachers
 - Issue #57: Auto-send invite email to shadow teachers on creation
 - Issue #58: Add is_platform_user flag to Teacher model
 - Issue #59: Teacher Dashboard course management view with source badges
-- Issue #60: Parent registers child directly (name, email, grade, school)
 - Issue #61: Content privacy controls and version history for uploads
 - Issue #62: teacher_google_accounts table for multi-account OAuth
-- Issue #82: Study guide model: add version, parent_guide_id, content_hash
-- Issue #83: Role-based study guide limits
-- Issue #84: Study guide duplicate detection endpoint
-- Issue #85: Study guide versioning
-- Issue #86: Role-based study guide visibility
-- Issue #87: Frontend study guide management UI
-- Issue #88: Update REQUIREMENTS.md with study guide management
 - Issue #89: Auto-create student account when parent links by email
-- Issue #104: Cross-role task assignment — backend model & API (IMPLEMENTED)
-- Issue #105: Dedicated Tasks page (IMPLEMENTED)
-- Issue #106: Tasks displayed in calendar (IMPLEMENTED)
-- Issue #107: Task archival — soft-delete, restore, permanent delete, auto-archive (IMPLEMENTED)
-- Issue #108: Calendar sticky note cards — priority-colored, expandable (IMPLEMENTED)
-- Issue #51: ~~Deprecate POST /api/courses/ endpoint~~ (SUPERSEDED — endpoint now serves all roles)
+- Issue #109: AI explanation of assignments
+- Issue #110: Add assignment/test to task (link tasks to assignments)
+- Issue #111: Student self-learn: create and manage personal courses
+- Issue #112: Task reminders: email notifications with opt-out
+- Issue #114: Course materials: file upload and storage (GCS)
+- Issue #116: Courses: Add structured course content types + reference/Google Classroom links
+- Issue #119: Recurring Tasks: Feasibility + implementation proposal
+- Issue #126: Calendar Task Actions: Add quick links beyond Create Study Guide
 
 ### Phase 1.5 - Calendar Extension, Content & School Integration
 - Issue #96: Student email identity merging (personal + school email)
@@ -882,6 +915,7 @@ Current feature issues are tracked in GitHub:
 - Issue #25: Manual Content Upload with OCR (enhanced)
 - Issue #28: Central Document Repository
 - Issue #53: Background periodic Google Classroom sync for teachers
+- Issue #113: School & School Board model
 
 ### Phase 2
 - Issue #26: Performance Analytics Dashboard
@@ -895,9 +929,9 @@ Current feature issues are tracked in GitHub:
 
 ### Infrastructure & DevOps
 - Issue #10: Pytest unit tests
-- Issue #11: GitHub Actions CI/CD
+- Issue #11: ~~GitHub Actions CI/CD~~ (CLOSED)
 - Issue #12: PostgreSQL + Alembic migrations
-- Issue #13: Deploy to GCP
+- Issue #13: ~~Deploy to GCP~~ (CLOSED)
 - Issue #14: Google OAuth verification
 - Issue #24: Register classbridge.ca domain
 
