@@ -94,6 +94,56 @@ export const coursesApi = {
   },
 };
 
+// Course Content API
+export interface CourseContentItem {
+  id: number;
+  course_id: number;
+  title: string;
+  description: string | null;
+  content_type: string;
+  reference_url: string | null;
+  google_classroom_url: string | null;
+  created_by_user_id: number;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export const courseContentsApi = {
+  list: async (courseId: number, contentType?: string) => {
+    const params: Record<string, any> = { course_id: courseId };
+    if (contentType) params.content_type = contentType;
+    const response = await api.get('/api/course-contents/', { params });
+    return response.data as CourseContentItem[];
+  },
+
+  create: async (data: {
+    course_id: number;
+    title: string;
+    description?: string;
+    content_type?: string;
+    reference_url?: string;
+    google_classroom_url?: string;
+  }) => {
+    const response = await api.post('/api/course-contents/', data);
+    return response.data as CourseContentItem;
+  },
+
+  update: async (id: number, data: {
+    title?: string;
+    description?: string;
+    content_type?: string;
+    reference_url?: string;
+    google_classroom_url?: string;
+  }) => {
+    const response = await api.patch(`/api/course-contents/${id}`, data);
+    return response.data as CourseContentItem;
+  },
+
+  delete: async (id: number) => {
+    await api.delete(`/api/course-contents/${id}`);
+  },
+};
+
 // Assignments API
 export const assignmentsApi = {
   list: async (courseId?: number) => {

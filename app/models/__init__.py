@@ -9,6 +9,7 @@ from app.models.notification import Notification
 from app.models.teacher_communication import TeacherCommunication
 from app.models.invite import Invite, InviteType
 from app.models.task import Task, TaskPriority
+from app.models.course_content import CourseContent, ContentType
 
 __all__ = [
     "User",
@@ -28,4 +29,6 @@ __all__ = [
     "InviteType",
     "Task",
     "TaskPriority",
+    "CourseContent",
+    "ContentType",
 ]
