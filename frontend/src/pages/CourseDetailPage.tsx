@@ -86,12 +86,14 @@ export function CourseDetailPage() {
   const loadCourse = async () => {
     setLoading(true);
     try {
-      const [courseData, contentsData] = await Promise.all([
-        coursesApi.get(courseId),
-        courseContentsApi.list(courseId),
-      ]);
+      const courseData = await coursesApi.get(courseId);
       setCourse(courseData);
-      setContents(contentsData);
+      try {
+        const contentsData = await courseContentsApi.list(courseId);
+        setContents(contentsData);
+      } catch {
+        setContents([]);
+      }
     } catch {
       setCourse(null);
     } finally {

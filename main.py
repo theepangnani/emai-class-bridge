@@ -87,6 +87,12 @@ with engine.connect() as conn:
             except Exception:
                 pass  # Already nullable or not applicable
         conn.commit()
+    if "course_contents" in inspector.get_table_names():
+        existing_cols = {c["name"] for c in inspector.get_columns("course_contents")}
+        if "text_content" not in existing_cols:
+            conn.execute(text("ALTER TABLE course_contents ADD COLUMN text_content TEXT"))
+            logger.info("Added 'text_content' column to course_contents")
+        conn.commit()
 
 app = FastAPI(
     title=settings.app_name,
