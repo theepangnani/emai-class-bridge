@@ -240,6 +240,13 @@ export function CoursesPage() {
                         {course.teacher_name && <span className="course-card-teacher">{course.teacher_name}</span>}
                         {course.google_classroom_id && <span className="course-card-badge google">Google</span>}
                       </div>
+                      <button
+                        className="course-card-edit"
+                        title="View course details"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/courses/${course.id}`); }}
+                      >
+                        &#9998;
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -277,6 +284,13 @@ export function CoursesPage() {
                       {course.subject && <span className="course-card-subject">{course.subject}</span>}
                       {course.description && <p className="course-card-desc">{course.description}</p>}
                     </div>
+                    <button
+                      className="course-card-edit"
+                      title="Edit course"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/courses/${course.id}`); }}
+                    >
+                      &#9998;
+                    </button>
                   </div>
                 </div>
               ))}

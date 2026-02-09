@@ -372,16 +372,18 @@ export function CourseDetailPage() {
         <div className="course-detail-header">
           <div className="course-detail-info">
             <h2>{course.name}</h2>
-            {course.subject && <span className="course-detail-subject">{course.subject}</span>}
-            {course.google_classroom_id && <span className="course-detail-badge google">Google Classroom</span>}
-            {course.is_private && <span className="course-detail-badge private">Private</span>}
+            <div className="course-detail-meta">
+              {course.subject && <span className="course-detail-subject">{course.subject}</span>}
+              {course.google_classroom_id && <span className="course-detail-badge google">Google Classroom</span>}
+              {course.is_private && <span className="course-detail-badge private">Private</span>}
+            </div>
             {course.description && <p className="course-detail-desc">{course.description}</p>}
             <span className="course-detail-date">
               Created {new Date(course.created_at).toLocaleDateString()}
             </span>
           </div>
           {canEdit && (
-            <button className="courses-btn secondary" onClick={openEditModal}>Edit Course</button>
+            <button className="courses-btn secondary" onClick={openEditModal}>&#9998; Edit</button>
           )}
         </div>
 

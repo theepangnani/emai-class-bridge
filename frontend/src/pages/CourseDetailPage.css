@@ -10,11 +10,16 @@
   cursor: pointer;
   padding: 0;
   margin-bottom: 16px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  transition: color 0.2s;
 }
 
 .course-detail-back:hover {
   text-decoration: underline;
+  color: var(--color-accent-strong);
 }
 
 /* Course header */
@@ -25,35 +30,43 @@
   gap: 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 20px 24px;
-  margin-bottom: 24px;
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  margin-bottom: 28px;
+  box-shadow: var(--shadow-soft);
 }
 
 .course-detail-info h2 {
-  margin: 0 0 8px 0;
-  font-size: 22px;
+  margin: 0 0 10px 0;
+  font-size: 24px;
   font-family: var(--font-display);
   color: var(--color-ink);
+}
+
+.course-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
 }
 
 .course-detail-subject {
   display: inline-block;
   font-size: 13px;
-  padding: 2px 10px;
-  border-radius: 4px;
+  padding: 3px 12px;
+  border-radius: 6px;
   background: rgba(73, 184, 192, 0.12);
   color: var(--color-accent-strong);
-  margin-right: 8px;
+  font-weight: 500;
 }
 
 .course-detail-badge {
   display: inline-block;
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 8px;
   font-weight: 600;
-  margin-right: 6px;
 }
 
 .course-detail-badge.google {
@@ -67,17 +80,97 @@
 }
 
 .course-detail-desc {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   font-size: 14px;
   color: var(--color-ink-muted);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .course-detail-date {
   display: block;
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
   color: var(--color-ink-muted);
+  opacity: 0.7;
+}
+
+/* Shared button styles (also in CoursesPage.css — duplicated for standalone use) */
+.courses-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.courses-btn.primary {
+  background: var(--color-accent);
+  color: white;
+}
+
+.courses-btn.primary:hover {
+  background: var(--color-accent-strong);
+}
+
+.courses-btn.secondary {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-ink);
+}
+
+.courses-btn.secondary:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.courses-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Content action buttons */
+.content-action-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+
+.content-action-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(73, 184, 192, 0.04);
+}
+
+.content-action-btn.danger:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: rgba(214, 69, 69, 0.04);
+}
+
+/* Content reference links */
+.content-link {
+  font-size: 12px;
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+
+.content-link:hover {
+  text-decoration: underline;
+  color: var(--color-accent-strong);
+}
+
+.content-link.google {
+  color: #4285f4;
 }
 
 /* Action bar */
@@ -104,16 +197,17 @@
 .course-detail-empty,
 .course-detail-empty-content {
   text-align: center;
-  padding: 40px 20px;
+  padding: 48px 20px;
   color: var(--color-ink-muted);
   background: var(--color-surface);
-  border: 1px dashed var(--color-border);
+  border: 2px dashed var(--color-border);
   border-radius: var(--radius-md);
 }
 
 .course-detail-empty p,
 .course-detail-empty-content p {
   margin: 0;
+  font-size: 14px;
 }
 
 /* Content list */
@@ -128,15 +222,16 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, border-color 0.2s;
 }
 
 .cd-content-item:hover {
   box-shadow: var(--shadow-soft);
+  border-color: rgba(73, 184, 192, 0.25);
 }
 
 .cd-content-item-info {
@@ -271,13 +366,14 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
+  accent-color: var(--color-accent);
 }
 
-/* Reuse from CoursesPage.css */
+/* Content type badges */
 .content-type-badge {
   display: inline-block;
   font-size: 11px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
   font-weight: 600;
   background: rgba(73, 184, 192, 0.12);
@@ -294,6 +390,7 @@
 @media (max-width: 600px) {
   .course-detail-header {
     flex-direction: column;
+    padding: 18px 16px;
   }
 
   .course-detail-actions {
