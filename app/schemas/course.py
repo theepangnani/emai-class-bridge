@@ -25,6 +25,7 @@ class CourseResponse(BaseModel):
     teacher_id: int | None
     created_by_user_id: int | None = None
     is_private: bool = False
+    is_default: bool = False
     created_at: datetime
 
     class Config:

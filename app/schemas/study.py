@@ -6,6 +6,7 @@ class StudyGuideCreate(BaseModel):
     """Request to generate a study guide."""
     assignment_id: int | None = None
     course_id: int | None = None
+    course_content_id: int | None = None
     title: str | None = None  # Optional custom title
     content: str | None = None  # Optional custom content to base guide on
     regenerate_from_id: int | None = None  # ID of existing guide to create new version of
@@ -17,6 +18,7 @@ class StudyGuideResponse(BaseModel):
     user_id: int
     assignment_id: int | None
     course_id: int | None
+    course_content_id: int | None = None
     title: str
     content: str
     guide_type: str
@@ -32,6 +34,7 @@ class QuizGenerateRequest(BaseModel):
     """Request to generate a quiz."""
     assignment_id: int | None = None
     course_id: int | None = None
+    course_content_id: int | None = None
     topic: str | None = None
     content: str | None = None
     num_questions: int = 5
@@ -64,6 +67,7 @@ class FlashcardGenerateRequest(BaseModel):
     """Request to generate flashcards."""
     assignment_id: int | None = None
     course_id: int | None = None
+    course_content_id: int | None = None
     topic: str | None = None
     content: str | None = None
     num_cards: int = 10

@@ -107,6 +107,18 @@ with engine.connect() as conn:
                 pass  # Already nullable
             # Drop the unique constraint issue for NULL emails — PostgreSQL unique allows multiple NULLs by default
             conn.commit()
+    if "study_guides" in inspector.get_table_names():
+        existing_cols = {c["name"] for c in inspector.get_columns("study_guides")}
+        if "course_content_id" not in existing_cols:
+            conn.execute(text("ALTER TABLE study_guides ADD COLUMN course_content_id INTEGER REFERENCES course_contents(id)"))
+            logger.info("Added 'course_content_id' column to study_guides")
+        conn.commit()
+    if "courses" in inspector.get_table_names():
+        existing_cols = {c["name"] for c in inspector.get_columns("courses")}
+        if "is_default" not in existing_cols:
+            conn.execute(text("ALTER TABLE courses ADD COLUMN is_default BOOLEAN NOT NULL DEFAULT FALSE"))
+            logger.info("Added 'is_default' column to courses")
+        conn.commit()
     if "course_contents" in inspector.get_table_names():
         existing_cols = {c["name"] for c in inspector.get_columns("course_contents")}
         if "text_content" not in existing_cols:

@@ -14,6 +14,7 @@ class StudyGuide(Base):
     # Optional references to source content
     assignment_id = Column(Integer, ForeignKey("assignments.id"), nullable=True)
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=True)
+    course_content_id = Column(Integer, ForeignKey("course_contents.id"), nullable=True)
 
     # Content
     title = Column(String(255), nullable=False)
@@ -31,4 +32,5 @@ class StudyGuide(Base):
     user = relationship("User", backref="study_guides")
     assignment = relationship("Assignment", backref="study_guides")
     course = relationship("Course", backref="study_guides")
+    course_content = relationship("CourseContent", backref="study_guides")
     parent_guide = relationship("StudyGuide", remote_side=[id], backref="child_versions")
