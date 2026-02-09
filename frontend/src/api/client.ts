@@ -88,6 +88,11 @@ export const coursesApi = {
     return response.data;
   },
 
+  update: async (id: number, data: { name?: string; description?: string; subject?: string }) => {
+    const response = await api.patch(`/api/courses/${id}`, data);
+    return response.data;
+  },
+
   createdByMe: async () => {
     const response = await api.get('/api/courses/created/me');
     return response.data;
@@ -100,6 +105,7 @@ export interface CourseContentItem {
   course_id: number;
   title: string;
   description: string | null;
+  text_content: string | null;
   content_type: string;
   reference_url: string | null;
   google_classroom_url: string | null;
@@ -120,6 +126,7 @@ export const courseContentsApi = {
     course_id: number;
     title: string;
     description?: string;
+    text_content?: string;
     content_type?: string;
     reference_url?: string;
     google_classroom_url?: string;
@@ -131,6 +138,7 @@ export const courseContentsApi = {
   update: async (id: number, data: {
     title?: string;
     description?: string;
+    text_content?: string;
     content_type?: string;
     reference_url?: string;
     google_classroom_url?: string;

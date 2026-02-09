@@ -9,6 +9,7 @@ class CourseContentCreate(BaseModel):
     course_id: int
     title: str
     description: Optional[str] = None
+    text_content: Optional[str] = None
     content_type: str = "other"
     reference_url: Optional[str] = None
     google_classroom_url: Optional[str] = None
@@ -25,6 +26,7 @@ class CourseContentCreate(BaseModel):
 class CourseContentUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    text_content: Optional[str] = None
     content_type: Optional[str] = None
     reference_url: Optional[str] = None
     google_classroom_url: Optional[str] = None
@@ -45,6 +47,7 @@ class CourseContentResponse(BaseModel):
     course_id: int
     title: str
     description: Optional[str]
+    text_content: Optional[str] = None
     content_type: str
     reference_url: Optional[str]
     google_classroom_url: Optional[str]

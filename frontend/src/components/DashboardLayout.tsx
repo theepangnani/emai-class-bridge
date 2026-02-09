@@ -36,19 +36,11 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
   const navItems = useMemo(() => {
     const items: Array<{ label: string; path: string }> = [
       { label: 'Dashboard', path: '/dashboard' },
-    ];
-
-    if (user?.role === 'parent') {
-      items.push(
-        { label: 'Courses', path: '/courses' },
-        { label: 'Study Guides', path: '/study-guides' },
-      );
-    }
-
-    items.push(
+      { label: 'Courses', path: '/courses' },
+      { label: 'Study Guides', path: '/study-guides' },
       { label: 'Tasks', path: '/tasks' },
       { label: 'Messages', path: '/messages' },
-    );
+    ];
 
     if (user?.role === 'teacher') {
       items.push({ label: 'Teacher Comms', path: '/teacher-communications' });

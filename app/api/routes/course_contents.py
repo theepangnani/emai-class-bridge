@@ -28,6 +28,7 @@ def create_course_content(
         course_id=data.course_id,
         title=data.title,
         description=data.description,
+        text_content=data.text_content,
         content_type=data.content_type,
         reference_url=data.reference_url,
         google_classroom_url=data.google_classroom_url,

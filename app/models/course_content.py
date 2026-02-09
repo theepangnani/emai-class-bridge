@@ -25,6 +25,7 @@ class CourseContent(Base):
 
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    text_content = Column(Text, nullable=True)  # Full extracted text from uploaded documents
     # Store as string for cross-DB compatibility (SQLite/PostgreSQL)
     content_type = Column(String(20), nullable=False, default=ContentType.OTHER.value)
 

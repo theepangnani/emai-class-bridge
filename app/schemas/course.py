@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional
 
 
 class CourseCreate(BaseModel):
@@ -7,6 +8,12 @@ class CourseCreate(BaseModel):
     description: str | None = None
     subject: str | None = None
     teacher_id: int | None = None
+
+
+class CourseUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    subject: Optional[str] = None
 
 
 class CourseResponse(BaseModel):

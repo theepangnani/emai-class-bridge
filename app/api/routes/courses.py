@@ -6,7 +6,7 @@ from app.models.course import Course, student_courses
 from app.models.user import User, UserRole
 from app.models.teacher import Teacher
 from app.models.student import Student
-from app.schemas.course import CourseCreate, CourseResponse
+from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.api.deps import get_current_user, require_role
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
@@ -135,6 +135,35 @@ def get_course(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Course not found",
         )
+    return course
+
+
+@router.patch("/{course_id}", response_model=CourseResponse)
+def update_course(
+    course_id: int,
+    data: CourseUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update a course. Only the creator or an admin can update."""
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found",
+        )
+    if course.created_by_user_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the course creator or an admin can update this course",
+        )
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(course, field, value)
+
+    db.commit()
+    db.refresh(course)
     return course
 
 

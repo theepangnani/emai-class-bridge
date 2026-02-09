@@ -15,6 +15,7 @@ const FlashcardsPage = lazy(() => import('./pages/FlashcardsPage').then((m) => (
 const MessagesPage = lazy(() => import('./pages/MessagesPage').then((m) => ({ default: m.MessagesPage })));
 const TeacherCommsPage = lazy(() => import('./pages/TeacherCommsPage').then((m) => ({ default: m.TeacherCommsPage })));
 const CoursesPage = lazy(() => import('./pages/CoursesPage').then((m) => ({ default: m.CoursesPage })));
+const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage').then((m) => ({ default: m.CourseDetailPage })));
 const StudyGuidesListPage = lazy(() => import('./pages/StudyGuidesPage').then((m) => ({ default: m.StudyGuidesPage })));
 const TasksPage = lazy(() => import('./pages/TasksPage').then((m) => ({ default: m.TasksPage })));
 const AcceptInvite = lazy(() => import('./pages/AcceptInvite').then((m) => ({ default: m.AcceptInvite })));
@@ -76,8 +77,16 @@ function App() {
               <Route
                 path="/courses"
                 element={
-                  <ProtectedRoute allowedRoles={['parent']}>
+                  <ProtectedRoute>
                     <CoursesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/courses/:id"
+                element={
+                  <ProtectedRoute>
+                    <CourseDetailPage />
                   </ProtectedRoute>
                 }
               />
