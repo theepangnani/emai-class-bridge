@@ -97,6 +97,16 @@ with engine.connect() as conn:
             except Exception:
                 pass  # Already nullable or not applicable
         conn.commit()
+    # Make users.email nullable for students created without email (by parent)
+    if "users" in inspector.get_table_names():
+        if "sqlite" not in settings.database_url:
+            try:
+                conn.execute(text("ALTER TABLE users ALTER COLUMN email DROP NOT NULL"))
+                logger.info("Made 'email' nullable on users table")
+            except Exception:
+                pass  # Already nullable
+            # Drop the unique constraint issue for NULL emails — PostgreSQL unique allows multiple NULLs by default
+            conn.commit()
     if "course_contents" in inspector.get_table_names():
         existing_cols = {c["name"] for c in inspector.get_columns("course_contents")}
         if "text_content" not in existing_cols:
