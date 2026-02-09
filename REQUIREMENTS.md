@@ -659,6 +659,34 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [ ] **Frontend DDD modules** — Reorganize into domain directories (#133)
 - [ ] **Domain events** — Add event system for cross-context communication (#134)
 
+#### Security & Hardening (Tier 0)
+- [ ] **Authorization gaps** — `list_students()` returns ALL students to any auth user; `get_user()` has no permission check; `list_assignments()` not filtered by course access (#139)
+- [ ] **Rate limiting** — No rate limiting on AI generation, auth, or file upload endpoints; risk of brute force and API quota abuse (#140)
+- [ ] **CORS hardening** — Currently allows `*` origins; tighten to known frontend domains (#64)
+- [ ] **Security headers** — Add X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, CSP (#141)
+- [ ] **Input validation** — Missing field length limits, URL validation, and sanitization on multiple endpoints (#142)
+- [ ] **Password reset flow** — No "Forgot Password" link or reset mechanism (#143)
+
+#### Data Integrity & Performance (Tier 0)
+- [ ] **Missing database indexes** — Add indexes on StudyGuide(assignment_id), StudyGuide(user_id, created_at), Task(created_by_user_id, created_at), Invite(email, expires_at), Message(conversation_id) (#73)
+- [ ] **N+1 query patterns** — `_task_to_response()` does 3-4 extra queries per task; `list_children()` iterates students; assignment reminder job loads all users individually (#144)
+- [ ] **CASCADE delete rules** — Task, StudyGuide, Assignment FKs lack ON DELETE CASCADE/SET NULL; orphaned records possible (#145)
+- [ ] **Unique constraint on parent_students** — No unique constraint on (parent_id, student_id); duplicate links possible (#146)
+
+#### Frontend UX Gaps (Tier 1)
+- [ ] **Global error boundary** — No React ErrorBoundary; unhandled errors crash the entire app (#147)
+- [ ] **Toast notification system** — No centralized success/error feedback; 6+ silent catch blocks in TasksPage alone (#148)
+- [ ] **Token refresh** — JWT tokens expire without refresh mechanism; users lose work and get silently redirected to login (#149)
+- [ ] **Loading skeletons** — Plain "Loading..." text everywhere instead of skeleton screens (#150)
+- [ ] **Accessibility (A11Y)** — Missing aria-labels on icon buttons, no keyboard nav for modals/dropdowns, no skip-to-content link, color-only indicators (#151)
+- [ ] **Mobile responsiveness** — Calendar not optimized for mobile; tables don't scroll; modals overflow on small screens; no touch drag-drop (#152)
+- [ ] **FlashcardsPage stale closure bug** — `handleKeyDown` event listener captures stale state; arrow keys stop working after card flip (#153)
+
+#### Testing Gaps (Tier 1)
+- [ ] **Frontend unit tests** — Zero frontend unit tests; no vitest/jest configured (#154)
+- [ ] **Missing route tests** — No tests for: google_classroom, study, messages, notifications, teacher_communications, admin, invites, course_contents routes (#155)
+- [ ] **PostgreSQL test coverage** — Tests run on SQLite only; misses NOT NULL, Enum, and type divergences (e.g., users.email bug) (#156)
+
 ### Phase 1.5 (Calendar Extension, Content & School Integration)
 - [ ] Student email identity merging (personal + school email on same account)
 - [ ] School board email integration (when DTAP approved)
@@ -1018,6 +1046,26 @@ Current feature issues are tracked in GitHub:
 ### Phase 3+
 - Issue #30: Tutor Marketplace
 - Issue #31: AI Email Communication Agent
+
+### Security & Hardening (Codebase Analysis — Feb 2026)
+- Issue #139: Security: Fix authorization gaps in list_students, get_user, list_assignments
+- Issue #140: Add rate limiting to auth, AI generation, and file upload endpoints
+- Issue #141: Add security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)
+- Issue #142: Add input validation and field length limits across all endpoints
+- Issue #143: Add password reset flow (Forgot Password)
+- Issue #144: Fix N+1 query patterns in task list, child list, and reminder job
+- Issue #145: Add CASCADE delete rules to FK relationships
+- Issue #146: Add unique constraint on parent_students (parent_id, student_id)
+- Issue #147: Add React ErrorBoundary for graceful error handling
+- Issue #148: Add global toast notification system for user feedback
+- Issue #149: Implement JWT token refresh mechanism
+- Issue #150: Add loading skeletons to replace text loading states
+- Issue #151: Accessibility audit: aria labels, keyboard nav, skip-to-content
+- Issue #152: Mobile responsiveness: calendar, tables, modals, touch support
+- Issue #153: Fix FlashcardsPage stale closure bug in keyboard handler
+- Issue #154: Add frontend unit tests (vitest)
+- Issue #155: Add backend route tests for google, study, messages, notifications, admin, invites
+- Issue #156: Add PostgreSQL test environment to CI for cross-DB coverage
 
 ### Architecture & DDD Migration
 - Issue #127: Split api/client.ts into domain-specific API modules
