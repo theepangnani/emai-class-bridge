@@ -761,6 +761,7 @@ export interface TaskItem {
   course_name: string | null;
   course_content_title: string | null;
   study_guide_title: string | null;
+  study_guide_type: string | null;
   created_at: string;
   updated_at: string | null;
 }

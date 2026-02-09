@@ -180,6 +180,17 @@
   max-width: 200px;
 }
 
+.task-row-link.clickable {
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.task-row-link.clickable:hover {
+  background: rgba(73, 184, 192, 0.20);
+  box-shadow: 0 0 0 2px rgba(73, 184, 192, 0.15);
+  text-decoration: underline;
+}
+
 .task-linked-context {
   padding: 8px 12px;
   background: rgba(73, 184, 192, 0.08);

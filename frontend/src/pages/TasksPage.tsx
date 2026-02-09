@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { tasksApi } from '../api/client';
 import type { TaskItem, AssignableUser } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +11,7 @@ type FilterPriority = 'all' | 'low' | 'medium' | 'high';
 
 export function TasksPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,6 +184,17 @@ export function TasksPage() {
     return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const getLinkedEntityRoute = (task: TaskItem): string | null => {
+    if (task.study_guide_id) {
+      const guideType = task.study_guide_type || 'study_guide';
+      if (guideType === 'quiz') return `/study/quiz/${task.study_guide_id}`;
+      if (guideType === 'flashcards') return `/study/flashcards/${task.study_guide_id}`;
+      return `/study/guide/${task.study_guide_id}`;
+    }
+    if (task.course_id) return `/courses/${task.course_id}`;
+    return null;
+  };
+
   return (
     <DashboardLayout welcomeSubtitle="Manage your tasks">
       <div className="tasks-page">
@@ -257,9 +270,13 @@ export function TasksPage() {
                       </span>
                     )}
                     {(task.study_guide_title || task.course_content_title || task.course_name) && (
-                      <span className="task-row-link">
+                      <span
+                        className="task-row-link clickable"
+                        onClick={(e) => { e.stopPropagation(); const route = getLinkedEntityRoute(task); if (route) navigate(route); }}
+                        title={`Go to ${task.study_guide_title ? (task.study_guide_type === 'quiz' ? 'quiz' : task.study_guide_type === 'flashcards' ? 'flashcards' : 'study guide') : task.course_content_title ? 'course' : 'course'}`}
+                      >
                         {task.study_guide_title
-                          ? `Study Guide: ${task.study_guide_title}`
+                          ? `${task.study_guide_type === 'quiz' ? 'Quiz' : task.study_guide_type === 'flashcards' ? 'Flashcards' : 'Study Guide'}: ${task.study_guide_title}`
                           : task.course_content_title
                             ? `Content: ${task.course_content_title}`
                             : `Course: ${task.course_name}`}

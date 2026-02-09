@@ -118,10 +118,12 @@ def _task_to_response(task: Task, db: Session) -> dict:
         if cc:
             course_content_title = cc.title
     study_guide_title = None
+    study_guide_type = None
     if task.study_guide_id:
         sg = db.query(StudyGuide).filter(StudyGuide.id == task.study_guide_id).first()
         if sg:
             study_guide_title = sg.title
+            study_guide_type = sg.guide_type
 
     return {
         "id": task.id,
@@ -143,6 +145,7 @@ def _task_to_response(task: Task, db: Session) -> dict:
         "course_name": course_name,
         "course_content_title": course_content_title,
         "study_guide_title": study_guide_title,
+        "study_guide_type": study_guide_type,
         "created_at": task.created_at,
         "updated_at": task.updated_at,
     }

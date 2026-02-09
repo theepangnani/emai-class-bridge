@@ -48,6 +48,7 @@ class TaskResponse(BaseModel):
     course_name: Optional[str] = None
     course_content_title: Optional[str] = None
     study_guide_title: Optional[str] = None
+    study_guide_type: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime]
 
