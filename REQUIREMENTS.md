@@ -91,6 +91,49 @@ Persistent storage, organization, and lifecycle management for AI-generated stud
 - **Deletion**: Users can delete their own study guides. Deleting a parent guide does not cascade to child versions
 - **Course Assignment**: Any user can assign/reassign their study guides to a course via `PATCH /api/study/guides/{guide_id}`. A reusable `CourseAssignSelect` dropdown component is available on study guide view pages (StudyGuidePage, QuizPage, FlashcardsPage) and inline in dashboard study material lists
 
+#### 6.2.2 Course Materials Restructure (Phase 1)
+
+Restructure the Study Guides page to centre on **course materials** (course content items) rather than listing study guides directly. Each course material is the source document from which AI study tools (study guide, quiz, flashcards) are generated.
+
+**Concept**: Study guides, quizzes, and flashcards are outputs *of* a course material, not standalone entities. The Study Guides page (`/study-guides`) becomes a **course materials listing** where each row represents a course content item, and clicking it opens a tabbed detail view showing the original document and any generated study tools.
+
+**Navigation Flows:**
+
+1. **Courses → Course → Course Materials** (existing, no change)
+   - `/courses` — list all courses
+   - `/courses/:id` — show course detail with its content items
+
+2. **Study Guides (nav) → Course Materials List → Tabbed Detail**
+   - `/study-guides` — lists all course materials across all courses, with filters
+   - `/study-guides/:contentId` — tabbed detail view for a single course material
+
+**Tabbed Detail View** (`/study-guides/:contentId`):
+- **Tab 1: Original Document** — shows the source text/description of the course content item
+- **Tab 2: Study Guide** — shows the generated study guide, or a "Generate Study Guide" button if none exists
+- **Tab 3: Quiz** — shows the generated quiz, or a "Generate Quiz" button if none exists
+- **Tab 4: Flashcards** — shows the generated flashcards, or a "Generate Flashcards" button if none exists
+
+**Filtering:**
+- Parents can filter by **child** (shows materials from that child's courses)
+- All roles can filter by **course**
+
+**Default Course ("My Materials"):**
+- When a user creates study material (paste text or upload file) without selecting a course, the system auto-creates a personal default course named "My Materials" for that user (if it doesn't already exist)
+- The uploaded/pasted content becomes a `CourseContent` item under the default course
+- The generated study guide/quiz/flashcards are linked to that `CourseContent` via `course_content_id`
+- Default course has `is_default = TRUE` on the Course model; one per user
+
+**Data Model Changes:**
+- `study_guides.course_content_id` — new nullable FK to `course_contents.id`, linking each study guide to its source material
+- `courses.is_default` — new BOOLEAN column (default FALSE) to identify per-user default courses
+- Backend helper: `get_or_create_default_course(user_id, db)` — returns the user's "My Materials" course, creating it if needed
+
+**API Changes:**
+- `GET /api/course-contents/` — new list endpoint across all courses (with optional `course_id` and `user_id` filters)
+- `GET /api/study/guides?course_content_id=X` — filter study guides by course content
+- `POST /api/study/generate` — accepts optional `course_content_id`; when no course selected, auto-creates default course + CourseContent
+- `GET /api/courses/default` — get or create the user's default course
+
 ### 6.3 Parent-Student Registration & Linking (Phase 1)
 
 ClassBridge is designed as a **parent-first platform**. Parents can manage their children's education without requiring school board integration or Google Classroom access. Student email is **optional** — parents can create students with just a name.
@@ -642,6 +685,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Fix users.email nullable in PostgreSQL** — Startup migration to DROP NOT NULL on users.email for parent-created child accounts without email (IMPLEMENTED)
 - [x] **Styled confirmation modals** — Replace all 13 native `window.confirm()` calls with custom ConfirmModal component; promise-based useConfirm hook; danger variant for destructive actions; consistent app-styled design across all pages (IMPLEMENTED)
 - [x] **Lazy chunk retry on deploy** — `lazyRetry()` wrapper around `React.lazy()` catches stale chunk 404s after deployment and auto-reloads once (sessionStorage guard prevents infinite loops) (IMPLEMENTED)
+- [ ] **Course materials restructure** — Refactor Study Guides page to list course materials (course_contents) with tabbed detail view (Original Document / Study Guide / Quiz / Flashcards); add `course_content_id` FK to study_guides; parent child+course filters; default "My Materials" course per user
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -1021,6 +1065,10 @@ Current feature issues are tracked in GitHub:
 - Issue #161: ~~Add lazy import retry to auto-recover from stale chunks after deploy~~ (CLOSED)
 
 ### Phase 1 - Open
+- Issue #162: Backend: Add course_content_id FK to study_guides and is_default to courses
+- Issue #163: Backend: Auto-create default course + CourseContent on study guide generation
+- Issue #164: Frontend: Course Material tabbed detail view (Original / Study Guide / Quiz / Flashcards)
+- Issue #165: Frontend: Refactor Study Guides page to list course materials with child/course filters
 - Issue #41: Multi-Google account support for teachers
 - Issue #42: Manual course creation for teachers
 - Issue #49: Manual assignment creation for teachers
