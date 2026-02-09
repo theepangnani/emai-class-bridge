@@ -378,8 +378,9 @@ A cross-role task/todo manager integrated into the calendar, available to all EM
 - Create, edit, complete, and delete tasks (personal or assigned to others)
 - Task fields: title, description, due date, reminder date+time (time optional), priority (low, medium, high), category
 - Tasks can optionally be assigned to another user (`assigned_to_user_id`) or linked to an assignment
-- Quick-add from calendar date click, Day Detail Modal, or dedicated Tasks page
-- Filter by status (pending, completed), priority, date range, assignee
+- **Entity linking**: Tasks can be linked to a course (`course_id`), course content item (`course_content_id`), or study guide (`study_guide_id`). Create tasks directly from Study Guides page, Course Detail page, or per-content-item — link is pre-filled automatically. Linked entity name displayed as badge on Tasks page
+- Quick-add from calendar date click, Day Detail Modal, dedicated Tasks page, Study Guides page (+Task button per guide), or Course Detail page (+Task button per content item)
+- Filter by status (pending, completed), priority, date range, assignee, course
 - Dedicated `/tasks` page for full task management (all roles)
 
 #### Cross-Role Task Assignment
@@ -425,7 +426,7 @@ Any user can create a task and assign it to a related user. Relationship verific
 - `google_calendar_event_id` stored on tasks for update/delete sync
 
 #### Data Model
-- `tasks` table: id, created_by_user_id (FK→users.id), assigned_to_user_id (FK→users.id, nullable), title, description, due_date, reminder_at (nullable), is_completed, completed_at (nullable), priority (low/medium/high, default medium), category (nullable), linked_assignment_id (nullable, FK→assignments.id), google_calendar_event_id (nullable), created_at, updated_at
+- `tasks` table: id, created_by_user_id (FK→users.id), assigned_to_user_id (FK→users.id, nullable), title, description, due_date, reminder_at (nullable), is_completed, completed_at (nullable), priority (low/medium/high, default medium), category (nullable), course_id (nullable, FK→courses.id), course_content_id (nullable, FK→course_contents.id), study_guide_id (nullable, FK→study_guides.id), linked_assignment_id (nullable, FK→assignments.id), google_calendar_event_id (nullable), created_at, updated_at
 - `created_by_user_id` — the user who created the task (any role)
 - `assigned_to_user_id` — the user the task is assigned to (nullable = personal/self task)
 - Assignment due dates queried from existing `assignments` table (not duplicated)
@@ -627,6 +628,9 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Calendar child filter fix** — Tasks now properly filtered by selected child in calendar view (IMPLEMENTED)
 - [x] **Course page CTA** — Create Course entry point added to Courses page (IMPLEMENTED)
 - [x] **Tasks page modal** — Create New Task converted to well-formatted modal (IMPLEMENTED)
+- [x] **Task entity linking** — Link tasks to courses, course content, and study guides; +Task buttons on Study Guides and Course Detail pages; reusable CreateTaskModal; linked entity badges on Tasks page (IMPLEMENTED)
+- [x] **Study guide conversion** — Convert existing study guides to quizzes or flashcards from Study Guides list page (IMPLEMENTED)
+- [x] **Duplicate study guide prevention** — useRef guards on frontend + 60-second backend dedup via content_hash (IMPLEMENTED)
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -831,8 +835,8 @@ src/domains/{context}/
 | `/api/invites/sent` | GET | List invites sent by current user |
 | `/api/admin/users` | GET | Paginated user list with search/filter (admin only) |
 | `/api/admin/stats` | GET | Platform statistics (admin only) |
-| `/api/tasks/` | GET | List tasks (creator or assignee, filters: is_completed, priority, include_archived) |
-| `/api/tasks/` | POST | Create task (with optional cross-role assignment) |
+| `/api/tasks/` | GET | List tasks (creator or assignee, filters: is_completed, priority, include_archived, course_id) |
+| `/api/tasks/` | POST | Create task (with optional cross-role assignment and entity linking: course_id, course_content_id, study_guide_id) |
 | `/api/tasks/{id}` | PATCH | Update task (creator: all fields; assignee: completion only) |
 | `/api/tasks/{id}` | DELETE | Soft-delete (archive) task (creator only) |
 | `/api/tasks/{id}/restore` | PATCH | Restore archived task (creator only) |
@@ -967,6 +971,8 @@ Current feature issues are tracked in GitHub:
 - Issue #124: ~~Course Page: Add Create Course CTA and flow entry point~~ (CLOSED)
 - Issue #125: ~~Tasks Page: Convert Create New Task into a well-formatted modal~~ (CLOSED)
 - Issue #51: ~~Deprecate POST /api/courses/ endpoint~~ (SUPERSEDED — endpoint now serves all roles)
+- Issue #135: ~~Task entity linking: link tasks to courses, content, and study guides~~ (CLOSED)
+- Issue #136: ~~Study guide conversion and duplicate prevention~~ (CLOSED)
 
 ### Phase 1 - Open
 - Issue #41: Multi-Google account support for teachers
@@ -979,7 +985,7 @@ Current feature issues are tracked in GitHub:
 - Issue #62: teacher_google_accounts table for multi-account OAuth
 - Issue #89: Auto-create student account when parent links by email
 - Issue #109: AI explanation of assignments
-- Issue #110: Add assignment/test to task (link tasks to assignments)
+- Issue #110: Add assignment/test to task (link tasks to assignments) — courses, content, and study guides now linkable; assignment linking pending
 - ~~Issue #111: Student self-learn: create and manage personal courses~~ ✅
 - Issue #112: Task reminders: email notifications with opt-out
 - Issue #114: Course materials: file upload and storage (GCS) — upload + text extraction done, GCS pending

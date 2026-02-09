@@ -575,3 +575,177 @@ class TestTaskArchival:
         outsider_headers = _auth(client, users["outsider"].email)
         resp = client.delete(f"/api/tasks/{task_id}/permanent", headers=outsider_headers)
         assert resp.status_code == 404
+
+
+# ===========================================================================
+# 10. Task Entity Linking — link tasks to courses, content, study guides
+# ===========================================================================
+
+@pytest.fixture()
+def linked_entities(db_session, users):
+    """Create course content and study guide for entity-linking tests."""
+    from app.models.course_content import CourseContent
+    from app.models.study_guide import StudyGuide
+
+    course = users["course"]
+
+    # Check if already created
+    cc = db_session.query(CourseContent).filter(
+        CourseContent.course_id == course.id,
+        CourseContent.title == "Chapter 5 Notes",
+    ).first()
+    if cc:
+        sg = db_session.query(StudyGuide).filter(
+            StudyGuide.course_id == course.id,
+            StudyGuide.title == "Chapter 5 Study Guide",
+        ).first()
+        return {"course": course, "content": cc, "guide": sg}
+
+    cc = CourseContent(
+        course_id=course.id,
+        title="Chapter 5 Notes",
+        description="Notes for chapter 5",
+        content_type="notes",
+        created_by_user_id=users["teacher_user"].id,
+    )
+    db_session.add(cc)
+    db_session.commit()
+
+    sg = StudyGuide(
+        user_id=users["parent"].id,
+        course_id=course.id,
+        title="Chapter 5 Study Guide",
+        content="# Chapter 5\n\nStudy material...",
+        guide_type="study_guide",
+    )
+    db_session.add(sg)
+    db_session.commit()
+
+    return {"course": course, "content": cc, "guide": sg}
+
+
+class TestTaskEntityLinking:
+    """Tests for linking tasks to courses, course content, and study guides."""
+
+    def test_create_task_linked_to_course(self, client, users, linked_entities):
+        headers = _auth(client, users["parent"].email)
+        resp = client.post("/api/tasks/", json={
+            "title": "Review math course",
+            "course_id": linked_entities["course"].id,
+        }, headers=headers)
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["course_id"] == linked_entities["course"].id
+        assert body["course_name"] == "Test Math"
+        assert body["course_content_id"] is None
+        assert body["study_guide_id"] is None
+
+    def test_create_task_linked_to_course_content(self, client, users, linked_entities):
+        headers = _auth(client, users["parent"].email)
+        resp = client.post("/api/tasks/", json={
+            "title": "Read chapter 5 notes",
+            "course_id": linked_entities["course"].id,
+            "course_content_id": linked_entities["content"].id,
+        }, headers=headers)
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["course_id"] == linked_entities["course"].id
+        assert body["course_content_id"] == linked_entities["content"].id
+        assert body["course_content_title"] == "Chapter 5 Notes"
+
+    def test_create_task_linked_to_study_guide(self, client, users, linked_entities):
+        headers = _auth(client, users["parent"].email)
+        resp = client.post("/api/tasks/", json={
+            "title": "Complete study guide",
+            "study_guide_id": linked_entities["guide"].id,
+            "course_id": linked_entities["course"].id,
+        }, headers=headers)
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["study_guide_id"] == linked_entities["guide"].id
+        assert body["study_guide_title"] == "Chapter 5 Study Guide"
+        assert body["course_id"] == linked_entities["course"].id
+        assert body["course_name"] == "Test Math"
+
+    def test_task_without_links_has_null_fields(self, client, users):
+        """Tasks created without links should have null link fields."""
+        headers = _auth(client, users["parent"].email)
+        resp = client.post("/api/tasks/", json={"title": "No links"}, headers=headers)
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["course_id"] is None
+        assert body["course_content_id"] is None
+        assert body["study_guide_id"] is None
+        assert body["course_name"] is None
+        assert body["course_content_title"] is None
+        assert body["study_guide_title"] is None
+
+    def test_update_task_add_link(self, client, users, linked_entities):
+        """Creator can add a course link to an existing task."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={"title": "Link later"}, headers=headers)
+        task_id = create.json()["id"]
+
+        resp = client.patch(f"/api/tasks/{task_id}", json={
+            "course_id": linked_entities["course"].id,
+        }, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["course_id"] == linked_entities["course"].id
+        assert resp.json()["course_name"] == "Test Math"
+
+    def test_update_task_remove_link(self, client, users, linked_entities):
+        """Creator can unlink a course from a task using 0 convention."""
+        headers = _auth(client, users["parent"].email)
+        create = client.post("/api/tasks/", json={
+            "title": "Unlink me",
+            "course_id": linked_entities["course"].id,
+        }, headers=headers)
+        task_id = create.json()["id"]
+
+        # Unlink using 0 convention
+        resp = client.patch(f"/api/tasks/{task_id}", json={"course_id": 0}, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["course_id"] is None
+        assert resp.json()["course_name"] is None
+
+    def test_filter_tasks_by_course(self, client, users, linked_entities):
+        """List endpoint supports course_id filter."""
+        headers = _auth(client, users["parent"].email)
+        # Create one linked and one unlinked task
+        client.post("/api/tasks/", json={
+            "title": "Linked to course",
+            "course_id": linked_entities["course"].id,
+        }, headers=headers)
+        client.post("/api/tasks/", json={"title": "Not linked"}, headers=headers)
+
+        resp = client.get(f"/api/tasks/?course_id={linked_entities['course'].id}", headers=headers)
+        assert resp.status_code == 200
+        for t in resp.json():
+            assert t["course_id"] == linked_entities["course"].id
+
+    def test_student_creates_linked_task(self, client, users, linked_entities):
+        """Students can also create tasks with entity links."""
+        headers = _auth(client, users["child_user"].email)
+        resp = client.post("/api/tasks/", json={
+            "title": "Study for test",
+            "course_id": linked_entities["course"].id,
+            "study_guide_id": linked_entities["guide"].id,
+        }, headers=headers)
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["course_id"] == linked_entities["course"].id
+        assert body["study_guide_id"] == linked_entities["guide"].id
+
+    def test_teacher_creates_linked_task(self, client, users, linked_entities):
+        """Teachers can create tasks linked to their course content."""
+        headers = _auth(client, users["teacher_user"].email)
+        resp = client.post("/api/tasks/", json={
+            "title": "Review chapter 5",
+            "course_id": linked_entities["course"].id,
+            "course_content_id": linked_entities["content"].id,
+        }, headers=headers)
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["course_id"] == linked_entities["course"].id
+        assert body["course_content_id"] == linked_entities["content"].id
+        assert body["course_content_title"] == "Chapter 5 Notes"
