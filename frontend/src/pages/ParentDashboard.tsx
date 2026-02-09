@@ -733,6 +733,16 @@ export function ParentDashboard() {
             ))}
           </div>
 
+          {/* Quick Actions Above Calendar */}
+          <div className="calendar-actions-bar">
+            <button className="btn-accent-outline" onClick={() => setShowStudyModal(true)}>
+              + Create Study Guide
+            </button>
+            <button className="btn-accent-outline" onClick={() => navigate('/study-guides')}>
+              View Study Guides
+            </button>
+          </div>
+
           {/* Calendar */}
           {overviewLoading ? (
             <div className="loading-state">Loading child data...</div>

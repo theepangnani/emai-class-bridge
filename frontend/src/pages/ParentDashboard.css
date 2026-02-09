@@ -67,6 +67,30 @@
   color: var(--color-ink-muted);
 }
 
+.calendar-actions-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-accent-outline {
+  padding: 8px 16px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-accent-strong);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-accent-outline:hover {
+  background: rgba(73, 184, 192, 0.08);
+  box-shadow: 0 0 0 2px rgba(73, 184, 192, 0.12);
+}
+
 .no-children-state {
   text-align: center;
   padding: 60px 20px;
