@@ -72,7 +72,7 @@ Education ecosystems are fragmented:
 - Generate flashcards
 - Summarize teacher handouts
 - Identify strengths and weaknesses
-- **Confirmation dialogs**: All AI generation actions (study guide, quiz, flashcard) require explicit user confirmation before calling the API, preventing accidental credit usage
+- **Confirmation dialogs**: All AI generation and destructive actions use custom styled confirmation modals (ConfirmModal component with useConfirm hook) instead of native browser dialogs, with danger variant for destructive operations like permanent delete
 - **Robust JSON parsing**: AI responses wrapped in markdown code fences (` ```json ... ``` `) are automatically stripped before parsing, preventing "Failed to parse" errors
 - **Non-blocking generation**: AI study material generation is fully non-blocking. Modal closes immediately after submission, a pulsing "Generating..." placeholder row appears in the study materials list, and the user can continue working. On success the placeholder is replaced with the real guide; on failure it shows an error with a dismiss button. Works from both Study Guides page and Parent Dashboard (queues generation and navigates to Study Guides page)
 
@@ -640,6 +640,8 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Non-blocking AI generation** — Study material generation closes modal immediately, shows pulsing placeholder in list, generates in background; works from Study Guides page and Parent Dashboard (IMPLEMENTED)
 - [x] **Calendar quick-action buttons** — "+ Create Study Guide" and "View Study Guides" buttons above calendar on Parent Dashboard (IMPLEMENTED)
 - [x] **Fix users.email nullable in PostgreSQL** — Startup migration to DROP NOT NULL on users.email for parent-created child accounts without email (IMPLEMENTED)
+- [x] **Styled confirmation modals** — Replace all 13 native `window.confirm()` calls with custom ConfirmModal component; promise-based useConfirm hook; danger variant for destructive actions; consistent app-styled design across all pages (IMPLEMENTED)
+- [x] **Lazy chunk retry on deploy** — `lazyRetry()` wrapper around `React.lazy()` catches stale chunk 404s after deployment and auto-reloads once (sessionStorage guard prevents infinite loops) (IMPLEMENTED)
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -1015,6 +1017,8 @@ Current feature issues are tracked in GitHub:
 - Issue #157: ~~Non-blocking AI study material generation with progress placeholder~~ (CLOSED)
 - Issue #158: ~~Add calendar quick-action buttons on Parent Dashboard~~ (CLOSED)
 - Issue #159: ~~Fix: make users.email nullable in PostgreSQL for parent-created students~~ (CLOSED)
+- Issue #160: ~~Replace native window.confirm with styled ConfirmModal component~~ (CLOSED)
+- Issue #161: ~~Add lazy import retry to auto-recover from stale chunks after deploy~~ (CLOSED)
 
 ### Phase 1 - Open
 - Issue #41: Multi-Google account support for teachers
