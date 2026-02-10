@@ -382,6 +382,14 @@
   margin-bottom: 8px;
 }
 
+.cal-popover-title.clickable {
+  cursor: pointer;
+}
+
+.cal-popover-title.clickable:hover {
+  color: var(--color-accent);
+}
+
 .cal-popover-course {
   display: flex;
   align-items: center;

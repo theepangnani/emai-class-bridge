@@ -73,8 +73,16 @@ export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreate
         <div className="cal-popover-child">Student: {assignment.childName}</div>
       )}
       <div className="cal-popover-actions">
+        {assignment.itemType === 'task' && (
+          <button
+            className="cal-popover-action"
+            onClick={() => { onClose(); navigate(`/tasks/${assignment.id}`); }}
+          >
+            See Task Details
+          </button>
+        )}
         <button
-          className="cal-popover-action"
+          className={`cal-popover-action${assignment.itemType === 'task' ? ' secondary' : ''}`}
           onClick={() => onCreateStudyGuide(assignment)}
         >
           Create Study Guide
