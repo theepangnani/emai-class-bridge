@@ -148,6 +148,15 @@ export function StudyGuidesPage() {
     } catch { /* ignore */ }
   };
 
+  const handleConvertGuide = (guide: StudyGuide, targetType: 'study_guide' | 'quiz' | 'flashcards') => {
+    startGeneration({
+      title: guide.title.replace(/^(Study Guide|Quiz|Flashcards): ?/i, ''),
+      content: guide.guide_type === 'study_guide' ? guide.content : '',
+      type: targetType,
+      mode: 'text',
+    });
+  };
+
   const contentTypeIcon = (type: string) => {
     const icons: Record<string, string> = {
       notes: '\uD83D\uDCDD',
@@ -412,6 +421,21 @@ export function StudyGuidesPage() {
                     </div>
                   </div>
                   <div className="guide-row-actions">
+                    {guide.guide_type !== 'quiz' && (
+                      <button className="guide-convert-btn" title="Generate quiz from this" onClick={() => handleConvertGuide(guide, 'quiz')}>
+                        Quiz
+                      </button>
+                    )}
+                    {guide.guide_type !== 'flashcards' && (
+                      <button className="guide-convert-btn" title="Generate flashcards from this" onClick={() => handleConvertGuide(guide, 'flashcards')}>
+                        Cards
+                      </button>
+                    )}
+                    {guide.guide_type !== 'study_guide' && (
+                      <button className="guide-convert-btn" title="Generate study guide from this" onClick={() => handleConvertGuide(guide, 'study_guide')}>
+                        Guide
+                      </button>
+                    )}
                     <button
                       className="guide-convert-btn"
                       title="Create task from this"
