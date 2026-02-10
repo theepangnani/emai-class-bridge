@@ -29,6 +29,7 @@ from app.schemas.study import (
     DuplicateCheckResponse,
 )
 from app.api.deps import get_current_user
+from app.services.audit_service import log_action
 from app.services.ai_service import generate_study_guide, generate_quiz, generate_flashcards
 from app.services.file_processor import (
     process_file,
@@ -312,6 +313,8 @@ async def generate_study_guide_endpoint(
         content_hash=content_hash,
     )
     db.add(study_guide)
+    db.flush()
+    log_action(db, user_id=current_user.id, action="create", resource_type="study_guide", resource_id=study_guide.id, details={"guide_type": "study_guide"})
     db.commit()
     db.refresh(study_guide)
 
@@ -633,6 +636,7 @@ def delete_study_guide(
     if not guide:
         raise HTTPException(status_code=404, detail="Study guide not found")
     db.delete(guide)
+    log_action(db, user_id=current_user.id, action="delete", resource_type="study_guide", resource_id=guide_id)
     db.commit()
     return None
 

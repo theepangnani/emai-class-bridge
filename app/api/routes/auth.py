@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import insert
@@ -13,12 +13,13 @@ from app.models.invite import Invite, InviteType
 from app.schemas.user import UserCreate, UserResponse, Token
 from app.schemas.invite import AcceptInviteRequest
 from app.core.security import verify_password, get_password_hash, create_access_token
+from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=UserResponse)
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
+def register(user_data: UserCreate, request: Request, db: Session = Depends(get_db)):
     # Check if user exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
@@ -51,6 +52,9 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
         student = Student(user_id=user.id)
         db.add(student)
 
+    log_action(db, user_id=user.id, action="create", resource_type="user", resource_id=user.id,
+               details={"role": user_data.role, "email": user_data.email},
+               ip_address=request.client.host if request.client else None)
     db.commit()
     db.refresh(user)
     return user
@@ -58,23 +62,31 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
+    ip = request.client.host if request.client else None
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
+        log_action(db, user_id=None, action="login_failed", resource_type="user",
+                   details={"email": form_data.username}, ip_address=ip)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    log_action(db, user_id=user.id, action="login", resource_type="user",
+               resource_id=user.id, ip_address=ip)
+    db.commit()
     access_token = create_access_token(data={"sub": str(user.id)})
     return Token(access_token=access_token)
 
 
 @router.post("/accept-invite", response_model=Token)
-def accept_invite(data: AcceptInviteRequest, db: Session = Depends(get_db)):
+def accept_invite(data: AcceptInviteRequest, request: Request, db: Session = Depends(get_db)):
     """Accept an invite and create a new user account."""
     # Validate token
     invite = db.query(Invite).filter(Invite.token == data.token).first()
@@ -150,6 +162,9 @@ def accept_invite(data: AcceptInviteRequest, db: Session = Depends(get_db)):
 
     # Mark invite as accepted
     invite.accepted_at = datetime.utcnow()
+    log_action(db, user_id=user.id, action="create", resource_type="user", resource_id=user.id,
+               details={"via": "invite", "invite_type": invite.invite_type.value, "email": invite.email},
+               ip_address=request.client.host if request.client else None)
     db.commit()
 
     # Return JWT so the user is logged in immediately

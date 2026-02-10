@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     max_study_guides_per_student: int = 100
     max_study_guides_per_parent: int = 200
 
+    # Audit logging
+    audit_log_enabled: bool = True
+    audit_log_retention_days: int = 90
+
     # Email (SendGrid)
     sendgrid_api_key: str = ""
     from_email: str = "noreply@classbridge.app"

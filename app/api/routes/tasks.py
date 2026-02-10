@@ -15,6 +15,7 @@ from app.models.course_content import CourseContent
 from app.models.study_guide import StudyGuide
 from app.api.deps import get_current_user
 from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
+from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 VALID_PRIORITIES = {"low", "medium", "high"}
@@ -299,6 +300,9 @@ def create_task(
         study_guide_id=request.study_guide_id,
     )
     db.add(task)
+    db.flush()
+    log_action(db, user_id=current_user.id, action="create", resource_type="task", resource_id=task.id,
+               details={"title": request.title, "assigned_to": request.assigned_to_user_id})
     db.commit()
     db.refresh(task)
     return _task_to_response(task, db)
@@ -385,6 +389,8 @@ def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     task.archived_at = datetime.utcnow()
+    log_action(db, user_id=current_user.id, action="delete", resource_type="task", resource_id=task.id,
+               details={"title": task.title})
     db.commit()
 
 

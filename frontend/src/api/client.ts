@@ -748,6 +748,24 @@ export interface AdminStats {
   total_assignments: number;
 }
 
+// Audit Log Types
+export interface AuditLogItem {
+  id: number;
+  user_id: number | null;
+  user_name: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: number | null;
+  details: string | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface AuditLogList {
+  items: AuditLogItem[];
+  total: number;
+}
+
 // Admin API
 export const adminApi = {
   getStats: async () => {
@@ -758,6 +776,11 @@ export const adminApi = {
   getUsers: async (params?: { role?: string; search?: string; skip?: number; limit?: number }) => {
     const response = await api.get('/api/admin/users', { params });
     return response.data as AdminUserList;
+  },
+
+  getAuditLogs: async (params?: { user_id?: number; action?: string; resource_type?: string; date_from?: string; date_to?: string; search?: string; skip?: number; limit?: number }) => {
+    const response = await api.get('/api/admin/audit-logs', { params });
+    return response.data as AuditLogList;
   },
 };
 

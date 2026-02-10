@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { adminApi } from '../api/client';
 import type { AdminStats, AdminUserItem } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
@@ -87,6 +88,12 @@ export function AdminDashboard() {
       </div>
 
       <div className="dashboard-sections">
+        <section className="section" style={{ marginBottom: '16px' }}>
+          <Link to="/admin/audit-log" className="admin-audit-link">
+            View Audit Log &rarr;
+          </Link>
+        </section>
+
         <section className="section admin-users-section">
           <h3>User Management</h3>
 

@@ -41,6 +41,7 @@ const StudyGuidesListPage = lazyRetry(() => import('./pages/StudyGuidesPage').th
 const TasksPage = lazyRetry(() => import('./pages/TasksPage').then((m) => ({ default: m.TasksPage })));
 const TaskDetailPage = lazyRetry(() => import('./pages/TaskDetailPage').then((m) => ({ default: m.TaskDetailPage })));
 const CourseMaterialDetailPage = lazyRetry(() => import('./pages/CourseMaterialDetailPage').then((m) => ({ default: m.CourseMaterialDetailPage })));
+const AdminAuditLog = lazyRetry(() => import('./pages/AdminAuditLog').then((m) => ({ default: m.AdminAuditLog })));
 const AcceptInvite = lazyRetry(() => import('./pages/AcceptInvite').then((m) => ({ default: m.AcceptInvite })));
 
 // Clear the chunk reload flag on successful app boot
@@ -145,6 +146,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TaskDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/audit-log"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminAuditLog />
                   </ProtectedRoute>
                 }
               />

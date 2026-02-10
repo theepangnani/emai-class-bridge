@@ -15,6 +15,7 @@ from pydantic import BaseModel as PydanticBaseModel
 from app.models.study_guide import StudyGuide
 from app.models.invite import Invite, InviteType
 from app.api.deps import require_role
+from app.services.audit_service import log_action
 from app.core.config import settings
 from app.schemas.parent import (
     ChildSummary, ChildOverview, LinkChildRequest, CreateChildRequest,
@@ -56,6 +57,8 @@ def list_children(
             relationship_type=rel_type.value if rel_type else None,
         ))
 
+    log_action(db, user_id=current_user.id, action="read", resource_type="children", details={"count": len(result)})
+    db.commit()
     return result
 
 
@@ -485,6 +488,8 @@ def get_child_overview(
 
     user = student.user
     google_connected = bool(user.google_access_token) if user else False
+    log_action(db, user_id=current_user.id, action="read", resource_type="student", resource_id=student_id)
+    db.commit()
     return ChildOverview(
         student_id=student.id,
         user_id=student.user_id,

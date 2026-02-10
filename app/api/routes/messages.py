@@ -20,6 +20,7 @@ from app.schemas.message import (
     UnreadCountResponse,
 )
 from app.api.deps import get_current_user
+from app.services.audit_service import log_action
 
 logger = logging.getLogger(__name__)
 
@@ -443,6 +444,8 @@ def send_message(
         content=data.content,
     )
     db.add(message)
+    db.flush()
+    log_action(db, user_id=current_user.id, action="create", resource_type="message", resource_id=message.id)
     db.commit()
     db.refresh(message)
 

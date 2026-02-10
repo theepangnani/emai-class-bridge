@@ -428,6 +428,8 @@ A cross-role task/todo manager integrated into the calendar, available to all EM
 - Quick-add from calendar date click, Day Detail Modal, dedicated Tasks page, Study Guides page (+Task button per guide), or Course Detail page (+Task button per content item)
 - Filter by status (pending, completed), priority, date range, assignee, course
 - Dedicated `/tasks` page for full task management (all roles)
+- **Task Detail Page** (`/tasks/:id`): Dedicated page showing task info card (title, description, due date, priority, status, assignee, creator), toggle complete / delete actions, and linked resources section (study guide, course material, course links). `GET /api/tasks/{task_id}` endpoint with creator/assignee/parent authorization
+- **Calendar task popover**: Clicking a task on the calendar shows a popover with a "See Task Details" button that navigates to the Task Detail Page
 
 #### Cross-Role Task Assignment
 Any user can create a task and assign it to a related user. Relationship verification is enforced server-side:
@@ -448,7 +450,7 @@ Any user can create a task and assign it to a related user. Relationship verific
 - Completed tasks show strikethrough text + muted opacity
 - Clicking a calendar date opens a **Day Detail Modal** showing all assignments + tasks for that date
 - Day Detail Modal supports: viewing items, adding new tasks, toggling completion, editing/deleting existing items
-- Clicking a task on the calendar opens the task for editing
+- Clicking a task on the calendar opens a popover; task title is clickable and navigates to Task Detail Page (`/tasks/:id`). Popover also shows a "See Task Details" button for discoverability
 - **Drag-and-drop rescheduling**: Users can drag task entries (chips in month view, cards in week/3-day view) to a different day to reschedule. Uses native HTML5 DnD with optimistic UI and rollback on failure. Only tasks are draggable — assignments remain fixed. Drop targets highlight with a blue dashed outline during drag.
 
 #### Reminders
@@ -479,7 +481,43 @@ Any user can create a task and assign it to a related user. Relationship verific
 - Parent calendar aggregates children's assignments via `parent_students` + `student_courses` + `assignments`
 - GET `/api/tasks/` returns tasks where user is creator OR assignee
 
-### 6.14 AI Email Communication Agent (Phase 5)
+### 6.14 Audit Logging (Phase 1) - IMPLEMENTED
+
+Persistent audit log tracking sensitive actions for FERPA/PIPEDA compliance and security incident investigation.
+
+#### What's Logged
+| Action | Resource | Route |
+|--------|----------|-------|
+| login / login_failed | user | `auth.py` |
+| create (register, accept-invite) | user | `auth.py` |
+| create / delete | task | `tasks.py` |
+| create / delete | study_guide | `study.py` |
+| create / update | course | `courses.py` |
+| create | message | `messages.py` |
+| read (list children, child overview) | student / children | `parent.py` |
+| sync | google_classroom | `google_classroom.py` |
+
+#### Data Model
+- `audit_logs` table: id, user_id (FK→users, nullable for failed logins), action (String(20)), resource_type (String(50)), resource_id (nullable), details (JSON text), ip_address (String(45)), user_agent (String(500)), created_at
+- Indexes: (user_id, created_at), (resource_type, resource_id), (action, created_at)
+
+#### Admin API
+- `GET /api/admin/audit-logs` — paginated, filterable (user_id, action, resource_type, date_from, date_to, search). Admin only. Returns items with resolved user_name
+
+#### Admin UI
+- `/admin/audit-log` — table view with filters (action, resource type, search), pagination
+- Linked from Admin Dashboard via "View Audit Log" button
+
+#### Configuration
+- `AUDIT_LOG_ENABLED` (default: true) — feature toggle
+- `AUDIT_LOG_RETENTION_DAYS` (default: 90) — retention period for cleanup
+
+#### Design
+- Append-only: no update/delete API for audit entries
+- Non-blocking: `log_action()` silently fails on error, never blocks requests
+- Uses `String(20)` for action column (not Enum) for SQLite/PostgreSQL compatibility
+
+### 6.15 AI Email Communication Agent (Phase 5)
 - Compose messages inside ClassBridge
 - AI formats and sends email to teacher
 - AI-powered reply suggestions
@@ -686,6 +724,9 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Styled confirmation modals** — Replace all 13 native `window.confirm()` calls with custom ConfirmModal component; promise-based useConfirm hook; danger variant for destructive actions; consistent app-styled design across all pages (IMPLEMENTED)
 - [x] **Lazy chunk retry on deploy** — `lazyRetry()` wrapper around `React.lazy()` catches stale chunk 404s after deployment and auto-reloads once (sessionStorage guard prevents infinite loops) (IMPLEMENTED)
 - [x] **Course materials restructure** — Refactor Study Guides page to list course materials (course_contents) with tabbed detail view (Original Document / Study Guide / Quiz / Flashcards); add `course_content_id` FK to study_guides; parent child+course filters; default "My Materials" course per user (IMPLEMENTED)
+- [x] **Audit logging** — `audit_logs` table with admin API and UI; logs login, register, task CRUD, study guide CRUD, course CRUD, message send, parent child access, Google sync; configurable retention (IMPLEMENTED)
+- [x] **Task Detail Page** — Dedicated `/tasks/:id` page with info card, actions, linked resources; `GET /api/tasks/{task_id}` endpoint; clickable task titles in calendar popover (IMPLEMENTED)
+- [ ] **Calendar task popover: See Task Details button** — Add explicit "See Task Details" button to task popover for navigation to Task Detail Page
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -918,6 +959,7 @@ src/domains/{context}/
 | `/api/invites/sent` | GET | List invites sent by current user |
 | `/api/admin/users` | GET | Paginated user list with search/filter (admin only) |
 | `/api/admin/stats` | GET | Platform statistics (admin only) |
+| `/api/admin/audit-logs` | GET | Paginated audit logs with filters (admin only) |
 | `/api/tasks/` | GET | List tasks (creator or assignee, filters: is_completed, priority, include_archived, course_id) |
 | `/api/tasks/` | POST | Create task (with optional cross-role assignment and entity linking: course_id, course_content_id, study_guide_id) |
 | `/api/tasks/{id}` | PATCH | Update task (creator: all fields; assignee: completion only) |
@@ -970,7 +1012,7 @@ ClassBridge handles student data subject to FERPA, PIPEDA, and MFIPPA. The follo
 - **Consent Management**: Track and store user consent for data collection, Google OAuth scopes, and email communications. Allow users to withdraw consent.
 - **Data Retention**: Define retention periods for inactive accounts, expired invites, and completed tasks. Auto-purge after defined periods.
 - **Minor Data Protection**: Student accounts (especially those created by parents) require additional protections — no marketing emails, limited data sharing, parental consent for under-13 users.
-- **Audit Logging**: Log access to sensitive data (parent viewing child data, admin viewing user list) for compliance auditing.
+- **Audit Logging**: Log access to sensitive data (parent viewing child data, admin viewing user list) for compliance auditing. **Phase 1 implementation complete** — see §6.14. Future: log export, alerting, archival to external storage.
 
 ---
 
@@ -1086,6 +1128,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #116: Courses: Add structured course content types + reference/Google Classroom links~~ ✅
 - Issue #119: Recurring Tasks: Feasibility + implementation proposal
 - ~~Issue #126: Calendar Task Actions: Add quick links beyond Create Study Guide~~ ✅
+- Issue #166: Audit logging: persistent audit trail with admin API and UI (IMPLEMENTED)
 
 ### Phase 1.5 - Calendar Extension, Content & School Integration
 - Issue #96: Student email identity merging (personal + school email)

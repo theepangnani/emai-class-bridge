@@ -8,6 +8,7 @@ from app.models.teacher import Teacher
 from app.models.student import Student
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.api.deps import get_current_user, require_role
+from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 
@@ -58,6 +59,8 @@ def create_course(
 
     course = Course(**course_dict)
     db.add(course)
+    db.flush()
+    log_action(db, user_id=current_user.id, action="create", resource_type="course", resource_id=course.id, details={"name": course.name})
     db.commit()
     db.refresh(course)
     return course
@@ -192,6 +195,8 @@ def update_course(
     for field, value in update_data.items():
         setattr(course, field, value)
 
+    db.flush()
+    log_action(db, user_id=current_user.id, action="update", resource_type="course", resource_id=course_id)
     db.commit()
     db.refresh(course)
     return course

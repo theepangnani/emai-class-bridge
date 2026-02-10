@@ -12,6 +12,7 @@ from app.models.assignment import Assignment
 from app.models.student import Student
 from app.models.teacher import Teacher
 from app.api.deps import get_current_user
+from app.services.audit_service import log_action
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.services.google_classroom import (
@@ -310,6 +311,9 @@ def sync_google_courses(
         )
 
     synced = _sync_courses_for_user(current_user, db)
+
+    log_action(db, user_id=current_user.id, action="sync", resource_type="google_classroom")
+    db.commit()
 
     return {
         "message": f"Synced {len(synced)} courses",
