@@ -91,7 +91,7 @@ Persistent storage, organization, and lifecycle management for AI-generated stud
 - **Deletion**: Users can delete their own study guides. Deleting a parent guide does not cascade to child versions
 - **Course Assignment**: Any user can assign/reassign their study guides to a course via `PATCH /api/study/guides/{guide_id}`. A reusable `CourseAssignSelect` dropdown component is available on study guide view pages (StudyGuidePage, QuizPage, FlashcardsPage) and inline in dashboard study material lists
 
-#### 6.2.2 Course Materials Restructure (Phase 1)
+#### 6.2.2 Course Materials Restructure (Phase 1) - IMPLEMENTED
 
 Restructure the Study Guides page to centre on **course materials** (course content items) rather than listing study guides directly. Each course material is the source document from which AI study tools (study guide, quiz, flashcards) are generated.
 
@@ -685,7 +685,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Fix users.email nullable in PostgreSQL** — Startup migration to DROP NOT NULL on users.email for parent-created child accounts without email (IMPLEMENTED)
 - [x] **Styled confirmation modals** — Replace all 13 native `window.confirm()` calls with custom ConfirmModal component; promise-based useConfirm hook; danger variant for destructive actions; consistent app-styled design across all pages (IMPLEMENTED)
 - [x] **Lazy chunk retry on deploy** — `lazyRetry()` wrapper around `React.lazy()` catches stale chunk 404s after deployment and auto-reloads once (sessionStorage guard prevents infinite loops) (IMPLEMENTED)
-- [ ] **Course materials restructure** — Refactor Study Guides page to list course materials (course_contents) with tabbed detail view (Original Document / Study Guide / Quiz / Flashcards); add `course_content_id` FK to study_guides; parent child+course filters; default "My Materials" course per user
+- [x] **Course materials restructure** — Refactor Study Guides page to list course materials (course_contents) with tabbed detail view (Original Document / Study Guide / Quiz / Flashcards); add `course_content_id` FK to study_guides; parent child+course filters; default "My Materials" course per user (IMPLEMENTED)
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -1063,12 +1063,12 @@ Current feature issues are tracked in GitHub:
 - Issue #159: ~~Fix: make users.email nullable in PostgreSQL for parent-created students~~ (CLOSED)
 - Issue #160: ~~Replace native window.confirm with styled ConfirmModal component~~ (CLOSED)
 - Issue #161: ~~Add lazy import retry to auto-recover from stale chunks after deploy~~ (CLOSED)
+- Issue #162: ~~Backend: Add course_content_id FK to study_guides and is_default to courses~~ (CLOSED)
+- Issue #163: ~~Backend: Auto-create default course + CourseContent on study guide generation~~ (CLOSED)
+- Issue #164: ~~Frontend: Course Material tabbed detail view (Original / Study Guide / Quiz / Flashcards)~~ (CLOSED)
+- Issue #165: ~~Frontend: Refactor Study Guides page to list course materials with child/course filters~~ (CLOSED)
 
 ### Phase 1 - Open
-- Issue #162: Backend: Add course_content_id FK to study_guides and is_default to courses
-- Issue #163: Backend: Auto-create default course + CourseContent on study guide generation
-- Issue #164: Frontend: Course Material tabbed detail view (Original / Study Guide / Quiz / Flashcards)
-- Issue #165: Frontend: Refactor Study Guides page to list course materials with child/course filters
 - Issue #41: Multi-Google account support for teachers
 - Issue #42: Manual course creation for teachers
 - Issue #49: Manual assignment creation for teachers
