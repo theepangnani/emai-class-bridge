@@ -164,9 +164,21 @@ export function StudyGuidesPage() {
   };
 
   const handleConvertGuide = (guide: StudyGuide, targetType: 'study_guide' | 'quiz' | 'flashcards') => {
+    let content = guide.content;
+    // Extract readable text from quiz/flashcard JSON
+    if (guide.guide_type !== 'study_guide') {
+      try {
+        const parsed = JSON.parse(guide.content);
+        if (guide.guide_type === 'quiz') {
+          content = parsed.map((q: any) => `Q: ${q.question}\nA: ${q.correct_answer}`).join('\n\n');
+        } else {
+          content = parsed.map((c: any) => `${c.front}: ${c.back}`).join('\n');
+        }
+      } catch { /* use raw content */ }
+    }
     startGeneration({
       title: guide.title.replace(/^(Study Guide|Quiz|Flashcards): ?/i, ''),
-      content: guide.guide_type === 'study_guide' ? guide.content : '',
+      content,
       type: targetType,
       mode: 'text',
     });
@@ -349,9 +361,9 @@ export function StudyGuidesPage() {
         <div className="guides-filter">
           {[
             { key: 'all', label: 'All' },
-            { key: 'study_guide', label: 'Study Guides' },
-            { key: 'quiz', label: 'Quizzes' },
-            { key: 'flashcards', label: 'Flashcards' },
+            { key: 'study_guide', label: '\uD83D\uDCD6 Study Guides' },
+            { key: 'quiz', label: '\u2753 Quizzes' },
+            { key: 'flashcards', label: '\uD83C\uDCCF Flashcards' },
           ].map(tab => (
             <button
               key={tab.key}
