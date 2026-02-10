@@ -453,29 +453,29 @@ export function StudyGuidesPage() {
                   </div>
                   <div className="guide-row-actions">
                     {guide.guide_type !== 'quiz' && (
-                      <button className="guide-convert-btn" title="Generate quiz from this" onClick={() => handleConvertGuide(guide, 'quiz')}>
-                        Quiz
+                      <button className="guide-convert-btn" title="Generate quiz" onClick={() => handleConvertGuide(guide, 'quiz')}>
+                        &#10067;
                       </button>
                     )}
                     {guide.guide_type !== 'flashcards' && (
-                      <button className="guide-convert-btn" title="Generate flashcards from this" onClick={() => handleConvertGuide(guide, 'flashcards')}>
-                        Cards
+                      <button className="guide-convert-btn" title="Generate flashcards" onClick={() => handleConvertGuide(guide, 'flashcards')}>
+                        &#127183;
                       </button>
                     )}
                     {guide.guide_type !== 'study_guide' && (
-                      <button className="guide-convert-btn" title="Generate study guide from this" onClick={() => handleConvertGuide(guide, 'study_guide')}>
-                        Guide
+                      <button className="guide-convert-btn" title="Generate study guide" onClick={() => handleConvertGuide(guide, 'study_guide')}>
+                        &#128214;
                       </button>
                     )}
                     <button
                       className="guide-convert-btn"
-                      title="Create task from this"
+                      title="Create task"
                       onClick={() => setTaskModalGuide(guide)}
                     >
-                      +Task
+                      &#128203;
                     </button>
-                    <button className="guide-delete-btn" onClick={() => handleDeleteLegacyGuide(guide.id)}>
-                      &times;
+                    <button className="guide-delete-btn" title="Delete" onClick={() => handleDeleteLegacyGuide(guide.id)}>
+                      &#128465;
                     </button>
                   </div>
                 </div>
