@@ -795,6 +795,11 @@ export interface AssignableUser {
 
 // Tasks API
 export const tasksApi = {
+  get: async (taskId: number) => {
+    const response = await api.get(`/api/tasks/${taskId}`);
+    return response.data as TaskItem;
+  },
+
   list: async (params?: { assigned_to_user_id?: number; is_completed?: boolean; priority?: string; include_archived?: boolean; course_id?: number }) => {
     const response = await api.get('/api/tasks/', { params });
     return response.data as TaskItem[];

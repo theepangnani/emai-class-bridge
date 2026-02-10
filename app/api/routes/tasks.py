@@ -241,6 +241,32 @@ def list_tasks(
     return [_task_to_response(t, db) for t in tasks]
 
 
+@router.get("/{task_id}", response_model=TaskResponse)
+def get_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a single task by ID. Only accessible to creator or assignee."""
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.created_by_user_id != current_user.id and task.assigned_to_user_id != current_user.id:
+        # Parents can also view tasks assigned to their children
+        if current_user.role == UserRole.PARENT:
+            child_user_ids = [
+                r[0] for r in db.query(Student.user_id)
+                .join(parent_students, parent_students.c.student_id == Student.id)
+                .filter(parent_students.c.parent_id == current_user.id)
+                .all()
+            ]
+            if task.assigned_to_user_id not in child_user_ids and task.created_by_user_id not in child_user_ids:
+                raise HTTPException(status_code=403, detail="Not authorized to view this task")
+        else:
+            raise HTTPException(status_code=403, detail="Not authorized to view this task")
+    return _task_to_response(task, db)
+
+
 @router.post("/", response_model=TaskResponse, status_code=201)
 def create_task(
     request: TaskCreate,

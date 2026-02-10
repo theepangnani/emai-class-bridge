@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { CalendarAssignment } from './types';
 
 interface CalendarEntryPopoverProps {
@@ -11,6 +12,7 @@ interface CalendarEntryPopoverProps {
 }
 
 export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreateStudyGuide, onGoToCourse, onViewStudyGuides }: CalendarEntryPopoverProps) {
+  const navigate = useNavigate();
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,7 +39,17 @@ export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreate
       className="cal-popover"
       style={{ top, left }}
     >
-      <div className="cal-popover-title">{assignment.title}</div>
+      <div
+        className={`cal-popover-title${assignment.itemType === 'task' ? ' clickable' : ''}`}
+        onClick={() => {
+          if (assignment.itemType === 'task') {
+            onClose();
+            navigate(`/tasks/${assignment.id}`);
+          }
+        }}
+      >
+        {assignment.title}
+      </div>
       <div className="cal-popover-course">
         <span className="cal-entry-dot" style={{ background: assignment.courseColor }} />
         {assignment.courseName}
