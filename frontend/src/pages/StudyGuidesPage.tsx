@@ -55,6 +55,7 @@ export function StudyGuidesPage() {
   // Filters
   const [filterChild, setFilterChild] = useState<number | ''>('');
   const [filterCourse, setFilterCourse] = useState<number | ''>('');
+  const [filterType, setFilterType] = useState<string>('all');
   const [children, setChildren] = useState<ChildSummary[]>([]);
   const [courses, setCourses] = useState<CourseOption[]>([]);
 
@@ -264,6 +265,11 @@ export function StudyGuidesPage() {
     ? contentItems.filter(c => c.course_id === filterCourse)
     : contentItems;
 
+  // Apply guide type filter to legacy guides
+  const filteredLegacy = filterType === 'all'
+    ? legacyGuides
+    : legacyGuides.filter(g => g.guide_type === filterType);
+
   if (loading) {
     return (
       <DashboardLayout welcomeSubtitle="Manage study materials">
@@ -309,6 +315,24 @@ export function StudyGuidesPage() {
             )}
           </div>
           <button className="generate-btn" onClick={() => setShowModal(true)}>+ Create</button>
+        </div>
+
+        {/* Guide type filter tabs */}
+        <div className="guides-filter">
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'study_guide', label: 'Study Guides' },
+            { key: 'quiz', label: 'Quizzes' },
+            { key: 'flashcards', label: 'Flashcards' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              className={`guides-filter-btn${filterType === tab.key ? ' active' : ''}`}
+              onClick={() => setFilterType(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Course content items */}
@@ -368,11 +392,11 @@ export function StudyGuidesPage() {
         </div>
 
         {/* Legacy study guides (no course_content_id) */}
-        {legacyGuides.length > 0 && (
+        {filteredLegacy.length > 0 && (
           <div className="guides-section">
-            <h3>Ungrouped Study Guides ({legacyGuides.length})</h3>
+            <h3>Ungrouped Study Guides ({filteredLegacy.length})</h3>
             <div className="guides-list">
-              {legacyGuides.map(guide => (
+              {filteredLegacy.map(guide => (
                 <div key={guide.id} className="guide-row">
                   <div className="guide-row-main" onClick={() => navigateToLegacyGuide(guide)}>
                     <span className="guide-row-icon">
