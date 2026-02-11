@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { studyApi, parentApi, courseContentsApi, coursesApi } from '../api/client';
-import type { StudyGuide, SupportedFormats, DuplicateCheckResponse, ChildSummary, CourseContentItem } from '../api/client';
+import { studyApi, parentApi, courseContentsApi, coursesApi, tasksApi } from '../api/client';
+import type { StudyGuide, SupportedFormats, DuplicateCheckResponse, ChildSummary, CourseContentItem, AutoCreatedTask } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { CreateTaskModal } from '../components/CreateTaskModal';
@@ -84,6 +84,10 @@ export function StudyGuidesPage() {
 
   // Create task from guide
   const [taskModalGuide, setTaskModalGuide] = useState<StudyGuide | null>(null);
+
+  // Date prompt for auto-created tasks
+  const [datePromptTasks, setDatePromptTasks] = useState<AutoCreatedTask[]>([]);
+  const [datePromptValues, setDatePromptValues] = useState<Record<number, string>>({});
 
   // Categorize ungrouped guide
   const [categorizeGuide, setCategorizeGuide] = useState<StudyGuide | null>(null);
@@ -275,22 +279,32 @@ export function StudyGuidesPage() {
 
     (async () => {
       try {
+        let result: any;
         if (params.mode === 'file' && params.file) {
-          await studyApi.generateFromFile({
+          result = await studyApi.generateFromFile({
             file: params.file, title: params.title || undefined, guide_type: params.type,
             num_questions: params.type === 'quiz' ? 10 : undefined,
             num_cards: params.type === 'flashcards' ? 15 : undefined,
             course_id: params.courseId, course_content_id: params.courseContentId,
           });
         } else if (params.type === 'study_guide') {
-          await studyApi.generateGuide({ title: params.title, content: params.content, regenerate_from_id: params.regenerateId, course_id: params.courseId, course_content_id: params.courseContentId });
+          result = await studyApi.generateGuide({ title: params.title, content: params.content, regenerate_from_id: params.regenerateId, course_id: params.courseId, course_content_id: params.courseContentId });
         } else if (params.type === 'quiz') {
-          await studyApi.generateQuiz({ topic: params.title, content: params.content, num_questions: 10, regenerate_from_id: params.regenerateId, course_id: params.courseId, course_content_id: params.courseContentId });
+          result = await studyApi.generateQuiz({ topic: params.title, content: params.content, num_questions: 10, regenerate_from_id: params.regenerateId, course_id: params.courseId, course_content_id: params.courseContentId });
         } else {
-          await studyApi.generateFlashcards({ topic: params.title, content: params.content, num_cards: 15, regenerate_from_id: params.regenerateId, course_id: params.courseId, course_content_id: params.courseContentId });
+          result = await studyApi.generateFlashcards({ topic: params.title, content: params.content, num_cards: 15, regenerate_from_id: params.regenerateId, course_id: params.courseId, course_content_id: params.courseContentId });
         }
         setGeneratingItems(prev => prev.filter(g => g.tempId !== tempId));
         loadData();
+
+        // Show date prompt for auto-created tasks
+        const tasks = result?.auto_created_tasks;
+        if (tasks && tasks.length > 0) {
+          const dateValues: Record<number, string> = {};
+          tasks.forEach((t: AutoCreatedTask) => { dateValues[t.id] = t.due_date; });
+          setDatePromptValues(dateValues);
+          setDatePromptTasks(tasks);
+        }
       } catch (err: any) {
         setGeneratingItems(prev => prev.map(g =>
           g.tempId === tempId
@@ -329,6 +343,22 @@ export function StudyGuidesPage() {
     setDuplicateCheck(null);
     resetModal();
     startGeneration(params);
+  };
+
+  const handleDatePromptSave = async () => {
+    for (const task of datePromptTasks) {
+      const newDate = datePromptValues[task.id];
+      if (newDate && newDate !== task.due_date) {
+        try { await tasksApi.update(task.id, { due_date: newDate }); } catch { /* ignore */ }
+      }
+    }
+    setDatePromptTasks([]);
+    setDatePromptValues({});
+  };
+
+  const handleDatePromptCancel = () => {
+    setDatePromptTasks([]);
+    setDatePromptValues({});
   };
 
   // Apply course filter
@@ -673,6 +703,35 @@ export function StudyGuidesPage() {
               ) : (
                 <button className="generate-btn" disabled={!categorizeCourseId} onClick={() => handleCategorize()}>Move</button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Date prompt for auto-created tasks */}
+      {datePromptTasks.length > 0 && (
+        <div className="modal-overlay" onClick={handleDatePromptCancel}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Tasks Created</h2>
+            <p className="modal-desc">
+              {datePromptTasks.length === 1
+                ? 'A task was auto-created from your course material. Set the action date:'
+                : `${datePromptTasks.length} tasks were auto-created from your course material. Set the action dates:`}
+            </p>
+            <div className="modal-form">
+              {datePromptTasks.map(task => (
+                <label key={task.id}>
+                  {task.title}
+                  <input
+                    type="date"
+                    value={datePromptValues[task.id] || ''}
+                    onChange={(e) => setDatePromptValues(prev => ({ ...prev, [task.id]: e.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={handleDatePromptCancel}>Skip</button>
+              <button className="generate-btn" onClick={handleDatePromptSave}>Save Dates</button>
             </div>
           </div>
         </div>

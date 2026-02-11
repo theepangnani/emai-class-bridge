@@ -28,6 +28,7 @@ from app.schemas.study import (
     Flashcard,
     DuplicateCheckRequest,
     DuplicateCheckResponse,
+    AutoCreatedTask,
 )
 from app.api.deps import get_current_user
 from app.services.audit_service import log_action
@@ -412,18 +413,23 @@ async def generate_study_guide_endpoint(
     db.add(study_guide)
     db.flush()
 
-    # Auto-create tasks from critical dates
-    if critical_dates:
-        auto_create_tasks_from_dates(
-            db, critical_dates, current_user, study_guide.id,
-            resolved_course_id, resolved_cc_id,
-        )
+    # Auto-create tasks from critical dates (or fallback review task)
+    if not critical_dates:
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        critical_dates = [{"date": today_str, "title": f"Review: {title}", "priority": "medium"}]
 
-    log_action(db, user_id=current_user.id, action="create", resource_type="study_guide", resource_id=study_guide.id, details={"guide_type": "study_guide", "auto_tasks": len(critical_dates)})
+    created_tasks = auto_create_tasks_from_dates(
+        db, critical_dates, current_user, study_guide.id,
+        resolved_course_id, resolved_cc_id,
+    )
+
+    log_action(db, user_id=current_user.id, action="create", resource_type="study_guide", resource_id=study_guide.id, details={"guide_type": "study_guide", "auto_tasks": len(created_tasks)})
     db.commit()
     db.refresh(study_guide)
 
-    return study_guide
+    resp = StudyGuideResponse.model_validate(study_guide)
+    resp.auto_created_tasks = [AutoCreatedTask(**t) for t in created_tasks]
+    return resp
 
 
 @router.post("/quiz/generate", response_model=QuizResponse)
@@ -508,12 +514,15 @@ async def generate_quiz_endpoint(
     db.add(study_guide)
     db.flush()
 
-    # Auto-create tasks from critical dates
-    if critical_dates:
-        auto_create_tasks_from_dates(
-            db, critical_dates, current_user, study_guide.id,
-            resolved_course_id, resolved_cc_id,
-        )
+    # Auto-create tasks from critical dates (or fallback review task)
+    if not critical_dates:
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        critical_dates = [{"date": today_str, "title": f"Review: Quiz: {topic}", "priority": "medium"}]
+
+    created_tasks = auto_create_tasks_from_dates(
+        db, critical_dates, current_user, study_guide.id,
+        resolved_course_id, resolved_cc_id,
+    )
 
     db.commit()
     db.refresh(study_guide)
@@ -526,6 +535,7 @@ async def generate_quiz_endpoint(
         version=study_guide.version,
         parent_guide_id=study_guide.parent_guide_id,
         created_at=study_guide.created_at,
+        auto_created_tasks=[AutoCreatedTask(**t) for t in created_tasks],
     )
 
 
@@ -611,12 +621,15 @@ async def generate_flashcards_endpoint(
     db.add(study_guide)
     db.flush()
 
-    # Auto-create tasks from critical dates
-    if critical_dates:
-        auto_create_tasks_from_dates(
-            db, critical_dates, current_user, study_guide.id,
-            resolved_course_id, resolved_cc_id,
-        )
+    # Auto-create tasks from critical dates (or fallback review task)
+    if not critical_dates:
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        critical_dates = [{"date": today_str, "title": f"Review: Flashcards: {topic}", "priority": "medium"}]
+
+    created_tasks = auto_create_tasks_from_dates(
+        db, critical_dates, current_user, study_guide.id,
+        resolved_course_id, resolved_cc_id,
+    )
 
     db.commit()
     db.refresh(study_guide)
@@ -629,6 +642,7 @@ async def generate_flashcards_endpoint(
         version=study_guide.version,
         parent_guide_id=study_guide.parent_guide_id,
         created_at=study_guide.created_at,
+        auto_created_tasks=[AutoCreatedTask(**t) for t in created_tasks],
     )
 
 

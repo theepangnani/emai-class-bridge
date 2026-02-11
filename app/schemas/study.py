@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Any
 
 
 class StudyGuideCreate(BaseModel):
@@ -10,6 +11,14 @@ class StudyGuideCreate(BaseModel):
     title: str | None = None  # Optional custom title
     content: str | None = None  # Optional custom content to base guide on
     regenerate_from_id: int | None = None  # ID of existing guide to create new version of
+
+
+class AutoCreatedTask(BaseModel):
+    """Summary of an auto-created task."""
+    id: int
+    title: str
+    due_date: str
+    priority: str
 
 
 class StudyGuideResponse(BaseModel):
@@ -25,6 +34,7 @@ class StudyGuideResponse(BaseModel):
     version: int = 1
     parent_guide_id: int | None = None
     created_at: datetime
+    auto_created_tasks: list[AutoCreatedTask] = []
 
     class Config:
         from_attributes = True
@@ -58,6 +68,7 @@ class QuizResponse(BaseModel):
     version: int = 1
     parent_guide_id: int | None = None
     created_at: datetime
+    auto_created_tasks: list[AutoCreatedTask] = []
 
     class Config:
         from_attributes = True
@@ -89,6 +100,7 @@ class FlashcardSetResponse(BaseModel):
     version: int = 1
     parent_guide_id: int | None = None
     created_at: datetime
+    auto_created_tasks: list[AutoCreatedTask] = []
 
     class Config:
         from_attributes = True

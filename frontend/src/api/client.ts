@@ -226,6 +226,13 @@ export const googleApi = {
 };
 
 // Study Tools API
+export interface AutoCreatedTask {
+  id: number;
+  title: string;
+  due_date: string;
+  priority: string;
+}
+
 export interface StudyGuide {
   id: number;
   user_id: number;
@@ -238,6 +245,7 @@ export interface StudyGuide {
   version: number;
   parent_guide_id: number | null;
   created_at: string;
+  auto_created_tasks?: AutoCreatedTask[];
 }
 
 export interface DuplicateCheckResponse {
@@ -261,6 +269,7 @@ export interface Quiz {
   version: number;
   parent_guide_id: number | null;
   created_at: string;
+  auto_created_tasks?: AutoCreatedTask[];
 }
 
 export interface Flashcard {
@@ -276,6 +285,7 @@ export interface FlashcardSet {
   version: number;
   parent_guide_id: number | null;
   created_at: string;
+  auto_created_tasks?: AutoCreatedTask[];
 }
 
 export interface SupportedFormats {

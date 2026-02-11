@@ -161,8 +161,9 @@ Instead of a secondary AI call, the existing generation prompts are enhanced to 
    - **Priority**: `high` for exams/tests, `medium` for homework/assignments
    - **Linked to**: the generated study guide + course
    - **Assigned to**: the student (if parent creates for child) or self
-6. Created tasks are returned in the generation API response
-7. Frontend shows a notification: "Created N tasks from detected dates"
+6. **Fallback task**: If no critical dates are found in the document, a "Review: {title}" task is created with today's date to ensure the user engages with the material
+7. Created tasks are returned in the generation API response (`auto_created_tasks` array)
+8. **Date prompt**: Frontend shows a modal after generation with auto-created tasks and date pickers, allowing the user to adjust action dates. If the user clicks "Skip", today's date is kept as the due date
 
 **Date Extraction Format:**
 - AI includes at end of response: `--- CRITICAL_DATES ---\n[{"date": "2026-03-15", "title": "Biology Exam", "priority": "high"}]`
