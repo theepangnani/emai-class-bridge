@@ -450,7 +450,7 @@ Any user can create a task and assign it to a related user. Relationship verific
 - Completed tasks show strikethrough text + muted opacity
 - Clicking a calendar date opens a **Day Detail Modal** showing all assignments + tasks for that date
 - Day Detail Modal supports: viewing items, adding new tasks, toggling completion, editing/deleting existing items
-- Clicking a task on the calendar opens a popover; task title is clickable and navigates to Task Detail Page (`/tasks/:id`). Popover also shows a "See Task Details" button for discoverability
+- Clicking a task on the calendar opens a popover; task title is clickable and navigates to Task Detail Page (`/tasks/:id`). Popover action buttons use icon buttons with title tooltips: clipboard (See Task Details), open book (Create Study Guide), graduation cap (Go to Course), books (View Study Guides)
 - **Drag-and-drop rescheduling**: Users can drag task entries (chips in month view, cards in week/3-day view) to a different day to reschedule. Uses native HTML5 DnD with optimistic UI and rollback on failure. Only tasks are draggable — assignments remain fixed. Drop targets highlight with a blue dashed outline during drag.
 
 #### Reminders
@@ -726,7 +726,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Course materials restructure** — Refactor Study Guides page to list course materials (course_contents) with tabbed detail view (Original Document / Study Guide / Quiz / Flashcards); add `course_content_id` FK to study_guides; parent child+course filters; default "My Materials" course per user (IMPLEMENTED)
 - [x] **Audit logging** — `audit_logs` table with admin API and UI; logs login, register, task CRUD, study guide CRUD, course CRUD, message send, parent child access, Google sync; configurable retention (IMPLEMENTED)
 - [x] **Task Detail Page** — Dedicated `/tasks/:id` page with info card, actions, linked resources; `GET /api/tasks/{task_id}` endpoint; clickable task titles in calendar popover (IMPLEMENTED)
-- [ ] **Calendar task popover: See Task Details button** — Add explicit "See Task Details" button to task popover for navigation to Task Detail Page
+- [x] **Calendar task popover: See Task Details button** — Icon buttons in popover (clipboard=task details, book=create study guide, graduation cap=go to course, books=view study guides) with title tooltips; fixed task ID offset bug where navigation used calendar-internal offset ID instead of real task ID (IMPLEMENTED)
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -1128,7 +1128,9 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #116: Courses: Add structured course content types + reference/Google Classroom links~~ ✅
 - Issue #119: Recurring Tasks: Feasibility + implementation proposal
 - ~~Issue #126: Calendar Task Actions: Add quick links beyond Create Study Guide~~ ✅
-- Issue #166: Audit logging: persistent audit trail with admin API and UI (IMPLEMENTED)
+- ~~Issue #166: Audit logging: persistent audit trail with admin API and UI~~ ✅
+- ~~Issue #167: Task Detail Page with full task info and actions~~ ✅
+- ~~Issue #168: Calendar task popover: icon buttons + task detail navigation fix~~ ✅
 
 ### Phase 1.5 - Calendar Extension, Content & School Integration
 - Issue #96: Student email identity merging (personal + school email)
