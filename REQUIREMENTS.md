@@ -517,7 +517,48 @@ Persistent audit log tracking sensitive actions for FERPA/PIPEDA compliance and 
 - Non-blocking: `log_action()` silently fails on error, never blocks requests
 - Uses `String(20)` for action column (not Enum) for SQLite/PostgreSQL compatibility
 
-### 6.15 AI Email Communication Agent (Phase 5)
+### 6.15 Color Theme System (Phase 1)
+
+Three site-wide color themes with user preference persistence.
+
+#### Themes
+
+| Theme | Surface | Ink | Accent | Description |
+|-------|---------|-----|--------|-------------|
+| **Light** (default) | `#ffffff` / `#f5f6f9` | `#1b1e2b` / `#5b6274` | `#49b8c0` / `#f4801f` | Current palette, bright and clean |
+| **Dark** | `#1a1d2e` / `#252836` | `#e8eaf0` / `#9ca0b0` | `#5ccfd6` / `#f6923a` | Dark surfaces, lighter text, boosted accents for contrast |
+| **Focus** | `#faf8f5` / `#f0ece6` | `#2c2a26` / `#6b6560` | `#5a9e8f` / `#c47f3b` | Muted warm tones, reduced saturation for extended study sessions |
+
+#### Architecture
+- **CSS approach**: `data-theme` attribute on `<html>` element; CSS variable overrides per theme
+- **ThemeContext**: React context provider (`frontend/src/context/ThemeContext.tsx`) manages active theme, persists to `localStorage` key `classbridge-theme`
+- **Auto-detect**: First visit defaults to OS preference via `prefers-color-scheme` media query (light/dark); "Focus" is user-explicit only
+- **ThemeToggle component**: 3-way toggle (icon-based: sun / moon / leaf) placed in DashboardLayout header
+- **Variable scope**: All color tokens in `:root` / `[data-theme="light"]`, overridden in `[data-theme="dark"]` and `[data-theme="focus"]`
+
+#### Prerequisites
+- Convert all hardcoded hex/rgba colors to CSS variables (especially `CourseMaterialDetailPage.css` which has zero variable usage)
+- Add missing semantic variables: `--color-success`, `--color-accent-bg`, `--color-surface-raised`
+- Add RGB companion variables for `rgba()` patterns: `--color-accent-rgb`, `--color-blue-rgb`
+
+#### Variables Required
+Existing 12 variables + new additions:
+- `--color-success` — green for positive states
+- `--color-accent-bg` — light accent tint for hover/active backgrounds
+- `--color-surface-raised` — elevated card/modal backgrounds
+- `--color-ink-rgb`, `--color-accent-rgb`, `--color-blue-rgb` — RGB triplets for `rgba()` usage
+- `--color-shadow` — shadow base color (opaque in light, transparent in dark)
+
+#### Implementation Steps
+1. Hardcoded color cleanup — refactor ~56 hardcoded color values across ~5 CSS files to use variables
+2. Add new semantic variables to `:root` in `index.css`
+3. Define Dark and Focus theme palettes as `[data-theme="dark"]` and `[data-theme="focus"]` blocks
+4. Create `ThemeContext.tsx` with `useTheme()` hook
+5. Create `ThemeToggle` component (3-way toggle)
+6. Integrate toggle into `DashboardLayout` header
+7. Visual QA on all pages for each theme
+
+### 6.16 AI Email Communication Agent (Phase 5)
 - Compose messages inside ClassBridge
 - AI formats and sends email to teacher
 - AI-powered reply suggestions
@@ -727,6 +768,9 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Audit logging** — `audit_logs` table with admin API and UI; logs login, register, task CRUD, study guide CRUD, course CRUD, message send, parent child access, Google sync; configurable retention (IMPLEMENTED)
 - [x] **Task Detail Page** — Dedicated `/tasks/:id` page with info card, actions, linked resources; `GET /api/tasks/{task_id}` endpoint; clickable task titles in calendar popover (IMPLEMENTED)
 - [x] **Calendar task popover: See Task Details button** — Icon buttons in popover (clipboard=task details, book=create study guide, graduation cap=go to course, books=view study guides) with title tooltips; fixed task ID offset bug where navigation used calendar-internal offset ID instead of real task ID (IMPLEMENTED)
+- [ ] **Color theme system: Hardcoded color cleanup** — Convert ~56 hardcoded hex/rgba values to CSS variables (priority: CourseMaterialDetailPage.css)
+- [ ] **Color theme system: Dark mode** — Define dark palette in `[data-theme="dark"]`, ThemeContext, ThemeToggle in header
+- [ ] **Color theme system: Focus mode** — Define focus palette in `[data-theme="focus"]`, muted warm tones for study sessions
 - [ ] **Make student email optional** — parent can create child with name only (no email, no login)
 - [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
 - [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
@@ -1131,6 +1175,9 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #166: Audit logging: persistent audit trail with admin API and UI~~ ✅
 - ~~Issue #167: Task Detail Page with full task info and actions~~ ✅
 - ~~Issue #168: Calendar task popover: icon buttons + task detail navigation fix~~ ✅
+- Issue #169: Color theme: Clean up hardcoded CSS colors (prerequisite for themes)
+- Issue #170: Color theme: Dark mode (ThemeContext, ThemeToggle, dark palette)
+- Issue #171: Color theme: Focus mode (muted warm tones for study sessions)
 
 ### Phase 1.5 - Calendar Extension, Content & School Integration
 - Issue #96: Student email identity merging (personal + school email)
