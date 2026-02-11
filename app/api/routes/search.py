@@ -17,7 +17,7 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 ENTITY_LABELS = {
     "course": "Courses",
-    "study_guide": "Study Guides",
+    "study_guide": "Course Materials",
     "task": "Tasks",
     "course_content": "Course Content",
 }
@@ -123,7 +123,7 @@ def _search_study_guides(db: Session, term: str, limit: int, user_ids: list[int]
             url=url,
         ))
 
-    return SearchResultGroup(entity_type="study_guide", label="Study Guides", items=items, total=total)
+    return SearchResultGroup(entity_type="study_guide", label="Course Materials", items=items, total=total)
 
 
 def _search_tasks(db: Session, term: str, limit: int, user_ids: list[int]) -> SearchResultGroup:
@@ -174,7 +174,7 @@ def _search_course_content(db: Session, term: str, limit: int, course_ids: list[
             title=cc.title,
             subtitle=cc.content_type or "Content",
             entity_type="course_content",
-            url=f"/study-guides/{cc.id}",
+            url=f"/course-materials/{cc.id}",
         )
         for cc in rows
     ]
@@ -226,7 +226,7 @@ def global_search(
                 url = f"/study/quiz/{g.id}" if guide_type == "quiz" else f"/study/flashcards/{g.id}" if guide_type == "flashcards" else f"/study/guide/{g.id}"
                 type_label = {"quiz": "Quiz", "flashcards": "Flashcards"}.get(guide_type, "Study Guide")
                 items.append(SearchResultItem(id=g.id, title=g.title, subtitle=type_label, entity_type="study_guide", url=url))
-            groups.append(SearchResultGroup(entity_type="study_guide", label="Study Guides", items=items, total=sg_total))
+            groups.append(SearchResultGroup(entity_type="study_guide", label="Course Materials", items=items, total=sg_total))
         else:
             groups.append(_search_study_guides(db, term, limit, admin_user_ids))
 

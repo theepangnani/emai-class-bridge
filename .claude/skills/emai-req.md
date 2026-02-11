@@ -13,7 +13,7 @@ Examples:
 
 ## Instructions
 
-Follow all 7 steps in order. Present findings to the user at each major checkpoint.
+Follow all 8 steps in order. Present findings to the user at each major checkpoint.
 
 ---
 
@@ -253,6 +253,47 @@ Issues created/updated:
 Next steps:
   1. <what to implement first>
   2. <follow-up items>
+============================================
+```
+
+---
+
+### Step 8: Implement Changes
+
+After REQUIREMENTS.md and GitHub issues are created/updated, implement the requirement:
+
+1. **Follow the implementation plan** from the analysis (Step 2/5)
+2. **Backend first**: Models → Schemas → Services → Routes
+3. **Frontend second**: API client → Components → Pages → CSS
+4. **Always create or update unit tests** for backend changes:
+   - Add test file in `tests/` if new endpoint/feature
+   - Update existing test file if modifying existing behavior
+   - Run `python -m pytest tests/ -x -q` to verify all tests pass
+5. **Build frontend** after changes: `npm run build` in `frontend/`
+6. **Commit and push** with descriptive commit message referencing the issue number
+7. **Close GitHub issues** that are fully implemented:
+   ```bash
+   gh issue close <number> --comment "Implemented in <commit-hash>."
+   ```
+
+**After implementation, report:**
+
+```
+============================================
+  REQUIREMENT IMPLEMENTED
+============================================
+
+Files changed:
+  - <file path> (new/modified)
+
+Tests: <N> passed, <N> failed
+Build: <clean/errors>
+
+Commits:
+  - <hash>: <message>
+
+Issues closed:
+  - #<number>: <title>
 ============================================
 ```
 

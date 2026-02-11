@@ -293,7 +293,7 @@ export function TaskDetailPage() {
               )}
               {task.course_content_id && (
                 <div className="td-resource-row">
-                  <Link to={`/study-guides/${task.course_content_id}`} className="td-resource-card">
+                  <Link to={`/course-materials/${task.course_content_id}`} className="td-resource-card">
                     <span className="td-resource-icon">{'\uD83D\uDCC4'}</span>
                     <div className="td-resource-info">
                       <span className="td-resource-type">Course Material</span>
@@ -324,7 +324,7 @@ export function TaskDetailPage() {
             </div>
           ) : (
             <div className="td-empty-resources">
-              <p>No study guides or course materials linked to this task.</p>
+              <p>No course materials linked to this task.</p>
               <div className="td-empty-link-actions">
                 <button className="td-empty-link-btn" onClick={() => openLinkModal('course')} title="Link Course">
                   &#127891; Course

@@ -457,7 +457,7 @@ export function ParentDashboard() {
     });
     setDuplicateCheck(null);
     resetStudyModal();
-    navigate('/study-guides');
+    navigate('/course-materials');
   };
 
   // ============================================
@@ -651,7 +651,7 @@ export function ParentDashboard() {
   };
 
   const handleViewStudyGuides = () => {
-    navigate('/study-guides');
+    navigate('/course-materials');
   };
 
   // ============================================
@@ -671,7 +671,7 @@ export function ParentDashboard() {
       welcomeSubtitle="Monitor your child's progress"
       sidebarActions={[
         { label: '+ Add Child', onClick: () => setShowLinkModal(true) },
-        { label: '+ Create Study Guide', onClick: () => setShowStudyModal(true) },
+        { label: '+ Create Course Material', onClick: () => setShowStudyModal(true) },
       ]}
     >
       {children.length === 0 ? (
@@ -719,10 +719,10 @@ export function ParentDashboard() {
           {/* Quick Actions Above Calendar */}
           <div className="calendar-actions-bar">
             <button className="btn-accent-outline" onClick={() => setShowStudyModal(true)}>
-              + Create Study Guide
+              + Create Course Material
             </button>
-            <button className="btn-accent-outline" onClick={() => navigate('/study-guides')}>
-              View Study Guides
+            <button className="btn-accent-outline" onClick={() => navigate('/course-materials')}>
+              View Course Materials
             </button>
           </div>
 

@@ -212,4 +212,4 @@ class TestGlobalSearch:
                 elif item["entity_type"] == "task":
                     assert item["url"].startswith("/tasks/")
                 elif item["entity_type"] == "course_content":
-                    assert item["url"].startswith("/study-guides/")
+                    assert item["url"].startswith("/course-materials/")

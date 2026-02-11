@@ -17,7 +17,7 @@ export function ParentActionBar({ onAddChild, onAddCourse, onCreateStudyGuide }:
       </button>
       <button className="action-icon-btn" onClick={onCreateStudyGuide}>
         <span className="action-icon">+</span>
-        Create Study Guide
+        Create Course Material
       </button>
     </div>
   );

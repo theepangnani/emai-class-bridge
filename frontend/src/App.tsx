@@ -118,7 +118,7 @@ function App() {
                 }
               />
               <Route
-                path="/study-guides"
+                path="/course-materials"
                 element={
                   <ProtectedRoute>
                     <StudyGuidesListPage />
@@ -126,13 +126,16 @@ function App() {
                 }
               />
               <Route
-                path="/study-guides/:id"
+                path="/course-materials/:id"
                 element={
                   <ProtectedRoute>
                     <CourseMaterialDetailPage />
                   </ProtectedRoute>
                 }
               />
+              {/* Redirects from old /study-guides URLs */}
+              <Route path="/study-guides" element={<Navigate to="/course-materials" replace />} />
+              <Route path="/study-guides/:id" element={<Navigate to="/course-materials" replace />} />
               <Route
                 path="/tasks"
                 element={

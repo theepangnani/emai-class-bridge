@@ -38,7 +38,7 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
     const items: Array<{ label: string; path: string }> = [
       { label: 'Dashboard', path: '/dashboard' },
       { label: 'Courses', path: '/courses' },
-      { label: 'Study Guides', path: '/study-guides' },
+      { label: 'Course Materials', path: '/course-materials' },
       { label: 'Tasks', path: '/tasks' },
       { label: 'Messages', path: '/messages' },
     ];

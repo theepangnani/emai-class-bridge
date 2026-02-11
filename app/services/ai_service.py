@@ -137,7 +137,14 @@ Please include:
 4. **Practice Questions** - 3-5 questions to test understanding
 5. **Resources** - Suggested areas to review
 
-Format the response in Markdown for easy reading."""
+Format the response in Markdown for easy reading.
+
+IMPORTANT: If the source material mentions any dates, deadlines, exams, tests, quizzes, homework due dates, or review sessions, include a section at the very end of your response in this exact format:
+--- CRITICAL_DATES ---
+[{{"date": "YYYY-MM-DD", "title": "Short description of what is due/happening", "priority": "high"}}]
+
+Use "high" priority for exams and tests, "medium" for homework and assignments, "low" for optional reviews.
+Only include this section if specific dates are mentioned. If no dates are found, do not include this section at all."""
 
     system_prompt = """You are an expert educational tutor. Create clear, well-organized study guides
 that help students understand concepts deeply. Use simple language and provide practical examples.
@@ -193,7 +200,12 @@ Format your response as a JSON array with this structure:
 ]
 ```
 
-Return ONLY the JSON array, no other text."""
+Return ONLY the JSON array, no other text.
+
+IMPORTANT: If the source material mentions any dates, deadlines, exams, tests, or due dates, AFTER the JSON array, include a section in this exact format:
+--- CRITICAL_DATES ---
+[{{"date": "YYYY-MM-DD", "title": "Short description", "priority": "high"}}]
+Use "high" for exams/tests, "medium" for homework. Only include if dates are found."""
 
     system_prompt = """You are an expert quiz creator. Create clear, educational questions that test
 understanding, not just memorization. Make wrong answers plausible but clearly incorrect.
@@ -241,7 +253,12 @@ Format your response as a JSON array:
 ]
 ```
 
-Return ONLY the JSON array, no other text."""
+Return ONLY the JSON array, no other text.
+
+IMPORTANT: If the source material mentions any dates, deadlines, exams, tests, or due dates, AFTER the JSON array, include a section in this exact format:
+--- CRITICAL_DATES ---
+[{{"date": "YYYY-MM-DD", "title": "Short description", "priority": "high"}}]
+Use "high" for exams/tests, "medium" for homework. Only include if dates are found."""
 
     system_prompt = """You are an expert at creating effective study flashcards.
 Focus on key concepts and important details. Make cards concise but informative.

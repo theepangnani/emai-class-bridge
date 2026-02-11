@@ -154,7 +154,7 @@ export function StudyGuidesPage() {
   };
 
   const navigateToContent = (item: CourseContentItem) => {
-    navigate(`/study-guides/${item.id}`);
+    navigate(`/course-materials/${item.id}`);
   };
 
   const navigateToLegacyGuide = (guide: StudyGuide) => {

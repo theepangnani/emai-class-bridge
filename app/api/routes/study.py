@@ -14,6 +14,7 @@ from app.models.assignment import Assignment
 from app.models.course import Course
 from app.models.course_content import CourseContent
 from app.models.student import Student, parent_students
+from app.models.task import Task
 from app.models.user import User, UserRole
 from app.schemas.study import (
     StudyGuideCreate,
@@ -184,6 +185,99 @@ def find_recent_duplicate(
     )
 
 
+CRITICAL_DATES_SEPARATOR = "--- CRITICAL_DATES ---"
+
+
+def parse_critical_dates(content: str) -> tuple[str, list[dict]]:
+    """Parse CRITICAL_DATES section from AI response.
+
+    Returns (clean_content, dates_list). If no dates section found, returns
+    original content and empty list.
+    """
+    if CRITICAL_DATES_SEPARATOR not in content:
+        return content, []
+
+    parts = content.split(CRITICAL_DATES_SEPARATOR, 1)
+    clean_content = parts[0].rstrip()
+    dates_raw = parts[1].strip()
+
+    # Strip markdown code fences if present
+    dates_raw = strip_json_fences(dates_raw)
+
+    try:
+        dates = json.loads(dates_raw)
+        if not isinstance(dates, list):
+            return clean_content, []
+        # Validate each entry has required fields
+        valid_dates = []
+        for d in dates:
+            if isinstance(d, dict) and d.get("date") and d.get("title"):
+                valid_dates.append({
+                    "date": str(d["date"]),
+                    "title": str(d["title"]),
+                    "priority": str(d.get("priority", "medium")),
+                })
+        return clean_content, valid_dates
+    except (json.JSONDecodeError, TypeError):
+        return clean_content, []
+
+
+def auto_create_tasks_from_dates(
+    db: Session,
+    dates: list[dict],
+    user: User,
+    study_guide_id: int,
+    course_id: int | None,
+    course_content_id: int | None,
+) -> list[dict]:
+    """Create tasks from extracted critical dates. Returns list of created task summaries."""
+    from app.core.logging_config import get_logger
+    logger = get_logger(__name__)
+
+    created_tasks = []
+    for d in dates:
+        try:
+            due_date = datetime.strptime(d["date"], "%Y-%m-%d")
+        except (ValueError, TypeError):
+            logger.warning(f"Skipping invalid date in auto-task creation: {d.get('date')}")
+            continue
+
+        # Determine who the task should be assigned to
+        # If parent creating for a child, assign to first linked child
+        assigned_to = None
+        if user.role == UserRole.PARENT:
+            child_ids = get_linked_children_user_ids(db, user.id)
+            if child_ids:
+                assigned_to = child_ids[0]
+
+        priority = d.get("priority", "medium")
+        if priority not in ("low", "medium", "high"):
+            priority = "medium"
+
+        task = Task(
+            title=d["title"],
+            description=f"Auto-created from course material generation",
+            due_date=due_date,
+            priority=priority,
+            created_by_user_id=user.id,
+            assigned_to_user_id=assigned_to,
+            study_guide_id=study_guide_id,
+            course_id=course_id,
+            course_content_id=course_content_id,
+        )
+        db.add(task)
+        db.flush()
+        created_tasks.append({
+            "id": task.id,
+            "title": task.title,
+            "due_date": d["date"],
+            "priority": priority,
+        })
+        logger.info(f"Auto-created task '{task.title}' due {d['date']} from study guide {study_guide_id}")
+
+    return created_tasks
+
+
 # ============================================
 # Duplicate Detection
 # ============================================
@@ -276,7 +370,7 @@ async def generate_study_guide_endpoint(
 
     # Generate study guide using AI
     try:
-        content = await generate_study_guide(
+        raw_content = await generate_study_guide(
             assignment_title=title,
             assignment_description=description,
             course_name=course_name,
@@ -284,6 +378,9 @@ async def generate_study_guide_endpoint(
         )
     except ValueError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    # Parse critical dates from AI response
+    content, critical_dates = parse_critical_dates(raw_content)
 
     # Deduplicate: return existing if same hash was created recently
     content_hash = compute_content_hash(title, "study_guide", request.assignment_id)
@@ -314,7 +411,15 @@ async def generate_study_guide_endpoint(
     )
     db.add(study_guide)
     db.flush()
-    log_action(db, user_id=current_user.id, action="create", resource_type="study_guide", resource_id=study_guide.id, details={"guide_type": "study_guide"})
+
+    # Auto-create tasks from critical dates
+    if critical_dates:
+        auto_create_tasks_from_dates(
+            db, critical_dates, current_user, study_guide.id,
+            resolved_course_id, resolved_cc_id,
+        )
+
+    log_action(db, user_id=current_user.id, action="create", resource_type="study_guide", resource_id=study_guide.id, details={"guide_type": "study_guide", "auto_tasks": len(critical_dates)})
     db.commit()
     db.refresh(study_guide)
 
@@ -351,13 +456,16 @@ async def generate_quiz_endpoint(
         )
 
     # Generate quiz using AI
+    critical_dates = []
     try:
-        quiz_json = await generate_quiz(
+        raw_quiz = await generate_quiz(
             topic=topic,
             content=content,
             num_questions=request.num_questions,
         )
-        quiz_json = strip_json_fences(quiz_json)
+        # Parse critical dates before JSON parsing (dates come after JSON)
+        raw_quiz, critical_dates = parse_critical_dates(raw_quiz)
+        quiz_json = strip_json_fences(raw_quiz)
         questions_data = json.loads(quiz_json)
         questions = [QuizQuestion(**q) for q in questions_data]
     except json.JSONDecodeError:
@@ -398,6 +506,15 @@ async def generate_quiz_endpoint(
         content_hash=content_hash,
     )
     db.add(study_guide)
+    db.flush()
+
+    # Auto-create tasks from critical dates
+    if critical_dates:
+        auto_create_tasks_from_dates(
+            db, critical_dates, current_user, study_guide.id,
+            resolved_course_id, resolved_cc_id,
+        )
+
     db.commit()
     db.refresh(study_guide)
 
@@ -442,13 +559,16 @@ async def generate_flashcards_endpoint(
         )
 
     # Generate flashcards using AI
+    critical_dates = []
     try:
-        cards_json = await generate_flashcards(
+        raw_cards = await generate_flashcards(
             topic=topic,
             content=content,
             num_cards=request.num_cards,
         )
-        cards_json = strip_json_fences(cards_json)
+        # Parse critical dates before JSON parsing (dates come after JSON)
+        raw_cards, critical_dates = parse_critical_dates(raw_cards)
+        cards_json = strip_json_fences(raw_cards)
         cards_data = json.loads(cards_json)
         cards = [Flashcard(**c) for c in cards_data]
     except json.JSONDecodeError:
@@ -489,6 +609,15 @@ async def generate_flashcards_endpoint(
         content_hash=content_hash,
     )
     db.add(study_guide)
+    db.flush()
+
+    # Auto-create tasks from critical dates
+    if critical_dates:
+        auto_create_tasks_from_dates(
+            db, critical_dates, current_user, study_guide.id,
+            resolved_course_id, resolved_cc_id,
+        )
+
     db.commit()
     db.refresh(study_guide)
 

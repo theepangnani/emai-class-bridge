@@ -96,7 +96,15 @@ Persistent storage, organization, and lifecycle management for AI-generated stud
 
 Restructure the Study Guides page to centre on **course materials** (course content items) rather than listing study guides directly. Each course material is the source document from which AI study tools (study guide, quiz, flashcards) are generated.
 
-**Concept**: Study guides, quizzes, and flashcards are outputs *of* a course material, not standalone entities. The Study Guides page (`/study-guides`) becomes a **course materials listing** where each row represents a course content item, and clicking it opens a tabbed detail view showing the original document and any generated study tools.
+**Terminology**: The UI uses "Course Materials" as the parent concept. A Course Material is composed of:
+- **Original Document** — the uploaded source file/text (stored as CourseContent)
+- **Study Guide** — AI-generated markdown summary (`guide_type = "study_guide"`)
+- **Quiz** — AI-generated practice questions (`guide_type = "quiz"`)
+- **Flashcards** — AI-generated flashcard pairs (`guide_type = "flashcards"`)
+
+All UI navigation and buttons use "Course Material(s)" terminology. The specific sub-type labels ("Study Guide", "Quiz", "Flashcards") are used only when referring to the individual generated output types (e.g., filter tabs, detail page tabs, generation buttons).
+
+**GitHub Issues:** #194 (rename to Course Material)
 
 **Navigation Flows:**
 
@@ -104,9 +112,9 @@ Restructure the Study Guides page to centre on **course materials** (course cont
    - `/courses` — list all courses
    - `/courses/:id` — show course detail with its content items
 
-2. **Study Guides (nav) → Course Materials List → Tabbed Detail**
-   - `/study-guides` — lists all course materials across all courses, with filters
-   - `/study-guides/:contentId` — tabbed detail view for a single course material
+2. **Course Materials (nav) → Course Materials List → Tabbed Detail**
+   - `/course-materials` — lists all course materials across all courses, with filters (redirects from old `/study-guides` URL)
+   - `/course-materials/:contentId` — tabbed detail view for a single course material
 
 **Tabbed Detail View** (`/study-guides/:contentId`):
 - **Tab 1: Original Document** — shows the source text/description of the course content item
@@ -134,6 +142,39 @@ Restructure the Study Guides page to centre on **course materials** (course cont
 - `GET /api/study/guides?course_content_id=X` — filter study guides by course content
 - `POST /api/study/generate` — accepts optional `course_content_id`; when no course selected, auto-creates default course + CourseContent
 - `GET /api/courses/default` — get or create the user's default course
+
+#### 6.2.3 AI Auto-Task Creation from Critical Dates (Phase 1.5)
+
+When AI generates a study guide, quiz, or flashcards, the system extracts critical dates (exam dates, assignment due dates, review deadlines) from the AI response and automatically creates linked tasks.
+
+**Approach: Prompt Enhancement (Zero Additional AI Cost)**
+Instead of a secondary AI call, the existing generation prompts are enhanced to include a structured `CRITICAL_DATES` section in the response. This avoids any additional API costs.
+
+**Flow:**
+1. User generates a course material (study guide, quiz, or flashcards)
+2. The AI generation prompt includes an instruction: "If any dates, deadlines, exams, or due dates are mentioned, include a `--- CRITICAL_DATES ---` section at the end with JSON array"
+3. Backend parses the AI response to extract the `CRITICAL_DATES` section (if present)
+4. The dates section is stripped from the stored/displayed content
+5. For each extracted date, a task is auto-created:
+   - **Title**: contextual (e.g., "Review for Biology Chapter 5 Exam", "Complete Algebra Homework")
+   - **Due date**: extracted date
+   - **Priority**: `high` for exams/tests, `medium` for homework/assignments
+   - **Linked to**: the generated study guide + course
+   - **Assigned to**: the student (if parent creates for child) or self
+6. Created tasks are returned in the generation API response
+7. Frontend shows a notification: "Created N tasks from detected dates"
+
+**Date Extraction Format:**
+- AI includes at end of response: `--- CRITICAL_DATES ---\n[{"date": "2026-03-15", "title": "Biology Exam", "priority": "high"}]`
+- Backend helper `parse_critical_dates(content)` splits content and parses JSON
+- If section is missing or malformed, silently skipped (no error to user)
+- Handles relative dates via Python dateutil
+
+**API Changes:**
+- Generation endpoints (`/api/study/generate`, `/api/study/quiz/generate`, `/api/study/flashcards/generate`) return optional `auto_created_tasks` array in response
+- No new endpoints needed — uses existing task creation logic internally
+
+**GitHub Issues:** #195 (AI auto-task creation)
 
 ### 6.3 Parent-Student Registration & Linking (Phase 1)
 
@@ -1264,6 +1305,8 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #174: Global search: backend unified search endpoint~~ ✅
 - ~~Issue #175: Global search: frontend search component in DashboardLayout~~ ✅
 - ~~Issue #183: Task Detail Page: link/unlink resources (courses, materials, study guides)~~ ✅
+- Issue #193: ~~Task list: click task row to navigate to task detail page~~ ✅
+- Issue #194: Rename 'Study Guide' to 'Course Material' across UI and navigation
 - Issue #169: Color theme: Clean up hardcoded CSS colors (prerequisite for themes)
 - Issue #170: Color theme: Dark mode (ThemeContext, ThemeToggle, dark palette)
 - Issue #171: Color theme: Focus mode (muted warm tones for study sessions)
@@ -1272,6 +1315,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #174: Global search: backend unified search endpoint~~ ✅
 - ~~Issue #175: Global search: frontend search component in DashboardLayout~~ ✅
 - Issue #152: Mobile responsive web: fix CSS gaps, breakpoints, and touch support
+- Issue #195: AI auto-task creation: extract critical dates from generated course materials
 - Issue #96: Student email identity merging (personal + school email)
 - Issue #45: Extend calendar to other roles (student, teacher) with role-aware data (parent calendar done in #97)
 - Issue #46: Google Calendar push integration for tasks

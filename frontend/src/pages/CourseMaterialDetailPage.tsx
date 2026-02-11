@@ -172,7 +172,7 @@ export function CourseMaterialDetailPage() {
     <DashboardLayout>
       <div className="cm-error">
         <p>{error || 'Content not found'}</p>
-        <Link to="/study-guides" className="cm-back-link">Back to Study Guides</Link>
+        <Link to="/course-materials" className="cm-back-link">Back to Course Materials</Link>
       </div>
     </DashboardLayout>
   );
@@ -188,7 +188,7 @@ export function CourseMaterialDetailPage() {
     <DashboardLayout>
       <div className="cm-detail-page">
         <div className="cm-detail-header">
-          <Link to="/study-guides" className="cm-back-link">&larr; Back</Link>
+          <Link to="/course-materials" className="cm-back-link">&larr; Back</Link>
           <div className="cm-detail-title-row">
             <h2>{content.title}</h2>
             {content.course_name && (
