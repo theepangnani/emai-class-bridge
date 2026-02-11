@@ -430,42 +430,43 @@
 
 .cal-popover-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
 }
 
-.cal-popover-action {
+.cal-popover-icon-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-warm));
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--color-surface-alt, #f5f5f5);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 18px;
   cursor: pointer;
   transition: all 0.2s;
+  line-height: 1;
 }
 
-.cal-popover-action:hover {
-  opacity: 0.9;
-}
-
-.cal-popover-action.secondary {
-  background: none;
-  border: 1px solid var(--color-border);
-  color: var(--color-ink-muted);
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-.cal-popover-action.secondary:hover {
+.cal-popover-icon-btn:hover {
   border-color: var(--color-accent);
-  color: var(--color-accent);
-  opacity: 1;
+  background: var(--color-accent-bg, #e8f0fe);
+  transform: scale(1.1);
+}
+
+.cal-popover-icon-btn.primary {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-warm));
+  border-color: transparent;
+}
+
+.cal-popover-icon-btn.primary:hover {
+  opacity: 0.9;
+  border-color: transparent;
+  transform: scale(1.1);
 }
 
 /* ================================================
