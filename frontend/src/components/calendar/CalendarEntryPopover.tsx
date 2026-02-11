@@ -32,6 +32,7 @@ export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreate
   const spaceBelow = window.innerHeight - anchorRect.bottom;
   const top = spaceBelow > 280 ? anchorRect.bottom + 8 : anchorRect.top - 280;
   const left = Math.min(Math.max(anchorRect.left, 8), window.innerWidth - 320);
+  const realTaskId = assignment.taskId ?? assignment.id;
 
   return (
     <div
@@ -44,7 +45,7 @@ export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreate
         onClick={() => {
           if (assignment.itemType === 'task') {
             onClose();
-            navigate(`/tasks/${assignment.id}`);
+            navigate(`/tasks/${realTaskId}`);
           }
         }}
       >
@@ -77,7 +78,7 @@ export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreate
           <button
             className="cal-popover-icon-btn primary"
             title="See Task Details"
-            onClick={() => { onClose(); navigate(`/tasks/${assignment.id}`); }}
+            onClick={() => { onClose(); navigate(`/tasks/${realTaskId}`); }}
           >
             &#128203;
           </button>

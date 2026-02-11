@@ -605,6 +605,7 @@ export function ParentDashboard() {
       .filter(t => t.due_date)
       .map(t => ({
         id: t.id + 1_000_000, // offset to avoid ID collisions with assignments
+        taskId: t.id,  // real task ID for navigation
         title: t.title,
         description: t.description,
         courseId: 0,

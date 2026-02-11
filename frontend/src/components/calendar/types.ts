@@ -11,6 +11,7 @@ export interface CalendarAssignment {
   itemType?: 'assignment' | 'task';
   priority?: 'low' | 'medium' | 'high';
   isCompleted?: boolean;
+  taskId?: number;  // Real task ID (id may be offset for calendar uniqueness)
 }
 
 export const TASK_PRIORITY_COLORS: Record<string, string> = {
