@@ -719,7 +719,13 @@ Frontend UX improvements for reliability, feedback, and loading experience.
 - New "Due" filter dropdown: All, Overdue, Due Today, This Week
 - Parent Dashboard status cards (Overdue, Due Today) now navigate to `/tasks?due=overdue` and `/tasks?due=today`
 - Dashboard overdue/due-today counts computed client-side from task data using local timezone (matches TasksPage filter logic exactly — fixes count mismatch caused by mixing assignment counts and UTC vs local time)
+- Dashboard overdue/due-today counts adjust when a specific child is selected
 - Filter state syncs with URL for shareable/bookmarkable links
+
+#### Assignee Filter
+- Tasks page has an "Assignee" dropdown filter populated from assignable users
+- Parents can filter tasks to see only a specific child's tasks
+- Filter works client-side alongside existing status, priority, and due filters
 
 ### 6.21 Collapsible Calendar (Phase 1) - IMPLEMENTED
 
