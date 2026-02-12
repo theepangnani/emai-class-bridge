@@ -493,6 +493,24 @@ export function ParentDashboard() {
     );
   }, [allTasks, selectedChildUserId]);
 
+  // Compute overdue/due-today counts from tasks using local time
+  // (matches TasksPage filter logic so counts are consistent when clicking through)
+  const { taskOverdueCount, taskDueTodayCount } = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+    let overdue = 0;
+    let dueToday = 0;
+    for (const t of allTasks) {
+      if (t.is_completed || t.archived_at || !t.due_date) continue;
+      const due = new Date(t.due_date);
+      if (due < todayStart) overdue++;
+      else if (due >= todayStart && due < todayEnd) dueToday++;
+    }
+    return { taskOverdueCount: overdue, taskDueTodayCount: dueToday };
+  }, [allTasks]);
+
   const openDayModal = (date: Date) => {
     setDayModalDate(date);
     setNewTaskTitle('');
@@ -765,17 +783,17 @@ export function ParentDashboard() {
           {dashboardData && (
             <div className="status-summary">
               <div
-                className={`status-card${dashboardData.total_overdue > 0 ? ' urgent' : ''}`}
+                className={`status-card${taskOverdueCount > 0 ? ' urgent' : ''}`}
                 onClick={() => navigate('/tasks?due=overdue')}
               >
-                <span className="status-card-count">{dashboardData.total_overdue}</span>
+                <span className="status-card-count">{taskOverdueCount}</span>
                 <span className="status-card-label">Overdue</span>
               </div>
               <div
-                className={`status-card${dashboardData.total_due_today > 0 ? ' active' : ''}`}
+                className={`status-card${taskDueTodayCount > 0 ? ' active' : ''}`}
                 onClick={() => navigate('/tasks?due=today')}
               >
-                <span className="status-card-count">{dashboardData.total_due_today}</span>
+                <span className="status-card-count">{taskDueTodayCount}</span>
                 <span className="status-card-label">Due Today</span>
               </div>
               <div
