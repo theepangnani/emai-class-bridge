@@ -718,6 +718,7 @@ Frontend UX improvements for reliability, feedback, and loading experience.
 - Tasks page (`/tasks`) supports `?due=overdue|today|week` URL parameter
 - New "Due" filter dropdown: All, Overdue, Due Today, This Week
 - Parent Dashboard status cards (Overdue, Due Today) now navigate to `/tasks?due=overdue` and `/tasks?due=today`
+- Dashboard overdue/due-today counts computed client-side from task data using local timezone (matches TasksPage filter logic exactly — fixes count mismatch caused by mixing assignment counts and UTC vs local time)
 - Filter state syncs with URL for shareable/bookmarkable links
 
 ### 6.21 Collapsible Calendar (Phase 1) - IMPLEMENTED
