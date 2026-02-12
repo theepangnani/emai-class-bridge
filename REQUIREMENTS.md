@@ -689,41 +689,86 @@ Dedicated Android and iOS applications for enhanced mobile experience.
 - AI-powered reply suggestions
 - Searchable email archive
 
-### 6.20 Parent UX Simplification (Phase 1.5) — IN PROGRESS
+### 6.20 UI Polish & Resilience (Phase 1) - IMPLEMENTED
+
+Frontend UX improvements for reliability, feedback, and loading experience.
+
+**GitHub Issues:** #147 (ErrorBoundary), #148 (Toast), #150 (Skeletons)
+
+#### Toast Notification System
+- Global `ToastProvider` wraps the app in `App.tsx`
+- `useToast()` hook returns `toast(message, type)` for any component
+- Three types: `success` (green check), `error` (red x), `info` (blue i)
+- Auto-dismiss: 3s for success/info, 5s for errors
+- Click to dismiss, max 5 visible, animated entrance
+- Mobile responsive (full-width at 480px)
+
+#### React ErrorBoundary
+- Class component wraps all routes in `App.tsx`
+- Catches unhandled render errors gracefully
+- Shows "Something went wrong" card with Try Again / Reload Page buttons
+- In dev mode, displays error message for debugging
+
+#### Loading Skeletons
+- Reusable `Skeleton`, `PageSkeleton`, `CardSkeleton`, `ListSkeleton`, `DetailSkeleton` components
+- Uses CSS shimmer animation (global `.skeleton` class in `index.css`)
+- Replaces "Loading..." text across 12 pages: CoursesPage, TeacherDashboard, CourseDetailPage, AdminDashboard, StudyGuidesPage, CourseMaterialDetailPage, TaskDetailPage, ParentDashboard, TeacherCommsPage, AdminAuditLog, TasksPage
+
+#### Task Due Date Filters
+- Tasks page (`/tasks`) supports `?due=overdue|today|week` URL parameter
+- New "Due" filter dropdown: All, Overdue, Due Today, This Week
+- Parent Dashboard status cards (Overdue, Due Today) now navigate to `/tasks?due=overdue` and `/tasks?due=today`
+- Filter state syncs with URL for shareable/bookmarkable links
+
+### 6.21 Collapsible Calendar (Phase 1.5) — PLANNED
+
+Allow parents to collapse/expand the calendar section on the Parent Dashboard for more control over their view.
+
+**GitHub Issue:** #207
+
+**Requirements:**
+- Calendar section has a collapse/expand toggle button (chevron icon)
+- When collapsed, shows a compact bar with current date and expand button
+- When expanded, shows the full calendar (current behavior)
+- Collapse state persists via localStorage
+- Smooth CSS transition for expand/collapse
+- Mobile: defaults to collapsed on narrow screens
+
+### 6.22 Parent UX Simplification (Phase 1.5) — IMPLEMENTED
 
 Simplify the parent experience based on prototype user feedback. The core problem: ClassBridge is organized by feature (Courses, Materials, Tasks) rather than by parent workflow ("What's going on with my kid?").
 
 GitHub Issues: #201, #202, #203, #204, #205, #206
 
-#### 6.20.1 Single Dashboard API Endpoint (#201)
+#### 6.22.1 Single Dashboard API Endpoint (#201)
 Replace 5+ waterfall API calls with one `GET /api/parent/dashboard` that returns children, overdue counts, due-today items, unread messages, and per-child highlights.
 
-**Status:** PLANNED
+**Status:** IMPLEMENTED ✅
 
-#### 6.20.2 Status-First Dashboard (#202)
+#### 6.22.2 Status-First Dashboard (#202)
 Replace calendar-dominated dashboard with status summary cards (overdue count, due today, unread messages) and per-child status cards above the calendar.
 
-**Status:** PLANNED
+**Status:** IMPLEMENTED ✅
 
-#### 6.20.3 One-Click Study Generation (#203)
+#### 6.22.3 One-Click Study Generation (#203)
 Smart "Study" button that checks for existing material, generates with defaults if needed, and navigates directly — no modal required for the common case.
 
-**Status:** PLANNED
+**Status:** IMPLEMENTED ✅
 
-#### 6.20.4 Filter Cascade Fix (#204)
+#### 6.22.4 Filter Cascade Fix (#204)
 Fix course materials page filter behavior: reset course filter when child changes, scope course dropdown to selected child, show result counts.
 
-**Status:** PLANNED
+**Status:** IMPLEMENTED ✅
 
-#### 6.20.5 Modal Nesting Reduction (#205)
+#### 6.22.5 Modal Nesting Reduction (#205)
 Eliminate modal-in-modal patterns. Study generation from day detail should navigate to a page instead of stacking modals.
 
-**Status:** PLANNED (Phase 2)
+**Status:** IMPLEMENTED ✅
 
-#### 6.20.6 Simplified Parent Navigation (#206)
+#### 6.22.6 Simplified Parent Navigation (#206)
 Consolidate parent nav from 5 items to 3: Home (status + calendar), My Kids (merged course/task/material view per child), Messages.
 
-**Status:** PLANNED (Phase 2)
+**Status:** PLANNED (Phase 2 — deferred)
 
 ---
 
@@ -973,10 +1018,10 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [ ] **Unique constraint on parent_students** — No unique constraint on (parent_id, student_id); duplicate links possible (#146)
 
 #### Frontend UX Gaps (Tier 1)
-- [ ] **Global error boundary** — No React ErrorBoundary; unhandled errors crash the entire app (#147)
-- [ ] **Toast notification system** — No centralized success/error feedback; 6+ silent catch blocks in TasksPage alone (#148)
+- [x] **Global error boundary** — React ErrorBoundary wraps all routes; catches render errors with Try Again / Reload Page (#147) ✅
+- [x] **Toast notification system** — Global ToastProvider with success/error/info types, auto-dismiss, click-to-dismiss (#148) ✅
 - [ ] **Token refresh** — JWT tokens expire without refresh mechanism; users lose work and get silently redirected to login (#149)
-- [ ] **Loading skeletons** — Plain "Loading..." text everywhere instead of skeleton screens (#150)
+- [x] **Loading skeletons** — Reusable Skeleton components (Page, Card, List, Detail) replace Loading... text across 12 pages (#150) ✅
 - [ ] **Accessibility (A11Y)** — Missing aria-labels on icon buttons, no keyboard nav for modals/dropdowns, no skip-to-content link, color-only indicators (#151)
 - [ ] **Mobile responsiveness** — Calendar not optimized for mobile; tables don't scroll; modals overflow on small screens; no touch drag-drop (#152)
 - [ ] **FlashcardsPage stale closure bug** — `handleKeyDown` event listener captures stale state; arrow keys stop working after card flip (#153)
@@ -997,12 +1042,13 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [ ] Background periodic Google Classroom course/assignment sync for teachers (opt-in)
 
 #### Parent UX Simplification (Phase 1.5)
-- [ ] Issue #201: Parent UX: Single dashboard API endpoint
-- [ ] Issue #202: Parent UX: Status-first dashboard
-- [ ] Issue #203: Parent UX: One-click study material generation
-- [ ] Issue #204: Parent UX: Fix filter cascade on Course Materials page
-- [ ] Issue #205: Parent UX: Reduce modal nesting (Phase 2)
-- [ ] Issue #206: Parent UX: Consolidated 3-item navigation (Phase 2)
+- [x] Issue #201: Parent UX: Single dashboard API endpoint ✅
+- [x] Issue #202: Parent UX: Status-first dashboard ✅
+- [x] Issue #203: Parent UX: One-click study material generation ✅
+- [x] Issue #204: Parent UX: Fix filter cascade on Course Materials page ✅
+- [x] Issue #205: Parent UX: Reduce modal nesting ✅
+- [ ] Issue #206: Parent UX: Consolidated 3-item navigation (Phase 2 — deferred)
+- [ ] Issue #207: Parent Dashboard: Collapsible/expandable calendar section
 
 ### Phase 2
 - [ ] TeachAssist integration
@@ -1373,6 +1419,13 @@ Current feature issues are tracked in GitHub:
 - Issue #28: Central Document Repository
 - Issue #53: Background periodic Google Classroom sync for teachers
 - Issue #113: School & School Board model
+- ~~Issue #201: Parent UX: Single dashboard API endpoint~~ ✅
+- ~~Issue #202: Parent UX: Status-first dashboard~~ ✅
+- ~~Issue #203: Parent UX: One-click study material generation~~ ✅
+- ~~Issue #204: Parent UX: Fix filter cascade on Course Materials page~~ ✅
+- ~~Issue #205: Parent UX: Reduce modal nesting~~ ✅
+- Issue #206: Parent UX: Consolidated 3-item navigation (Phase 2 — deferred)
+- Issue #207: Parent Dashboard: Collapsible/expandable calendar section
 
 ### Phase 2
 - Issue #26: Performance Analytics Dashboard
@@ -1396,10 +1449,10 @@ Current feature issues are tracked in GitHub:
 - Issue #144: Fix N+1 query patterns in task list, child list, and reminder job
 - Issue #145: Add CASCADE delete rules to FK relationships
 - Issue #146: Add unique constraint on parent_students (parent_id, student_id)
-- Issue #147: Add React ErrorBoundary for graceful error handling
-- Issue #148: Add global toast notification system for user feedback
+- ~~Issue #147: Add React ErrorBoundary for graceful error handling~~ ✅
+- ~~Issue #148: Add global toast notification system for user feedback~~ ✅
 - Issue #149: Implement JWT token refresh mechanism
-- Issue #150: Add loading skeletons to replace text loading states
+- ~~Issue #150: Add loading skeletons to replace text loading states~~ ✅
 - Issue #151: Accessibility audit: aria labels, keyboard nav, skip-to-content
 - Issue #152: Mobile responsive web: fix CSS gaps, breakpoints, and touch support
 - Issue #153: Fix FlashcardsPage stale closure bug in keyboard handler
