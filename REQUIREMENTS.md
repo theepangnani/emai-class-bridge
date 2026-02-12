@@ -776,6 +776,33 @@ Consolidate parent nav from 5 items to 3: Home (status + calendar), My Kids (mer
 
 **Status:** PLANNED (Phase 2 — deferred)
 
+### 6.23 Security Hardening (Phase 1) - IMPLEMENTED
+
+Critical security vulnerabilities identified in the Feb 2026 risk audit and fixed:
+
+#### 6.23.1 JWT Secret Key (#179)
+- Removed hardcoded default `SECRET_KEY`; application crashes on startup in production if not set or uses a known weak value
+- Development mode auto-generates a random 64-char key per process
+- Production requires explicit `SECRET_KEY` via environment variable (stored in Google Secret Manager)
+
+#### 6.23.2 Admin Self-Registration & Password Validation (#176)
+- Blocked admin role from the public registration endpoint (only parent, student, teacher allowed)
+- Added password strength validation: minimum 8 characters, must include uppercase, lowercase, digit, and special character
+- Validation applied to both registration and invite acceptance flows
+
+#### 6.23.3 CORS Hardening (#177)
+- Replaced `allow_origins=["*"]` with explicit origin allowlist
+- Development: `localhost:5173`, `localhost:8000`, configured `frontend_url`
+- Production: only the configured `frontend_url` (Cloud Run service URL)
+- Restricted allowed methods (GET, POST, PUT, PATCH, DELETE, OPTIONS) and headers (Authorization, Content-Type)
+
+#### 6.23.4 Google OAuth Security (#178)
+- Added cryptographic state parameter (CSRF protection) using `secrets.token_urlsafe(32)` with 10-minute TTL
+- State tokens are consumed on callback (single-use)
+- Removed Google access/refresh tokens from redirect URL parameters
+- Google tokens stored server-side in temporary store during registration flow, resolved on user creation
+- Error messages no longer leak internal exception details to the frontend
+
 ---
 
 ## 7. Role-Based Dashboards - IMPLEMENTED
@@ -1012,7 +1039,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 #### Security & Hardening (Tier 0)
 - [ ] **Authorization gaps** — `list_students()` returns ALL students to any auth user; `get_user()` has no permission check; `list_assignments()` not filtered by course access (#139)
 - [ ] **Rate limiting** — No rate limiting on AI generation, auth, or file upload endpoints; risk of brute force and API quota abuse (#140)
-- [ ] **CORS hardening** — Currently allows `*` origins; tighten to known frontend domains (#64)
+- [x] **CORS hardening** — ~~Currently allows `*` origins; tighten to known frontend domains (#64)~~ ✅ Fixed in #177
 - [ ] **Security headers** — Add X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, CSP (#141)
 - [ ] **Input validation** — Missing field length limits, URL validation, and sanitization on multiple endpoints (#142)
 - [ ] **Password reset flow** — No "Forgot Password" link or reset mechanism (#143)
@@ -1467,10 +1494,10 @@ Current feature issues are tracked in GitHub:
 - Issue #156: Add PostgreSQL test environment to CI for cross-DB coverage
 
 ### Risk Audit (Full Application Review — Feb 2026)
-- Issue #176: CRITICAL: Fix admin self-registration and password validation
-- Issue #177: CRITICAL: Fix CORS wildcard and secure authentication tokens
-- Issue #178: CRITICAL: Secure Google OAuth flow
-- Issue #179: CRITICAL: Fix hardcoded JWT secret key
+- ~~Issue #176: CRITICAL: Fix admin self-registration and password validation~~ ✅
+- ~~Issue #177: CRITICAL: Fix CORS wildcard and secure authentication tokens~~ ✅
+- ~~Issue #178: CRITICAL: Secure Google OAuth flow~~ ✅
+- ~~Issue #179: CRITICAL: Fix hardcoded JWT secret key~~ ✅
 - Issue #180: HIGH: Add JWT token revocation and rate limiting
 - Issue #181: HIGH: Fix RBAC gaps on students, assignments, courses, users, and content routes
 - Issue #182: HIGH: Secure logging endpoint and parent-created student passwords
@@ -1502,8 +1529,8 @@ Current feature issues are tracked in GitHub:
 - Issue #24: Register classbridge.ca domain
 
 ### Security & Hardening
-- Issue #63: Require SECRET_KEY and fail fast if missing
-- Issue #64: Fix CORS configuration for credentials
+- ~~Issue #63: Require SECRET_KEY and fail fast if missing~~ ✅ (fixed in #179)
+- ~~Issue #64: Fix CORS configuration for credentials~~ ✅ (fixed in #177)
 - Issue #65: Protect frontend log ingestion endpoints
 - Issue #66: Introduce Alembic migrations and remove create_all on startup
 - Issue #67: Prevent duplicate APScheduler jobs in multi-worker deployments
