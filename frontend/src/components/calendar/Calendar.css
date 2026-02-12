@@ -469,6 +469,17 @@
   transform: scale(1.1);
 }
 
+.cal-popover-icon-btn.loading {
+  opacity: 0.6;
+  cursor: wait;
+  animation: pulse-loading 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-loading {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+}
+
 /* ================================================
    Task Visual Distinction
    ================================================ */

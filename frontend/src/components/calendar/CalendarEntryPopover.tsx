@@ -9,9 +9,10 @@ interface CalendarEntryPopoverProps {
   onCreateStudyGuide: (assignment: CalendarAssignment) => void;
   onGoToCourse?: (courseId: number) => void;
   onViewStudyGuides?: () => void;
+  generatingStudyId?: number | null;
 }
 
-export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreateStudyGuide, onGoToCourse, onViewStudyGuides }: CalendarEntryPopoverProps) {
+export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreateStudyGuide, onGoToCourse, onViewStudyGuides, generatingStudyId }: CalendarEntryPopoverProps) {
   const navigate = useNavigate();
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -84,11 +85,12 @@ export function CalendarEntryPopover({ assignment, anchorRect, onClose, onCreate
           </button>
         )}
         <button
-          className="cal-popover-icon-btn"
-          title="Create Study Guide"
+          className={`cal-popover-icon-btn${generatingStudyId === assignment.id ? ' loading' : ''}`}
+          title={generatingStudyId === assignment.id ? 'Checking for existing material...' : 'Study'}
+          disabled={generatingStudyId === assignment.id}
           onClick={() => onCreateStudyGuide(assignment)}
         >
-          &#128214;
+          {generatingStudyId === assignment.id ? '\u23F3' : '\uD83D\uDCD6'}
         </button>
         {assignment.courseId > 0 && onGoToCourse && (
           <button

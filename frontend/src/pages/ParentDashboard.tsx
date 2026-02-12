@@ -69,6 +69,9 @@ export function ParentDashboard() {
   const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // One-click study generation state
+  const [generatingStudyId, setGeneratingStudyId] = useState<number | null>(null);
+
   // Edit child modal state
   const [showEditChildModal, setShowEditChildModal] = useState(false);
   const [editChild, setEditChild] = useState<ChildSummary | null>(null);
@@ -630,10 +633,46 @@ export function ParentDashboard() {
     );
   }, [activeOverviews, courseIds, children.length]);
 
-  const handleCalendarCreateStudyGuide = (assignment: CalendarAssignment) => {
-    setStudyTitle(assignment.title);
-    setStudyContent(assignment.description || '');
-    setShowStudyModal(true);
+  const handleOneClickStudy = async (assignment: CalendarAssignment) => {
+    if (generatingStudyId) return; // already generating
+    setGeneratingStudyId(assignment.id);
+    try {
+      // Check if study material already exists for this assignment
+      const dupResult = await studyApi.checkDuplicate({
+        title: assignment.title,
+        guide_type: 'study_guide',
+      });
+      if (dupResult.exists && dupResult.existing_guide) {
+        const guide = dupResult.existing_guide;
+        const path = guide.guide_type === 'quiz' ? `/study/quiz/${guide.id}`
+          : guide.guide_type === 'flashcards' ? `/study/flashcards/${guide.id}`
+          : `/study/guide/${guide.id}`;
+        navigate(path);
+        return;
+      }
+      // No existing material — generate with smart defaults (no modal)
+      if (!assignment.description?.trim()) {
+        // No content to generate from — fall back to modal
+        setStudyTitle(assignment.title);
+        setStudyContent('');
+        setShowStudyModal(true);
+        return;
+      }
+      queueStudyGeneration({
+        title: assignment.title,
+        content: assignment.description,
+        type: 'study_guide',
+        mode: 'text',
+      });
+      navigate('/course-materials');
+    } catch {
+      // On error, fall back to the modal
+      setStudyTitle(assignment.title);
+      setStudyContent(assignment.description || '');
+      setShowStudyModal(true);
+    } finally {
+      setGeneratingStudyId(null);
+    }
   };
 
   const handleGoToCourse = (courseId: number) => {
@@ -799,11 +838,12 @@ export function ParentDashboard() {
             <>
               <CalendarView
                 assignments={calendarAssignments}
-                onCreateStudyGuide={handleCalendarCreateStudyGuide}
+                onCreateStudyGuide={handleOneClickStudy}
                 onDayClick={openDayModal}
                 onTaskDrop={handleTaskDrop}
                 onGoToCourse={handleGoToCourse}
                 onViewStudyGuides={handleViewStudyGuides}
+                generatingStudyId={generatingStudyId}
               />
 
               {/* Undated Assignments */}
@@ -815,7 +855,7 @@ export function ParentDashboard() {
                       <div
                         key={a.id}
                         className="undated-item"
-                        onClick={() => handleCalendarCreateStudyGuide(a)}
+                        onClick={() => handleOneClickStudy(a)}
                       >
                         <span className="cal-entry-dot" style={{ background: a.courseColor }} />
                         <span className="undated-title">{a.title}</span>
@@ -1129,7 +1169,7 @@ export function ParentDashboard() {
                         </div>
                         <div className="day-modal-item-actions">
                           {a.courseId > 0 && <button className="day-modal-action-btn" onClick={() => { closeDayModal(); handleGoToCourse(a.courseId); }}>Course</button>}
-                          <button className="day-modal-study-btn" onClick={() => { closeDayModal(); handleCalendarCreateStudyGuide(a); }}>Study</button>
+                          <button className="day-modal-study-btn" disabled={generatingStudyId === a.id} onClick={() => { closeDayModal(); handleOneClickStudy(a); }}>{generatingStudyId === a.id ? 'Checking...' : 'Study'}</button>
                         </div>
                       </div>
                     ))}

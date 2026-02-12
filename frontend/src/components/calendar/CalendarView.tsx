@@ -16,6 +16,7 @@ interface CalendarViewProps {
   onTaskDrop?: (assignmentId: number, newDate: Date) => void;
   onGoToCourse?: (courseId: number) => void;
   onViewStudyGuides?: () => void;
+  generatingStudyId?: number | null;
 }
 
 function addDays(d: Date, n: number): Date {
@@ -30,7 +31,7 @@ function getMonday(d: Date): Date {
   return addDays(new Date(d.getFullYear(), d.getMonth(), d.getDate()), diff);
 }
 
-export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: externalDayClick, onTaskDrop, onGoToCourse, onViewStudyGuides }: CalendarViewProps) {
+export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: externalDayClick, onTaskDrop, onGoToCourse, onViewStudyGuides, generatingStudyId }: CalendarViewProps) {
   const nav = useCalendarNav('month');
   const [popover, setPopover] = useState<{ assignment: CalendarAssignment; rect: DOMRect } | null>(null);
 
@@ -150,6 +151,7 @@ export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: exte
           onCreateStudyGuide={(a) => { setPopover(null); onCreateStudyGuide(a); }}
           onGoToCourse={onGoToCourse ? (id) => { setPopover(null); onGoToCourse(id); } : undefined}
           onViewStudyGuides={onViewStudyGuides ? () => { setPopover(null); onViewStudyGuides(); } : undefined}
+          generatingStudyId={generatingStudyId}
         />
       )}
     </div>
