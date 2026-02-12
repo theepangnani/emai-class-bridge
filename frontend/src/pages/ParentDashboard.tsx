@@ -493,8 +493,8 @@ export function ParentDashboard() {
     );
   }, [allTasks, selectedChildUserId]);
 
-  // Compute overdue/due-today counts from tasks using local time
-  // (matches TasksPage filter logic so counts are consistent when clicking through)
+  // Compute overdue/due-today counts from filtered tasks (respects child filter)
+  // Uses local time to match TasksPage filter logic
   const { taskOverdueCount, taskDueTodayCount } = useMemo(() => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -502,14 +502,14 @@ export function ParentDashboard() {
     todayEnd.setDate(todayEnd.getDate() + 1);
     let overdue = 0;
     let dueToday = 0;
-    for (const t of allTasks) {
+    for (const t of filteredTasks) {
       if (t.is_completed || t.archived_at || !t.due_date) continue;
       const due = new Date(t.due_date);
       if (due < todayStart) overdue++;
       else if (due >= todayStart && due < todayEnd) dueToday++;
     }
     return { taskOverdueCount: overdue, taskDueTodayCount: dueToday };
-  }, [allTasks]);
+  }, [filteredTasks]);
 
   const openDayModal = (date: Date) => {
     setDayModalDate(date);
