@@ -115,7 +115,7 @@ export const authApi = {
 
   acceptInvite: async (token: string, password: string, full_name: string) => {
     const response = await api.post('/api/auth/accept-invite', { token, password, full_name });
-    return response.data as { access_token: string; token_type: string };
+    return response.data as { access_token: string; token_type: string; refresh_token?: string };
   },
 };
 

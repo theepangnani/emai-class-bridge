@@ -15,7 +15,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithToken: (token: string) => void;
+  loginWithToken: (token: string, refreshToken?: string) => void;
   register: (data: { email: string; password: string; full_name: string; role: string; teacher_type?: string; [key: string]: string | undefined }) => Promise<void>;
   logout: () => void;
 }
