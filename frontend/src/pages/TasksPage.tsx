@@ -1,24 +1,31 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tasksApi } from '../api/client';
 import type { TaskItem, AssignableUser } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useConfirm } from '../components/ConfirmModal';
+import { ListSkeleton } from '../components/Skeleton';
 import './TasksPage.css';
 
 type FilterStatus = 'all' | 'pending' | 'completed' | 'archived';
 type FilterPriority = 'all' | 'low' | 'medium' | 'high';
+type FilterDue = 'all' | 'overdue' | 'today' | 'week';
 
 export function TasksPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterPriority, setFilterPriority] = useState<FilterPriority>('all');
+  const [filterDue, setFilterDue] = useState<FilterDue>(() => {
+    const due = searchParams.get('due');
+    return (due === 'overdue' || due === 'today' || due === 'week') ? due : 'all';
+  });
 
   // Create task form
   const [showCreate, setShowCreate] = useState(false);
@@ -182,6 +189,22 @@ export function TasksPage() {
     if (filterStatus === 'pending') return !t.is_completed && !t.archived_at;
     if (filterStatus === 'completed') return t.is_completed;
     if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
+    if (filterDue !== 'all' && t.due_date) {
+      const due = new Date(t.due_date);
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayEnd = new Date(todayStart);
+      todayEnd.setDate(todayEnd.getDate() + 1);
+      if (filterDue === 'overdue') return due < todayStart && !t.is_completed;
+      if (filterDue === 'today') return due >= todayStart && due < todayEnd;
+      if (filterDue === 'week') {
+        const weekEnd = new Date(todayStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        return due >= todayStart && due < weekEnd;
+      }
+    } else if (filterDue !== 'all' && !t.due_date) {
+      return false;
+    }
     return true;
   });
 
@@ -234,12 +257,21 @@ export function TasksPage() {
               <option value="low">Low</option>
             </select>
           </div>
+          <div className="tasks-filter-group">
+            <label>Due:</label>
+            <select value={filterDue} onChange={e => { const v = e.target.value as FilterDue; setFilterDue(v); if (v === 'all') { searchParams.delete('due'); } else { searchParams.set('due', v); } setSearchParams(searchParams, { replace: true }); }} className="form-input">
+              <option value="all">All</option>
+              <option value="overdue">Overdue</option>
+              <option value="today">Due Today</option>
+              <option value="week">This Week</option>
+            </select>
+          </div>
           <span className="tasks-count">{filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}</span>
         </div>
 
         {/* Task list */}
         {loading ? (
-          <div className="tasks-empty">Loading tasks...</div>
+          <ListSkeleton rows={5} />
         ) : error ? (
           <div className="tasks-empty">
             <p>Error loading tasks: {error}</p>

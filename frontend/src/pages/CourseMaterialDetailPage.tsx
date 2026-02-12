@@ -4,6 +4,7 @@ import { courseContentsApi, studyApi, type CourseContentItem, type StudyGuide } 
 import { DashboardLayout } from '../components/DashboardLayout';
 import { CreateTaskModal } from '../components/CreateTaskModal';
 import { useConfirm } from '../components/ConfirmModal';
+import { DetailSkeleton } from '../components/Skeleton';
 import './CourseMaterialDetailPage.css';
 
 const MarkdownGuideBody = lazy(() =>
@@ -171,7 +172,7 @@ export function CourseMaterialDetailPage() {
     setQuizFinished(false);
   };
 
-  if (loading) return <DashboardLayout><div className="cm-loading">Loading...</div></DashboardLayout>;
+  if (loading) return <DashboardLayout><DetailSkeleton /></DashboardLayout>;
   if (error || !content) return (
     <DashboardLayout>
       <div className="cm-error">

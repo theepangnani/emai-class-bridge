@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { CreateTaskModal } from '../components/CreateTaskModal';
 import { useConfirm } from '../components/ConfirmModal';
+import { PageSkeleton } from '../components/Skeleton';
 import './StudyGuidesPage.css';
 
 const MAX_FILE_SIZE_MB = 100;
@@ -425,7 +426,7 @@ export function StudyGuidesPage() {
   if (loading) {
     return (
       <DashboardLayout welcomeSubtitle="Manage study materials">
-        <div className="loading-state">Loading...</div>
+        <PageSkeleton />
       </DashboardLayout>
     );
   }

@@ -4,6 +4,7 @@ import { parentApi, googleApi, invitesApi, studyApi, tasksApi } from '../api/cli
 import { queueStudyGeneration } from './StudyGuidesPage';
 import type { ChildSummary, ChildOverview, ParentDashboardData, DiscoveredChild, SupportedFormats, DuplicateCheckResponse, TaskItem } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { PageSkeleton } from '../components/Skeleton';
 import { CalendarView } from '../components/calendar/CalendarView';
 import type { CalendarAssignment } from '../components/calendar/types';
 import { getCourseColor, dateKey, TASK_PRIORITY_COLORS } from '../components/calendar/types';
@@ -690,7 +691,7 @@ export function ParentDashboard() {
   if (loading) {
     return (
       <DashboardLayout welcomeSubtitle="Monitor your child's progress">
-        <div className="loading-state">Loading...</div>
+        <PageSkeleton />
       </DashboardLayout>
     );
   }
@@ -750,14 +751,14 @@ export function ParentDashboard() {
             <div className="status-summary">
               <div
                 className={`status-card${dashboardData.total_overdue > 0 ? ' urgent' : ''}`}
-                onClick={() => navigate('/tasks')}
+                onClick={() => navigate('/tasks?due=overdue')}
               >
                 <span className="status-card-count">{dashboardData.total_overdue}</span>
                 <span className="status-card-label">Overdue</span>
               </div>
               <div
                 className={`status-card${dashboardData.total_due_today > 0 ? ' active' : ''}`}
-                onClick={() => navigate('/tasks')}
+                onClick={() => navigate('/tasks?due=today')}
               >
                 <span className="status-card-count">{dashboardData.total_due_today}</span>
                 <span className="status-card-label">Due Today</span>
@@ -833,7 +834,7 @@ export function ParentDashboard() {
 
           {/* Calendar */}
           {overviewLoading ? (
-            <div className="loading-state">Loading child data...</div>
+            <PageSkeleton />
           ) : (
             <>
               <CalendarView

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { teacherCommsApi } from '../api/client';
 import type { TeacherCommunication, EmailMonitoringStatus } from '../api/client';
 import { NotificationBell } from '../components/NotificationBell';
+import { ListSkeleton } from '../components/Skeleton';
 import { useDebounce } from '../utils/useDebounce';
 import './TeacherCommsPage.css';
 
@@ -173,7 +174,7 @@ export function TeacherCommsPage() {
       <div className="comms-container">
         <aside className="comms-list">
           {loading ? (
-            <div className="empty-state"><p>Loading...</p></div>
+            <ListSkeleton rows={4} />
           ) : communications.length === 0 ? (
             <div className="empty-state">
               <p>No communications yet</p>

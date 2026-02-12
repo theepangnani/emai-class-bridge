@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { adminApi } from '../api/client';
 import type { AuditLogItem } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { ListSkeleton } from '../components/Skeleton';
 import { useDebounce } from '../utils/useDebounce';
 import './AdminAuditLog.css';
 
@@ -106,7 +107,7 @@ export function AdminAuditLog() {
         </div>
 
         {loading ? (
-          <div className="audit-loading">Loading...</div>
+          <ListSkeleton rows={8} />
         ) : (
           <>
             <table className="audit-table">

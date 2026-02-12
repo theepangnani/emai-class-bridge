@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { coursesApi, googleApi } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { PageSkeleton } from '../components/Skeleton';
 import './TeacherDashboard.css';
 
 interface Course {
@@ -103,7 +104,7 @@ export function TeacherDashboard() {
   if (loading) {
     return (
       <DashboardLayout welcomeSubtitle="Your classroom overview">
-        <div className="loading-state">Loading...</div>
+        <PageSkeleton />
       </DashboardLayout>
     );
   }

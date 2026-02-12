@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { CreateTaskModal } from '../components/CreateTaskModal';
 import { useConfirm } from '../components/ConfirmModal';
+import { PageSkeleton, ListSkeleton } from '../components/Skeleton';
 import './CourseDetailPage.css';
 
 const CONTENT_TYPES = [
@@ -401,7 +402,7 @@ export function CourseDetailPage() {
   if (loading) {
     return (
       <DashboardLayout welcomeSubtitle="Course details">
-        <div className="loading-state">Loading...</div>
+        <PageSkeleton />
       </DashboardLayout>
     );
   }
@@ -460,7 +461,7 @@ export function CourseDetailPage() {
 
         {/* Content list */}
         {contentsLoading ? (
-          <div className="loading-state" style={{ padding: '20px 0' }}>Loading content...</div>
+          <ListSkeleton rows={3} />
         ) : contents.length === 0 ? (
           <div className="course-detail-empty-content">
             <p>No content items yet. Add notes, links, resources, or upload documents.</p>

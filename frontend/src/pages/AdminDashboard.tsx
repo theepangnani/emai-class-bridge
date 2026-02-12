@@ -4,6 +4,7 @@ import { adminApi } from '../api/client';
 import type { AdminStats, AdminUserItem } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useDebounce } from '../utils/useDebounce';
+import { ListSkeleton } from '../components/Skeleton';
 import './AdminDashboard.css';
 
 const PAGE_SIZE = 10;
@@ -117,7 +118,7 @@ export function AdminDashboard() {
           </div>
 
           {loading ? (
-            <div className="loading-state">Loading users...</div>
+            <ListSkeleton rows={5} />
           ) : (
             <>
               <table className="admin-users-table">

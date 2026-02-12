@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { tasksApi, coursesApi, studyApi, courseContentsApi, type TaskItem, type StudyGuide, type CourseContentItem } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useConfirm } from '../components/ConfirmModal';
+import { DetailSkeleton, ListSkeleton } from '../components/Skeleton';
 import './TaskDetailPage.css';
 
 interface CourseOption { id: number; name: string; }
@@ -157,7 +158,7 @@ export function TaskDetailPage() {
   const filteredContents = contents.filter(c => c.title.toLowerCase().includes(linkSearch.toLowerCase()));
   const filteredGuides = guides.filter(g => g.title.toLowerCase().includes(linkSearch.toLowerCase()));
 
-  if (loading) return <DashboardLayout><div className="td-loading">Loading...</div></DashboardLayout>;
+  if (loading) return <DashboardLayout><DetailSkeleton /></DashboardLayout>;
   if (error || !task) return (
     <DashboardLayout>
       <div className="td-error">
@@ -371,7 +372,7 @@ export function TaskDetailPage() {
 
             <div className="td-link-list">
               {linkLoading ? (
-                <div className="td-link-loading">Loading...</div>
+                <ListSkeleton rows={2} />
               ) : linkType === 'course' ? (
                 filteredCourses.length > 0 ? filteredCourses.map(c => (
                   <button key={c.id} className="td-link-item" onClick={() => handleLink(c.id)}>

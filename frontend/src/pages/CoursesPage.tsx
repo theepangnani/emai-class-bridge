@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useConfirm } from '../components/ConfirmModal';
 import { getCourseColor } from '../components/calendar/types';
+import { PageSkeleton, CardSkeleton } from '../components/Skeleton';
 import './CoursesPage.css';
 
 interface CourseItem {
@@ -194,7 +195,7 @@ export function CoursesPage() {
   if (loading) {
     return (
       <DashboardLayout welcomeSubtitle="Manage courses">
-        <div className="loading-state">Loading...</div>
+        <PageSkeleton />
       </DashboardLayout>
     );
   }
@@ -247,7 +248,11 @@ export function CoursesPage() {
               <div className={`courses-sync-msg ${syncState === 'error' ? 'error' : ''}`}>{syncMessage}</div>
             )}
             {overviewLoading ? (
-              <div className="loading-state">Loading courses...</div>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <CardSkeleton />
+                <CardSkeleton />
+                <CardSkeleton />
+              </div>
             ) : childOverview && childOverview.courses.length > 0 ? (
               <div className="courses-grid">
                 {childOverview.courses.map((course) => (
