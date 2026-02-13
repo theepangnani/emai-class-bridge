@@ -99,6 +99,10 @@ export function Login() {
           <button type="submit" className="auth-button" disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
+
+          <p className="auth-forgot-link">
+            <Link to="/forgot-password">Forgot password?</Link>
+          </p>
         </form>
 
         <div className="auth-divider">

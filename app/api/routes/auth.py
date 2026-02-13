@@ -10,10 +10,12 @@ from app.models.user import User, UserRole
 from app.models.teacher import Teacher, TeacherType
 from app.models.student import Student, parent_students, RelationshipType
 from app.models.invite import Invite, InviteType
-from app.schemas.user import UserCreate, UserResponse, Token
+from app.schemas.user import UserCreate, UserResponse, Token, ForgotPasswordRequest, ResetPasswordRequest
 from app.schemas.invite import AcceptInviteRequest
-from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_refresh_token, validate_password_strength
+from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_refresh_token, validate_password_strength, create_password_reset_token, decode_password_reset_token, UNUSABLE_PASSWORD_HASH
 from app.services.audit_service import log_action
+from app.services.email_service import send_email
+from app.core.config import settings
 from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -241,3 +243,81 @@ def refresh_access_token(request: Request, body: _RefreshRequest, db: Session = 
 
     new_access_token = create_access_token(data={"sub": str(user.id)})
     return Token(access_token=new_access_token)
+
+
+import asyncio
+import os
+
+_TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates")
+
+
+def _load_template(name: str) -> str:
+    path = os.path.join(_TEMPLATE_DIR, name)
+    try:
+        with open(path, "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+
+
+def _render(template: str, **kwargs: str) -> str:
+    for k, v in kwargs.items():
+        template = template.replace("{{" + k + "}}", v)
+    return template
+
+
+@router.post("/forgot-password")
+@limiter.limit("3/minute")
+def forgot_password(body: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    """Send a password reset email. Always returns 200 to avoid user enumeration."""
+    user = db.query(User).filter(User.email == body.email).first()
+
+    if user and user.hashed_password and user.hashed_password != UNUSABLE_PASSWORD_HASH:
+        token = create_password_reset_token(user.email)
+        reset_url = f"{settings.frontend_url}/reset-password?token={token}"
+        template = _load_template("password_reset.html")
+        if template:
+            html = _render(template, user_name=user.full_name or "there", reset_url=reset_url)
+        else:
+            html = f'<p>Click <a href="{reset_url}">here</a> to reset your password. This link expires in 1 hour.</p>'
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(
+                    send_email(to_email=user.email, subject="ClassBridge — Reset Your Password", html_content=html)
+                )
+            else:
+                loop.run_until_complete(
+                    send_email(to_email=user.email, subject="ClassBridge — Reset Your Password", html_content=html)
+                )
+        except RuntimeError:
+            pass  # No event loop available (e.g. in tests); email skipped
+        log_action(db, user_id=user.id, action="password_reset_request", resource_type="user",
+                   resource_id=user.id, ip_address=request.client.host if request.client else None)
+        db.commit()
+
+    return {"message": "If an account with that email exists, a reset link has been sent."}
+
+
+@router.post("/reset-password")
+@limiter.limit("5/minute")
+def reset_password(body: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    """Reset a user's password using a valid reset token."""
+    email = decode_password_reset_token(body.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    pw_error = validate_password_strength(body.new_password)
+    if pw_error:
+        raise HTTPException(status_code=400, detail=pw_error)
+
+    user.hashed_password = get_password_hash(body.new_password)
+    log_action(db, user_id=user.id, action="password_reset", resource_type="user",
+               resource_id=user.id, ip_address=request.client.host if request.client else None)
+    db.commit()
+
+    return {"message": "Password has been reset successfully. You can now log in."}

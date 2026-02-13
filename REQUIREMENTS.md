@@ -885,6 +885,33 @@ Course materials and study guides use soft-delete (archive) with retention polic
 
 ---
 
+### 6.26 Password Reset Flow (Phase 1) - IMPLEMENTED
+
+Users can reset forgotten passwords via email-based JWT token flow.
+
+**Endpoints:**
+- `POST /api/auth/forgot-password` — accepts email, sends reset link (always returns 200, no user enumeration)
+- `POST /api/auth/reset-password` — accepts token + new password, validates strength, updates hash
+
+**Frontend:**
+- `/forgot-password` — email form with success confirmation
+- `/reset-password?token=...` — new password form with confirmation
+- "Forgot password?" link on login page
+
+**Security:**
+- JWT reset tokens with 1-hour expiry and `type: "password_reset"`
+- Rate limited: 3/min for forgot-password, 5/min for reset-password
+- Password strength validation (8+ chars, upper, lower, digit, special)
+- Audit logging for reset requests and completions
+
+**Key files:**
+- `app/core/security.py` — `create_password_reset_token()`, `decode_password_reset_token()`
+- `app/api/routes/auth.py` — forgot-password, reset-password endpoints
+- `app/templates/password_reset.html` — email template
+- `frontend/src/pages/ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`
+
+---
+
 ## 7. Role-Based Dashboards - IMPLEMENTED
 
 Each user role has a customized dashboard (dispatcher pattern via `Dashboard.tsx`):
@@ -1123,7 +1150,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **CORS hardening** — ~~Currently allows `*` origins; tighten to known frontend domains (#64)~~ ✅ Fixed in #177
 - [ ] **Security headers** — Add X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, CSP (#141)
 - [ ] **Input validation** — Missing field length limits, URL validation, and sanitization on multiple endpoints (#142)
-- [ ] **Password reset flow** — No "Forgot Password" link or reset mechanism (#143)
+- [x] **Password reset flow** — Forgot Password link + email-based reset (#143) — see §6.26
 
 #### Data Integrity & Performance (Tier 0)
 - [ ] **Missing database indexes** — Add indexes on StudyGuide(assignment_id), StudyGuide(user_id, created_at), Task(created_by_user_id, created_at), Invite(email, expires_at), Message(conversation_id) (#73)

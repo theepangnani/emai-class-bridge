@@ -37,7 +37,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const url = originalRequest?.url || '';
-    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/accept-invite') || url.includes('/auth/refresh');
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/accept-invite') || url.includes('/auth/refresh') || url.includes('/auth/forgot-password') || url.includes('/auth/reset-password');
 
     if (error.response?.status === 401 && !isAuthEndpoint && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refresh_token');
@@ -121,6 +121,16 @@ export const authApi = {
   acceptInvite: async (token: string, password: string, full_name: string) => {
     const response = await api.post('/api/auth/accept-invite', { token, password, full_name });
     return response.data as { access_token: string; token_type: string; refresh_token?: string };
+  },
+
+  forgotPassword: async (email: string) => {
+    const response = await api.post('/api/auth/forgot-password', { email });
+    return response.data as { message: string };
+  },
+
+  resetPassword: async (token: string, new_password: string) => {
+    const response = await api.post('/api/auth/reset-password', { token, new_password });
+    return response.data as { message: string };
   },
 };
 

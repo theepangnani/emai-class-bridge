@@ -220,3 +220,86 @@ class TestAcceptInvite:
         })
         assert resp.status_code == 400
         assert "expired" in resp.json()["detail"].lower()
+
+
+# ── Password reset tests ──────────────────────────────────────
+
+class TestPasswordReset:
+    @pytest.fixture()
+    def reset_user(self, db_session):
+        from app.core.security import get_password_hash
+        from app.models.user import User, UserRole
+
+        email = "auth_reset@test.com"
+        user = db_session.query(User).filter(User.email == email).first()
+        if user:
+            return user
+        user = User(
+            email=email, full_name="Reset User", role=UserRole.PARENT,
+            hashed_password=get_password_hash(PASSWORD),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+    def test_forgot_password_valid_email(self, client, reset_user):
+        """Should return 200 and generic message for valid email."""
+        resp = client.post("/api/auth/forgot-password", json={"email": reset_user.email})
+        assert resp.status_code == 200
+        assert "reset link" in resp.json()["message"].lower()
+
+    def test_forgot_password_unknown_email(self, client):
+        """Should return 200 with same message (no user enumeration)."""
+        resp = client.post("/api/auth/forgot-password", json={"email": "nobody@example.com"})
+        assert resp.status_code == 200
+        assert "reset link" in resp.json()["message"].lower()
+
+    def test_reset_password_valid_token(self, client, reset_user):
+        """Should successfully reset the password with a valid token."""
+        from app.core.security import create_password_reset_token
+
+        token = create_password_reset_token(reset_user.email)
+        new_password = "NewPassword456!"
+        resp = client.post("/api/auth/reset-password", json={
+            "token": token, "new_password": new_password,
+        })
+        assert resp.status_code == 200
+        assert "successfully" in resp.json()["message"].lower()
+
+        # Verify login with new password works
+        login_resp = client.post("/api/auth/login", data={
+            "username": reset_user.email, "password": new_password,
+        })
+        assert login_resp.status_code == 200
+
+    def test_reset_password_invalid_token(self, client):
+        """Should reject an invalid/garbage token."""
+        resp = client.post("/api/auth/reset-password", json={
+            "token": "not-a-valid-token", "new_password": "NewPassword456!",
+        })
+        assert resp.status_code == 400
+        assert "invalid" in resp.json()["detail"].lower() or "expired" in resp.json()["detail"].lower()
+
+    def test_reset_password_expired_token(self, client, reset_user):
+        """Should reject an expired token."""
+        from app.core.config import settings
+
+        expired_token = jwt.encode(
+            {"sub": reset_user.email, "exp": datetime.utcnow() - timedelta(hours=1), "type": "password_reset"},
+            settings.secret_key, algorithm=settings.algorithm,
+        )
+        resp = client.post("/api/auth/reset-password", json={
+            "token": expired_token, "new_password": "NewPassword456!",
+        })
+        assert resp.status_code == 400
+
+    def test_reset_password_weak_password(self, client, reset_user):
+        """Should reject a weak password."""
+        from app.core.security import create_password_reset_token
+
+        token = create_password_reset_token(reset_user.email)
+        resp = client.post("/api/auth/reset-password", json={
+            "token": token, "new_password": "weak",
+        })
+        assert resp.status_code == 400

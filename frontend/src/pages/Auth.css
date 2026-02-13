@@ -122,6 +122,21 @@
   text-decoration: underline;
 }
 
+.auth-forgot-link {
+  text-align: right;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.auth-forgot-link a {
+  color: var(--color-accent-strong);
+  text-decoration: none;
+}
+
+.auth-forgot-link a:hover {
+  text-decoration: underline;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;
