@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
+from app.core.utils import escape_like
+
 from app.db.database import get_db
 from app.models.user import User, UserRole
 from app.models.student import Student
@@ -38,7 +40,7 @@ def list_users(
         query = query.filter(User.role == role)
 
     if search:
-        search_term = f"%{search}%"
+        search_term = f"%{escape_like(search)}%"
         query = query.filter(
             or_(
                 User.full_name.ilike(search_term),
@@ -105,7 +107,7 @@ def list_audit_logs(
     if date_to:
         query = query.filter(AuditLog.created_at <= date_to)
     if search:
-        search_term = f"%{search}%"
+        search_term = f"%{escape_like(search)}%"
         query = query.filter(AuditLog.details.ilike(search_term))
 
     total = query.count()

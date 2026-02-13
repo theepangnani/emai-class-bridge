@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, or_
 
+from app.core.utils import escape_like
+
 from app.db.database import get_db
 from app.models.user import User
 from app.models.teacher_communication import TeacherCommunication, CommunicationType
@@ -41,7 +43,7 @@ def list_communications(
         query = query.filter(TeacherCommunication.is_read == False)
 
     if search:
-        search_term = f"%{search}%"
+        search_term = f"%{escape_like(search)}%"
         query = query.filter(
             or_(
                 TeacherCommunication.subject.ilike(search_term),

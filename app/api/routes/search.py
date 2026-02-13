@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.utils import escape_like
+
 from app.db.database import get_db
 from app.models.user import User, UserRole
 from app.models.course import Course, student_courses
@@ -72,8 +74,8 @@ def _get_accessible_course_ids(db: Session, user: User, user_ids: list[int]) -> 
 def _search_courses(db: Session, term: str, limit: int, course_ids: list[int] | None) -> SearchResultGroup:
     query = db.query(Course).filter(
         or_(
-            Course.name.ilike(f"%{term}%"),
-            Course.description.ilike(f"%{term}%"),
+            Course.name.ilike(f"%{escape_like(term)}%"),
+            Course.description.ilike(f"%{escape_like(term)}%"),
         )
     )
     if course_ids is not None:
@@ -97,7 +99,7 @@ def _search_courses(db: Session, term: str, limit: int, course_ids: list[int] | 
 
 def _search_study_guides(db: Session, term: str, limit: int, user_ids: list[int]) -> SearchResultGroup:
     query = db.query(StudyGuide).filter(
-        StudyGuide.title.ilike(f"%{term}%"),
+        StudyGuide.title.ilike(f"%{escape_like(term)}%"),
         StudyGuide.user_id.in_(user_ids),
     )
 
@@ -129,8 +131,8 @@ def _search_study_guides(db: Session, term: str, limit: int, user_ids: list[int]
 def _search_tasks(db: Session, term: str, limit: int, user_ids: list[int]) -> SearchResultGroup:
     query = db.query(Task).filter(
         or_(
-            Task.title.ilike(f"%{term}%"),
-            Task.description.ilike(f"%{term}%"),
+            Task.title.ilike(f"%{escape_like(term)}%"),
+            Task.description.ilike(f"%{escape_like(term)}%"),
         ),
         Task.archived_at.is_(None),
         or_(
@@ -158,8 +160,8 @@ def _search_tasks(db: Session, term: str, limit: int, user_ids: list[int]) -> Se
 def _search_course_content(db: Session, term: str, limit: int, course_ids: list[int] | None) -> SearchResultGroup:
     query = db.query(CourseContent).filter(
         or_(
-            CourseContent.title.ilike(f"%{term}%"),
-            CourseContent.description.ilike(f"%{term}%"),
+            CourseContent.title.ilike(f"%{escape_like(term)}%"),
+            CourseContent.description.ilike(f"%{escape_like(term)}%"),
         )
     )
     if course_ids is not None:
@@ -217,7 +219,7 @@ def global_search(
     if "study_guide" in requested:
         if admin_user_ids is None:
             # Admin: search all
-            sg_query = db.query(StudyGuide).filter(StudyGuide.title.ilike(f"%{term}%"))
+            sg_query = db.query(StudyGuide).filter(StudyGuide.title.ilike(f"%{escape_like(term)}%"))
             sg_total = sg_query.count()
             sg_rows = sg_query.order_by(StudyGuide.created_at.desc()).limit(limit).all()
             items = []
@@ -234,7 +236,7 @@ def global_search(
         if admin_user_ids is None:
             # Admin: search all non-archived tasks
             t_query = db.query(Task).filter(
-                or_(Task.title.ilike(f"%{term}%"), Task.description.ilike(f"%{term}%")),
+                or_(Task.title.ilike(f"%{escape_like(term)}%"), Task.description.ilike(f"%{escape_like(term)}%")),
                 Task.archived_at.is_(None),
             )
             t_total = t_query.count()

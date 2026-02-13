@@ -2,12 +2,14 @@ import hashlib
 import json
 import re
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
 from sqlalchemy import or_, and_, func as sa_func
 from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.core.config import settings
+from app.core.utils import escape_like
+from app.core.rate_limit import limiter, get_user_id_or_ip
 from app.db.database import get_db
 from app.models.study_guide import StudyGuide
 from app.models.assignment import Assignment
@@ -310,7 +312,7 @@ def check_duplicate(
     if title:
         existing = db.query(StudyGuide).filter(
             StudyGuide.user_id == current_user.id,
-            StudyGuide.title.ilike(f"%{title.strip()}%"),
+            StudyGuide.title.ilike(f"%{escape_like(title.strip())}%"),
             StudyGuide.guide_type == request.guide_type,
         ).order_by(StudyGuide.version.desc()).first()
         if existing:
@@ -329,8 +331,10 @@ def check_duplicate(
 
 
 @router.post("/generate", response_model=StudyGuideResponse)
+@limiter.limit("10/minute", key_func=get_user_id_or_ip)
 async def generate_study_guide_endpoint(
-    request: StudyGuideCreate,
+    request: Request,
+    body: StudyGuideCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -338,17 +342,17 @@ async def generate_study_guide_endpoint(
     # Handle versioning
     version = 1
     parent_guide_id = None
-    if request.regenerate_from_id:
-        parent_guide_id, version = get_version_info(db, request.regenerate_from_id, current_user.id)
+    if body.regenerate_from_id:
+        parent_guide_id, version = get_version_info(db, body.regenerate_from_id, current_user.id)
 
     # Get source content
     assignment = None
     course = None
-    title = request.title or "Study Guide"
-    description = request.content or ""
+    title = body.title or "Study Guide"
+    description = body.content or ""
 
-    if request.assignment_id:
-        assignment = db.query(Assignment).filter(Assignment.id == request.assignment_id).first()
+    if body.assignment_id:
+        assignment = db.query(Assignment).filter(Assignment.id == body.assignment_id).first()
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
         if assignment.course_id and not can_access_course(db, current_user, assignment.course_id):
@@ -357,11 +361,11 @@ async def generate_study_guide_endpoint(
         description = assignment.description or ""
         course = assignment.course
 
-    if request.course_id and not course:
-        course = db.query(Course).filter(Course.id == request.course_id).first()
+    if body.course_id and not course:
+        course = db.query(Course).filter(Course.id == body.course_id).first()
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
-        if not can_access_course(db, current_user, request.course_id):
+        if not can_access_course(db, current_user, body.course_id):
             raise HTTPException(status_code=403, detail="No access to this course")
 
     course_name = course.name if course else "General"
@@ -388,7 +392,7 @@ async def generate_study_guide_endpoint(
     content, critical_dates = parse_critical_dates(raw_content)
 
     # Deduplicate: return existing if same hash was created recently
-    content_hash = compute_content_hash(title, "study_guide", request.assignment_id)
+    content_hash = compute_content_hash(title, "study_guide", body.assignment_id)
     existing = find_recent_duplicate(db, current_user.id, content_hash)
     if existing:
         return existing
@@ -396,15 +400,15 @@ async def generate_study_guide_endpoint(
     # Auto-create course + course_content if needed
     resolved_course_id, resolved_cc_id = ensure_course_and_content(
         db, current_user, title, description,
-        course_id=request.course_id or (course.id if course else None),
-        course_content_id=request.course_content_id,
+        course_id=body.course_id or (course.id if course else None),
+        course_content_id=body.course_content_id,
     )
 
     # Enforce limit and save to database
     enforce_study_guide_limit(db, current_user)
     study_guide = StudyGuide(
         user_id=current_user.id,
-        assignment_id=request.assignment_id,
+        assignment_id=body.assignment_id,
         course_id=resolved_course_id,
         course_content_id=resolved_cc_id,
         title=title,
@@ -437,8 +441,10 @@ async def generate_study_guide_endpoint(
 
 
 @router.post("/quiz/generate", response_model=QuizResponse)
+@limiter.limit("10/minute", key_func=get_user_id_or_ip)
 async def generate_quiz_endpoint(
-    request: QuizGenerateRequest,
+    request: Request,
+    body: QuizGenerateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -446,14 +452,14 @@ async def generate_quiz_endpoint(
     # Handle versioning
     version = 1
     parent_guide_id = None
-    if request.regenerate_from_id:
-        parent_guide_id, version = get_version_info(db, request.regenerate_from_id, current_user.id)
+    if body.regenerate_from_id:
+        parent_guide_id, version = get_version_info(db, body.regenerate_from_id, current_user.id)
 
-    topic = request.topic or "Quiz"
-    content = request.content or ""
+    topic = body.topic or "Quiz"
+    content = body.content or ""
 
-    if request.assignment_id:
-        assignment = db.query(Assignment).filter(Assignment.id == request.assignment_id).first()
+    if body.assignment_id:
+        assignment = db.query(Assignment).filter(Assignment.id == body.assignment_id).first()
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
         if assignment.course_id and not can_access_course(db, current_user, assignment.course_id):
@@ -473,7 +479,7 @@ async def generate_quiz_endpoint(
         raw_quiz = await generate_quiz(
             topic=topic,
             content=content,
-            num_questions=request.num_questions,
+            num_questions=body.num_questions,
         )
         # Parse critical dates before JSON parsing (dates come after JSON)
         raw_quiz, critical_dates = parse_critical_dates(raw_quiz)
@@ -486,7 +492,7 @@ async def generate_quiz_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
     # Deduplicate: return existing if same hash was created recently
-    content_hash = compute_content_hash(f"Quiz: {topic}", "quiz", request.assignment_id)
+    content_hash = compute_content_hash(f"Quiz: {topic}", "quiz", body.assignment_id)
     existing = find_recent_duplicate(db, current_user.id, content_hash)
     if existing:
         existing_questions = [QuizQuestion(**q) for q in json.loads(existing.content)]
@@ -499,15 +505,15 @@ async def generate_quiz_endpoint(
     # Auto-create course + course_content if needed
     resolved_course_id, resolved_cc_id = ensure_course_and_content(
         db, current_user, f"Quiz: {topic}", content,
-        course_id=request.course_id,
-        course_content_id=request.course_content_id,
+        course_id=body.course_id,
+        course_content_id=body.course_content_id,
     )
 
     # Enforce limit and save to database
     enforce_study_guide_limit(db, current_user)
     study_guide = StudyGuide(
         user_id=current_user.id,
-        assignment_id=request.assignment_id,
+        assignment_id=body.assignment_id,
         course_id=resolved_course_id,
         course_content_id=resolved_cc_id,
         title=f"Quiz: {topic}",
@@ -546,8 +552,10 @@ async def generate_quiz_endpoint(
 
 
 @router.post("/flashcards/generate", response_model=FlashcardSetResponse)
+@limiter.limit("10/minute", key_func=get_user_id_or_ip)
 async def generate_flashcards_endpoint(
-    request: FlashcardGenerateRequest,
+    request: Request,
+    body: FlashcardGenerateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -555,14 +563,14 @@ async def generate_flashcards_endpoint(
     # Handle versioning
     version = 1
     parent_guide_id = None
-    if request.regenerate_from_id:
-        parent_guide_id, version = get_version_info(db, request.regenerate_from_id, current_user.id)
+    if body.regenerate_from_id:
+        parent_guide_id, version = get_version_info(db, body.regenerate_from_id, current_user.id)
 
-    topic = request.topic or "Flashcards"
-    content = request.content or ""
+    topic = body.topic or "Flashcards"
+    content = body.content or ""
 
-    if request.assignment_id:
-        assignment = db.query(Assignment).filter(Assignment.id == request.assignment_id).first()
+    if body.assignment_id:
+        assignment = db.query(Assignment).filter(Assignment.id == body.assignment_id).first()
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
         if assignment.course_id and not can_access_course(db, current_user, assignment.course_id):
@@ -582,7 +590,7 @@ async def generate_flashcards_endpoint(
         raw_cards = await generate_flashcards(
             topic=topic,
             content=content,
-            num_cards=request.num_cards,
+            num_cards=body.num_cards,
         )
         # Parse critical dates before JSON parsing (dates come after JSON)
         raw_cards, critical_dates = parse_critical_dates(raw_cards)
@@ -595,7 +603,7 @@ async def generate_flashcards_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
     # Deduplicate: return existing if same hash was created recently
-    content_hash = compute_content_hash(f"Flashcards: {topic}", "flashcards", request.assignment_id)
+    content_hash = compute_content_hash(f"Flashcards: {topic}", "flashcards", body.assignment_id)
     existing = find_recent_duplicate(db, current_user.id, content_hash)
     if existing:
         existing_cards = [Flashcard(**c) for c in json.loads(existing.content)]
@@ -608,15 +616,15 @@ async def generate_flashcards_endpoint(
     # Auto-create course + course_content if needed
     resolved_course_id, resolved_cc_id = ensure_course_and_content(
         db, current_user, f"Flashcards: {topic}", content,
-        course_id=request.course_id,
-        course_content_id=request.course_content_id,
+        course_id=body.course_id,
+        course_content_id=body.course_content_id,
     )
 
     # Enforce limit and save to database
     enforce_study_guide_limit(db, current_user)
     study_guide = StudyGuide(
         user_id=current_user.id,
-        assignment_id=request.assignment_id,
+        assignment_id=body.assignment_id,
         course_id=resolved_course_id,
         course_content_id=resolved_cc_id,
         title=f"Flashcards: {topic}",
@@ -833,7 +841,9 @@ def get_upload_formats():
 
 
 @router.post("/upload/generate", response_model=StudyGuideResponse)
+@limiter.limit("5/minute", key_func=get_user_id_or_ip)
 async def generate_from_file_upload(
+    request: Request,
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
     guide_type: str = Form("study_guide"),
@@ -983,7 +993,9 @@ async def generate_from_file_upload(
 
 
 @router.post("/upload/extract-text")
+@limiter.limit("5/minute", key_func=get_user_id_or_ip)
 async def extract_text_from_upload(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):

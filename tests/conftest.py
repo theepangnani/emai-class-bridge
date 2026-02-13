@@ -36,6 +36,9 @@ def app(test_db_url):
     app_instance.router.on_startup.clear()
     app_instance.router.on_shutdown.clear()
 
+    # Disable rate limiting during tests
+    app_instance.state.limiter.enabled = False
+
     database.Base.metadata.create_all(bind=database.engine)
     return app_instance
 

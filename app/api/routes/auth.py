@@ -14,6 +14,7 @@ from app.schemas.user import UserCreate, UserResponse, Token
 from app.schemas.invite import AcceptInviteRequest
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_refresh_token, validate_password_strength
 from app.services.audit_service import log_action
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -22,6 +23,7 @@ _ALLOWED_REGISTRATION_ROLES = {UserRole.PARENT, UserRole.STUDENT, UserRole.TEACH
 
 
 @router.post("/register", response_model=UserResponse)
+@limiter.limit("3/minute")
 def register(user_data: UserCreate, request: Request, db: Session = Depends(get_db)):
     # Block admin self-registration
     if user_data.role not in _ALLOWED_REGISTRATION_ROLES:
@@ -97,6 +99,7 @@ def register(user_data: UserCreate, request: Request, db: Session = Depends(get_
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -224,7 +227,8 @@ class _RefreshRequest(_BaseModel):
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_access_token(body: _RefreshRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def refresh_access_token(request: Request, body: _RefreshRequest, db: Session = Depends(get_db)):
     """Exchange a valid refresh token for a new access token."""
     payload = decode_refresh_token(body.refresh_token)
     if not payload or "sub" not in payload:

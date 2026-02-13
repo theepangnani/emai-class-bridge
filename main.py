@@ -7,8 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from app.core.config import settings
 from app.core.logging_config import setup_logging, get_logger, RequestLogger
+from app.core.middleware import SecurityHeadersMiddleware
+from app.core.rate_limit import limiter
 from app.db.database import Base, engine
 from app.api.routes import auth, users, students, courses, assignments, google_classroom, study, logs, messages, notifications, teacher_communications, parent, admin, invites, tasks, course_contents, search
 
@@ -143,6 +148,10 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # Global exception handler — logs full tracebacks for 500 errors
 @app.exception_handler(Exception)
@@ -207,6 +216,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# Security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Include routers
 app.include_router(auth.router, prefix="/api")

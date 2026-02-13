@@ -44,6 +44,7 @@ pydantic[email]>=2.10.0
 pydantic-settings>=2.6.0
 python-dotenv>=1.0.1
 httpx>=0.28.0
+slowapi>=0.1.9
 
 # Testing
 pytest>=8.3.0
