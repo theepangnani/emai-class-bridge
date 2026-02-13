@@ -152,7 +152,7 @@ def update_course_content(
     content = db.query(CourseContent).filter(CourseContent.id == content_id).first()
     if not content:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
-    if content.created_by_user_id != current_user.id and current_user.role != UserRole.ADMIN:
+    if content.created_by_user_id != current_user.id and not current_user.has_role(UserRole.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the creator can edit content")
 
     update_data = data.model_dump(exclude_unset=True)
@@ -174,7 +174,7 @@ def delete_course_content(
     content = db.query(CourseContent).filter(CourseContent.id == content_id).first()
     if not content:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
-    if content.created_by_user_id != current_user.id and current_user.role != UserRole.ADMIN:
+    if content.created_by_user_id != current_user.id and not current_user.has_role(UserRole.ADMIN):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the creator can delete content")
 
     db.delete(content)

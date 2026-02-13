@@ -107,6 +107,17 @@ with engine.connect() as conn:
                 pass  # Already nullable
             # Drop the unique constraint issue for NULL emails — PostgreSQL unique allows multiple NULLs by default
             conn.commit()
+    # Multi-role support: add roles column and backfill from existing role
+    if "users" in inspector.get_table_names():
+        existing_cols = {c["name"] for c in inspector.get_columns("users")}
+        if "roles" not in existing_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN roles VARCHAR(50)"))
+            if "sqlite" in settings.database_url:
+                conn.execute(text("UPDATE users SET roles = role WHERE roles IS NULL"))
+            else:
+                conn.execute(text("UPDATE users SET roles = LOWER(role::text) WHERE roles IS NULL"))
+            logger.info("Added 'roles' column to users and backfilled from role")
+            conn.commit()
     if "study_guides" in inspector.get_table_names():
         existing_cols = {c["name"] for c in inspector.get_columns("study_guides")}
         if "course_content_id" not in existing_cols:

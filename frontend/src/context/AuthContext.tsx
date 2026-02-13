@@ -6,6 +6,7 @@ interface User {
   email: string;
   full_name: string;
   role: string;
+  roles: string[];
   is_active: boolean;
   google_connected: boolean;
 }
@@ -18,6 +19,7 @@ interface AuthContextType {
   loginWithToken: (token: string, refreshToken?: string) => void;
   register: (data: { email: string; password: string; full_name: string; role: string; teacher_type?: string; [key: string]: string | undefined }) => Promise<void>;
   logout: () => void;
+  switchRole: (role: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,8 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const switchRole = async (role: string) => {
+    const userData = await authApi.switchRole(role);
+    setUser(userData);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, loginWithToken, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, loginWithToken, register, logout, switchRole }}>
       {children}
     </AuthContext.Provider>
   );

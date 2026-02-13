@@ -65,7 +65,7 @@ def create_assignment(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this course")
 
     # Only teacher of the course, course creator, or admin can create assignments
-    if current_user.role not in (UserRole.ADMIN,):
+    if not current_user.has_role(UserRole.ADMIN):
         course = db.query(Course).filter(Course.id == assignment_data.course_id).first()
         if course and course.created_by_user_id != current_user.id:
             if current_user.role == UserRole.TEACHER:

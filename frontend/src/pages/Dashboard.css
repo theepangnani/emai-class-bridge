@@ -60,6 +60,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
+  position: relative;
 }
 
 .user-name {
@@ -76,6 +77,48 @@
   font-weight: 600;
   text-transform: capitalize;
   width: fit-content;
+}
+
+.role-switcher-trigger {
+  cursor: pointer;
+  border: none;
+}
+
+.role-switcher-trigger:hover {
+  background: var(--color-accent);
+  color: white;
+}
+
+.role-switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  background: var(--color-surface);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lift);
+  z-index: 1000;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.role-switcher-option {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.role-switcher-option:hover {
+  background: var(--color-accent-light);
+  color: var(--color-accent-strong);
 }
 
 .messages-button {

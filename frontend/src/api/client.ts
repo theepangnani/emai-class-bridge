@@ -113,6 +113,11 @@ export const authApi = {
     return response.data;
   },
 
+  switchRole: async (role: string) => {
+    const response = await api.post('/api/users/me/switch-role', { role });
+    return response.data;
+  },
+
   acceptInvite: async (token: string, password: string, full_name: string) => {
     const response = await api.post('/api/auth/accept-invite', { token, password, full_name });
     return response.data as { access_token: string; token_type: string; refresh_token?: string };

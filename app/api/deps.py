@@ -36,7 +36,7 @@ def get_current_user(
 def require_role(*roles: UserRole):
     """Dependency factory that checks the current user has one of the required roles."""
     def checker(current_user: User = Depends(get_current_user)):
-        if current_user.role not in roles:
+        if not any(current_user.has_role(r) for r in roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",
@@ -64,7 +64,7 @@ def can_access_course(db: Session, user: User, course_id: int) -> bool:
     if not course:
         return False
 
-    if user.role == UserRole.ADMIN:
+    if user.has_role(UserRole.ADMIN):
         return True
 
     if course.created_by_user_id == user.id:
@@ -73,12 +73,12 @@ def can_access_course(db: Session, user: User, course_id: int) -> bool:
     if not course.is_private:
         return True
 
-    if user.role == UserRole.TEACHER:
+    if user.has_role(UserRole.TEACHER):
         teacher = db.query(Teacher).filter(Teacher.user_id == user.id).first()
         if teacher and course.teacher_id == teacher.id:
             return True
 
-    if user.role == UserRole.STUDENT:
+    if user.has_role(UserRole.STUDENT):
         student = db.query(Student).filter(Student.user_id == user.id).first()
         if student:
             enrolled = db.query(student_courses).filter(
@@ -88,7 +88,7 @@ def can_access_course(db: Session, user: User, course_id: int) -> bool:
             if enrolled:
                 return True
 
-    if user.role == UserRole.PARENT:
+    if user.has_role(UserRole.PARENT):
         child_sids = [
             r[0] for r in db.query(parent_students.c.student_id).filter(
                 parent_students.c.parent_id == user.id

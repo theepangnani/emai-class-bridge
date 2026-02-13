@@ -20,6 +20,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=True)  # Nullable for OAuth users
     full_name = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), nullable=False)
+    roles = Column(String(50), nullable=True)  # comma-separated: "parent,teacher"
     is_active = Column(Boolean, default=True)
 
     # Google OAuth
@@ -37,3 +38,19 @@ class User(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    def has_role(self, role: "UserRole") -> bool:
+        """Check if user holds a specific role (across ALL their roles, not just active)."""
+        if not self.roles:
+            return self.role == role
+        return role.value in self.roles.split(",")
+
+    def get_roles_list(self) -> list["UserRole"]:
+        """Return all roles this user holds."""
+        if not self.roles:
+            return [self.role]
+        return [UserRole(r.strip()) for r in self.roles.split(",") if r.strip()]
+
+    def set_roles(self, roles: list["UserRole"]) -> None:
+        """Set the roles column from a list of UserRole enums."""
+        self.roles = ",".join(r.value for r in roles)

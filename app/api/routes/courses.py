@@ -41,7 +41,7 @@ def create_course(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new course. Parents, students, and teachers can all create courses."""
-    if current_user.role not in (UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT, UserRole.ADMIN):
+    if not any(current_user.has_role(r) for r in [UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT, UserRole.ADMIN]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to create courses")
 
     course_dict = course_data.model_dump(exclude={"teacher_id"})
@@ -190,7 +190,7 @@ def update_course(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Course not found",
         )
-    if course.created_by_user_id != current_user.id and current_user.role != UserRole.ADMIN:
+    if course.created_by_user_id != current_user.id and not current_user.has_role(UserRole.ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the course creator or an admin can update this course",
@@ -289,7 +289,7 @@ def list_course_students(
         )
 
     # Admin can view any course; teacher must own this course
-    if current_user.role != UserRole.ADMIN:
+    if not current_user.has_role(UserRole.ADMIN):
         teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
         if not teacher or course.teacher_id != teacher.id:
             raise HTTPException(

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { messagesApi } from '../api/client';
@@ -19,11 +19,15 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: DashboardLayoutProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, switchRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
+  const roleSwitcherRef = useRef<HTMLDivElement>(null);
+
+  const hasMultipleRoles = (user?.roles?.length ?? 0) > 1;
 
   const dashboardTitle = useMemo(() => {
     switch (user?.role) {
@@ -71,6 +75,19 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
     setMenuOpen(false);
   }, [location.pathname]);
 
+  // Close role switcher on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (roleSwitcherRef.current && !roleSwitcherRef.current.contains(e.target as Node)) {
+        setRoleSwitcherOpen(false);
+      }
+    };
+    if (roleSwitcherOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [roleSwitcherOpen]);
+
   const handleNavClick = useCallback((path: string) => {
     navigate(path);
     setMenuOpen(false);
@@ -80,6 +97,16 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
     action.onClick();
     setMenuOpen(false);
   }, []);
+
+  const handleSwitchRole = useCallback(async (role: string) => {
+    try {
+      await switchRole(role);
+      setRoleSwitcherOpen(false);
+      navigate('/dashboard');
+    } catch {
+      // Silently fail
+    }
+  }, [switchRole, navigate]);
 
   return (
     <div className="dashboard">
@@ -101,9 +128,35 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
         <div className="header-right">
           <ThemeToggle />
           <NotificationBell />
-          <div className="user-chip">
+          <div className="user-chip" ref={roleSwitcherRef}>
             <span className="user-name">{user?.full_name}</span>
-            <span className="user-role">{user?.role}</span>
+            {hasMultipleRoles ? (
+              <>
+                <button
+                  className="user-role role-switcher-trigger"
+                  onClick={() => setRoleSwitcherOpen(!roleSwitcherOpen)}
+                >
+                  {user?.role} &#9662;
+                </button>
+                {roleSwitcherOpen && (
+                  <div className="role-switcher-dropdown">
+                    {user?.roles
+                      .filter(r => r !== user?.role)
+                      .map(r => (
+                        <button
+                          key={r}
+                          className="role-switcher-option"
+                          onClick={() => handleSwitchRole(r)}
+                        >
+                          Switch to {r}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <span className="user-role">{user?.role}</span>
+            )}
           </div>
           <button onClick={logout} className="logout-button">
             Sign Out

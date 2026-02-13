@@ -236,7 +236,7 @@ def create_conversation(
     )
 
     # Validate sender is parent or teacher
-    if current_user.role not in [UserRole.PARENT, UserRole.TEACHER]:
+    if not (current_user.has_role(UserRole.PARENT) or current_user.has_role(UserRole.TEACHER)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only parents and teachers can start conversations",

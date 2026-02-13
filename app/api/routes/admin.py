@@ -1,11 +1,14 @@
 import logging
 from datetime import datetime
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
 from app.db.database import get_db
 from app.models.user import User, UserRole
+from app.models.student import Student
+from app.models.teacher import Teacher
 from app.models.course import Course
 from app.models.assignment import Assignment
 from app.models.audit_log import AuditLog
@@ -131,3 +134,83 @@ def list_audit_logs(
     ]
 
     return AuditLogList(items=items, total=total)
+
+
+class AddRoleRequest(BaseModel):
+    role: str
+
+
+@router.post("/users/{user_id}/add-role", response_model=UserResponse)
+def add_role_to_user(
+    user_id: int,
+    data: AddRoleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """Add a role to a user. Also creates the Teacher/Student profile record if needed."""
+    try:
+        new_role = UserRole(data.role)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid role: {data.role}")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if user.has_role(new_role):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"User already has the '{data.role}' role")
+
+    # Update roles column
+    current_roles = user.get_roles_list()
+    current_roles.append(new_role)
+    user.set_roles(current_roles)
+
+    # Create profile record if needed
+    if new_role == UserRole.TEACHER:
+        existing = db.query(Teacher).filter(Teacher.user_id == user.id).first()
+        if not existing:
+            db.add(Teacher(user_id=user.id))
+    elif new_role == UserRole.STUDENT:
+        existing = db.query(Student).filter(Student.user_id == user.id).first()
+        if not existing:
+            db.add(Student(user_id=user.id))
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/users/{user_id}/remove-role", response_model=UserResponse)
+def remove_role_from_user(
+    user_id: int,
+    data: AddRoleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """Remove a role from a user. Cannot remove their last role."""
+    try:
+        target_role = UserRole(data.role)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid role: {data.role}")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if not user.has_role(target_role):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"User does not have the '{data.role}' role")
+
+    current_roles = user.get_roles_list()
+    if len(current_roles) <= 1:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot remove the user's only role")
+
+    current_roles = [r for r in current_roles if r != target_role]
+    user.set_roles(current_roles)
+
+    # If active role was removed, switch to first remaining role
+    if user.role == target_role:
+        user.role = current_roles[0]
+
+    db.commit()
+    db.refresh(user)
+    return user

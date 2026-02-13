@@ -60,6 +60,7 @@ def register(user_data: UserCreate, request: Request, db: Session = Depends(get_
         hashed_password=get_password_hash(user_data.password),
         full_name=user_data.full_name,
         role=user_data.role,
+        roles=user_data.role.value,
         google_id=user_data.google_id,
         google_access_token=google_access_token,
         google_refresh_token=google_refresh_token,
@@ -83,7 +84,16 @@ def register(user_data: UserCreate, request: Request, db: Session = Depends(get_
                ip_address=request.client.host if request.client else None)
     db.commit()
     db.refresh(user)
-    return user
+    return UserResponse(
+        id=user.id,
+        email=user.email or "",
+        full_name=user.full_name,
+        role=user.role,
+        roles=[r.value for r in user.get_roles_list()],
+        is_active=user.is_active,
+        google_connected=bool(user.google_access_token),
+        created_at=user.created_at,
+    )
 
 
 @router.post("/login", response_model=Token)
@@ -148,6 +158,7 @@ def accept_invite(data: AcceptInviteRequest, request: Request, db: Session = Dep
         hashed_password=get_password_hash(data.password),
         full_name=data.full_name,
         role=role,
+        roles=role.value,
     )
     db.add(user)
     db.flush()

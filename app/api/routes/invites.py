@@ -33,12 +33,12 @@ def create_invite(
     invite_type = InviteType(data.invite_type)
 
     # Authorization checks
-    if invite_type == InviteType.STUDENT and current_user.role != UserRole.PARENT:
+    if invite_type == InviteType.STUDENT and not current_user.has_role(UserRole.PARENT):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only parents can invite students",
         )
-    if invite_type == InviteType.TEACHER and current_user.role not in (UserRole.TEACHER, UserRole.ADMIN):
+    if invite_type == InviteType.TEACHER and not (current_user.has_role(UserRole.TEACHER) or current_user.has_role(UserRole.ADMIN)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only teachers and admins can invite teachers",
