@@ -269,3 +269,77 @@ class TestVersionHistory:
         version_nums = [v["version"] for v in versions]
         assert 1 in version_nums
         assert 2 in version_nums
+
+
+# ── Archive / Restore / Permanent Delete ─────────────────────
+
+class TestArchiveLifecycle:
+    def _make_guide(self, db_session, user_id):
+        from app.models.study_guide import StudyGuide
+        guide = StudyGuide(
+            user_id=user_id, title="Lifecycle Guide",
+            content="# Lifecycle", guide_type="study_guide", version=1,
+        )
+        db_session.add(guide)
+        db_session.commit()
+        db_session.refresh(guide)
+        return guide
+
+    def test_soft_delete_archives(self, client, users, db_session):
+        guide = self._make_guide(db_session, users["parent"].id)
+        headers = _auth(client, users["parent"].email)
+        resp = client.delete(f"/api/study/guides/{guide.id}", headers=headers)
+        assert resp.status_code == 204
+
+        # Archived guide hidden from default listing
+        list_resp = client.get("/api/study/guides", headers=headers)
+        ids = [g["id"] for g in list_resp.json()]
+        assert guide.id not in ids
+
+        # Visible with include_archived
+        list_resp2 = client.get("/api/study/guides?include_archived=true", headers=headers)
+        ids2 = [g["id"] for g in list_resp2.json()]
+        assert guide.id in ids2
+
+    def test_restore_archived_guide(self, client, users, db_session):
+        guide = self._make_guide(db_session, users["parent"].id)
+        headers = _auth(client, users["parent"].email)
+
+        # Archive first
+        client.delete(f"/api/study/guides/{guide.id}", headers=headers)
+
+        # Restore
+        resp = client.patch(f"/api/study/guides/{guide.id}/restore", headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["id"] == guide.id
+
+        # Back in default listing
+        list_resp = client.get("/api/study/guides", headers=headers)
+        ids = [g["id"] for g in list_resp.json()]
+        assert guide.id in ids
+
+    def test_restore_non_archived_returns_400(self, client, users, db_session):
+        guide = self._make_guide(db_session, users["parent"].id)
+        headers = _auth(client, users["parent"].email)
+        resp = client.patch(f"/api/study/guides/{guide.id}/restore", headers=headers)
+        assert resp.status_code == 400
+
+    def test_permanent_delete_requires_archive(self, client, users, db_session):
+        guide = self._make_guide(db_session, users["parent"].id)
+        headers = _auth(client, users["parent"].email)
+        resp = client.delete(f"/api/study/guides/{guide.id}/permanent", headers=headers)
+        assert resp.status_code == 400
+
+    def test_permanent_delete_after_archive(self, client, users, db_session):
+        guide = self._make_guide(db_session, users["parent"].id)
+        headers = _auth(client, users["parent"].email)
+
+        # Archive then permanently delete
+        client.delete(f"/api/study/guides/{guide.id}", headers=headers)
+        resp = client.delete(f"/api/study/guides/{guide.id}/permanent", headers=headers)
+        assert resp.status_code == 204
+
+        # Gone from all listings
+        list_resp = client.get("/api/study/guides?include_archived=true", headers=headers)
+        ids = [g["id"] for g in list_resp.json()]
+        assert guide.id not in ids
