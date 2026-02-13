@@ -10,7 +10,7 @@ from app.models.user import User, UserRole
 from app.models.invite import Invite, InviteType
 from app.api.deps import get_current_user
 from app.schemas.invite import InviteCreate, InviteResponse
-from app.services.email_service import send_email
+from app.services.email_service import send_email_sync
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -110,26 +110,13 @@ def create_invite(
     <p>This invite expires in {expiry_days} days.</p>
     """
 
-    # Fire-and-forget email (don't block on failure)
-    import asyncio
+    # Send invite email (sync call — SendGrid SDK is synchronous)
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.ensure_future(
-                send_email(
-                    to_email=data.email,
-                    subject=f"{current_user.full_name} invited you to EMAI",
-                    html_content=html_content,
-                )
-            )
-        else:
-            loop.run_until_complete(
-                send_email(
-                    to_email=data.email,
-                    subject=f"{current_user.full_name} invited you to EMAI",
-                    html_content=html_content,
-                )
-            )
+        send_email_sync(
+            to_email=data.email,
+            subject=f"{current_user.full_name} invited you to EMAI",
+            html_content=html_content,
+        )
     except Exception as e:
         logger.warning(f"Failed to send invite email to {data.email}: {e}")
 

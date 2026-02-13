@@ -4,8 +4,8 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-async def send_email(to_email: str, subject: str, html_content: str) -> bool:
-    """Send an email via SendGrid. Returns True on success, False on failure."""
+def send_email_sync(to_email: str, subject: str, html_content: str) -> bool:
+    """Send an email via SendGrid (synchronous). Returns True on success, False on failure."""
     if not settings.sendgrid_api_key:
         logger.warning("SendGrid API key not configured, skipping email send")
         return False
@@ -32,3 +32,8 @@ async def send_email(to_email: str, subject: str, html_content: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to send email to {to_email} | error={e}")
         return False
+
+
+async def send_email(to_email: str, subject: str, html_content: str) -> bool:
+    """Send an email via SendGrid (async wrapper). Returns True on success, False on failure."""
+    return send_email_sync(to_email, subject, html_content)

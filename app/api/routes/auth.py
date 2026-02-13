@@ -14,7 +14,7 @@ from app.schemas.user import UserCreate, UserResponse, Token, ForgotPasswordRequ
 from app.schemas.invite import AcceptInviteRequest
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_refresh_token, validate_password_strength, create_password_reset_token, decode_password_reset_token, UNUSABLE_PASSWORD_HASH
 from app.services.audit_service import log_action
-from app.services.email_service import send_email
+from app.services.email_service import send_email_sync
 from app.core.config import settings
 from app.core.rate_limit import limiter
 
@@ -245,7 +245,6 @@ def refresh_access_token(request: Request, body: _RefreshRequest, db: Session = 
     return Token(access_token=new_access_token)
 
 
-import asyncio
 import os
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates")
@@ -280,18 +279,7 @@ def forgot_password(body: ForgotPasswordRequest, request: Request, db: Session =
             html = _render(template, user_name=user.full_name or "there", reset_url=reset_url)
         else:
             html = f'<p>Click <a href="{reset_url}">here</a> to reset your password. This link expires in 1 hour.</p>'
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(
-                    send_email(to_email=user.email, subject="ClassBridge — Reset Your Password", html_content=html)
-                )
-            else:
-                loop.run_until_complete(
-                    send_email(to_email=user.email, subject="ClassBridge — Reset Your Password", html_content=html)
-                )
-        except RuntimeError:
-            pass  # No event loop available (e.g. in tests); email skipped
+        send_email_sync(to_email=user.email, subject="ClassBridge — Reset Your Password", html_content=html)
         try:
             log_action(db, user_id=user.id, action="pwd_reset_req", resource_type="user",
                        resource_id=user.id, ip_address=request.client.host if request.client else None)
