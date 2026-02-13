@@ -42,10 +42,16 @@ def _send_via_smtp(to_email: str, subject: str, html_content: str) -> bool:
     return True
 
 
+def _has_valid_sendgrid_key() -> bool:
+    """Check if SendGrid API key looks valid (starts with SG.)."""
+    key = settings.sendgrid_api_key
+    return bool(key and key.startswith("SG."))
+
+
 def send_email_sync(to_email: str, subject: str, html_content: str) -> bool:
-    """Send an email. Uses SendGrid if configured, otherwise Gmail SMTP."""
+    """Send an email. Uses SendGrid if configured with valid key, otherwise Gmail SMTP."""
     try:
-        if settings.sendgrid_api_key:
+        if _has_valid_sendgrid_key():
             return _send_via_sendgrid(to_email, subject, html_content)
         elif settings.smtp_user and settings.smtp_password:
             return _send_via_smtp(to_email, subject, html_content)
