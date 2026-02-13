@@ -1,7 +1,7 @@
 """Tests for audit logging feature."""
 import pytest
 
-PASSWORD = "password123!"
+PASSWORD = "Password123!"
 
 
 def _register(client, email, role="parent", full_name="Test User"):
@@ -21,9 +21,21 @@ def _auth(client, email):
 
 
 def _setup_admin(client, db_session):
-    """Create an admin user and return auth headers."""
+    """Create an admin user directly in DB (admin self-registration is blocked)."""
+    from app.core.security import get_password_hash
+    from app.models.user import User, UserRole
+
     email = f"admin-audit-{id(client)}@test.com"
-    _register(client, email, role="admin", full_name="Admin Audit")
+    existing = db_session.query(User).filter(User.email == email).first()
+    if not existing:
+        admin = User(
+            email=email,
+            full_name="Admin Audit",
+            role=UserRole.ADMIN,
+            hashed_password=get_password_hash(PASSWORD),
+        )
+        db_session.add(admin)
+        db_session.commit()
     return _auth(client, email)
 
 

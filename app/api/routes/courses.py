@@ -7,7 +7,7 @@ from app.models.user import User, UserRole
 from app.models.teacher import Teacher
 from app.models.student import Student
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
-from app.api.deps import get_current_user, require_role
+from app.api.deps import get_current_user, require_role, can_access_course
 from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
@@ -168,6 +168,11 @@ def get_course(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Course not found",
         )
+    if not can_access_course(db, current_user, course_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
     return course
 
 
@@ -273,9 +278,9 @@ def unenroll_from_course(
 def list_course_students(
     course_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.TEACHER)),
+    current_user: User = Depends(require_role(UserRole.TEACHER, UserRole.ADMIN)),
 ):
-    """List all students enrolled in a course (teacher only)."""
+    """List all students enrolled in a course (teacher of course or admin)."""
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
         raise HTTPException(
@@ -283,13 +288,14 @@ def list_course_students(
             detail="Course not found",
         )
 
-    # Verify teacher owns this course
-    teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
-    if not teacher or course.teacher_id != teacher.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not the teacher of this course",
-        )
+    # Admin can view any course; teacher must own this course
+    if current_user.role != UserRole.ADMIN:
+        teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
+        if not teacher or course.teacher_id != teacher.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not the teacher of this course",
+            )
 
     return [
         {

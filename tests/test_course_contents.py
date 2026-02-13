@@ -1,6 +1,6 @@
 import pytest
 
-PASSWORD = "password123!"
+PASSWORD = "Password123!"
 
 
 def _login(client, email):

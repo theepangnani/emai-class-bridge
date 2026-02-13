@@ -30,7 +30,7 @@ from app.schemas.study import (
     DuplicateCheckResponse,
     AutoCreatedTask,
 )
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, can_access_course
 from app.services.audit_service import log_action
 from app.services.ai_service import generate_study_guide, generate_quiz, generate_flashcards
 from app.services.file_processor import (
@@ -351,6 +351,8 @@ async def generate_study_guide_endpoint(
         assignment = db.query(Assignment).filter(Assignment.id == request.assignment_id).first()
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
+        if assignment.course_id and not can_access_course(db, current_user, assignment.course_id):
+            raise HTTPException(status_code=403, detail="No access to this assignment's course")
         title = f"Study Guide: {assignment.title}"
         description = assignment.description or ""
         course = assignment.course
@@ -359,6 +361,8 @@ async def generate_study_guide_endpoint(
         course = db.query(Course).filter(Course.id == request.course_id).first()
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
+        if not can_access_course(db, current_user, request.course_id):
+            raise HTTPException(status_code=403, detail="No access to this course")
 
     course_name = course.name if course else "General"
     due_date = str(assignment.due_date) if assignment and assignment.due_date else None
@@ -452,6 +456,8 @@ async def generate_quiz_endpoint(
         assignment = db.query(Assignment).filter(Assignment.id == request.assignment_id).first()
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
+        if assignment.course_id and not can_access_course(db, current_user, assignment.course_id):
+            raise HTTPException(status_code=403, detail="No access to this assignment's course")
         topic = assignment.title
         content = assignment.description or ""
 
@@ -559,6 +565,8 @@ async def generate_flashcards_endpoint(
         assignment = db.query(Assignment).filter(Assignment.id == request.assignment_id).first()
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
+        if assignment.course_id and not can_access_course(db, current_user, assignment.course_id):
+            raise HTTPException(status_code=403, detail="No access to this assignment's course")
         topic = assignment.title
         content = assignment.description or ""
 

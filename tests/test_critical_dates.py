@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime
 
-PASSWORD = "password123!"
+PASSWORD = "Password123!"
 
 
 def _login(client, email):

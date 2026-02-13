@@ -1,6 +1,6 @@
 import pytest
 
-PASSWORD = "password123!"
+PASSWORD = "Password123!"
 
 
 def _login(client, email):
@@ -107,12 +107,13 @@ class TestAssignmentPermissions:
         resp = client.post("/api/assignments/", json={"title": "X", "course_id": 1})
         assert resp.status_code == 401
 
-    def test_any_role_can_create(self, client, users):
+    def test_non_owner_cannot_create_for_teacher_course(self, client, users):
+        """Parents cannot create assignments for courses they don't own or teach."""
         headers = _auth(client, users["parent"].email)
         resp = client.post("/api/assignments/", json={
             "title": "Parent Created", "course_id": users["course"].id,
         }, headers=headers)
-        assert resp.status_code == 200
+        assert resp.status_code == 403
 
     def test_any_role_can_list(self, client, users):
         headers = _auth(client, users["parent"].email)

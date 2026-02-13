@@ -19,6 +19,7 @@ from app.models.invite import Invite, InviteType
 from app.api.deps import require_role
 from app.services.audit_service import log_action
 from app.core.config import settings
+from app.core.security import UNUSABLE_PASSWORD_HASH
 from app.schemas.parent import (
     ChildSummary, ChildOverview, LinkChildRequest, CreateChildRequest,
     ChildUpdateRequest, DiscoveredChild, DiscoverChildrenResponse,
@@ -277,7 +278,7 @@ def create_child(
     # Create student user (email may be None)
     student_user = User(
         email=request.email,
-        hashed_password="",
+        hashed_password=UNUSABLE_PASSWORD_HASH,
         full_name=request.full_name,
         role=UserRole.STUDENT,
     )
@@ -351,7 +352,7 @@ def link_child(
         full_name = request.full_name or request.student_email.split("@")[0]
         student_user = User(
             email=request.student_email,
-            hashed_password="",
+            hashed_password=UNUSABLE_PASSWORD_HASH,
             full_name=full_name,
             role=UserRole.STUDENT,
         )
@@ -490,7 +491,7 @@ def discover_children_google(
         full_name = student_names.get(email, email.split("@")[0])
         new_user = User(
             email=email,
-            hashed_password="",
+            hashed_password=UNUSABLE_PASSWORD_HASH,
             full_name=full_name,
             role=UserRole.STUDENT,
         )

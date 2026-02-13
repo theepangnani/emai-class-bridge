@@ -13,13 +13,13 @@ def test_unread_count_and_mark_read(client, db_session):
         email="usera@example.com",
         full_name="User A",
         role=UserRole.PARENT,
-        hashed_password=get_password_hash("password123!"),
+        hashed_password=get_password_hash("Password123!"),
     )
     user_b = User(
         email="userb@example.com",
         full_name="User B",
         role=UserRole.TEACHER,
-        hashed_password=get_password_hash("password123!"),
+        hashed_password=get_password_hash("Password123!"),
     )
     db_session.add_all([user_a, user_b])
     db_session.commit()
@@ -41,7 +41,7 @@ def test_unread_count_and_mark_read(client, db_session):
     db_session.add(msg)
     db_session.commit()
 
-    token = _login(client, user_a.email, "password123!")
+    token = _login(client, user_a.email, "Password123!")
     headers = {"Authorization": f"Bearer {token}"}
 
     unread = client.get("/api/messages/unread-count", headers=headers)

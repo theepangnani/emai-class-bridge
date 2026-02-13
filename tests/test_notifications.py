@@ -13,7 +13,7 @@ def test_notifications_unread_and_mark_read(client, db_session):
         email="notify@example.com",
         full_name="Notify User",
         role=UserRole.PARENT,
-        hashed_password=get_password_hash("password123!"),
+        hashed_password=get_password_hash("Password123!"),
     )
     db_session.add(user)
     db_session.commit()
@@ -28,7 +28,7 @@ def test_notifications_unread_and_mark_read(client, db_session):
     db_session.add(notification)
     db_session.commit()
 
-    token = _login(client, user.email, "password123!")
+    token = _login(client, user.email, "Password123!")
     headers = {"Authorization": f"Bearer {token}"}
 
     unread = client.get("/api/notifications/unread-count", headers=headers)

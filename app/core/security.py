@@ -13,6 +13,12 @@ _PASSWORD_PATTERN = re.compile(
 )
 
 
+# Sentinel hash for accounts that cannot log in with a password (e.g. parent-created
+# child accounts that must set their password via invite link). bcrypt hashes always
+# start with "$2b$" so this value will never match any real password check.
+UNUSABLE_PASSWORD_HASH = "!INVITE_PENDING"
+
+
 def validate_password_strength(password: str) -> str | None:
     """Return an error message if the password is too weak, or None if OK."""
     if len(password) < _PASSWORD_MIN_LENGTH:
@@ -23,6 +29,8 @@ def validate_password_strength(password: str) -> str | None:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if not hashed_password or hashed_password == UNUSABLE_PASSWORD_HASH:
+        return False
     return bcrypt.checkpw(
         plain_password.encode("utf-8"),
         hashed_password.encode("utf-8")

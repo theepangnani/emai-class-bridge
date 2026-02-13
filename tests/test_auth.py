@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import pytest
 from jose import jwt
 
-PASSWORD = "password123!"
+PASSWORD = "Password123!"
 
 
 def _register(client, email, role="parent", full_name="Test User"):
@@ -28,7 +28,7 @@ def _auth(client, email):
 def test_register_login_me(client):
     payload = {
         "email": "testuser@example.com",
-        "password": "password123!",
+        "password": "Password123!",
         "full_name": "Test User",
         "role": "parent",
     }
@@ -57,7 +57,7 @@ def test_login_rejects_invalid_password(client, db_session):
         email="loginfail@example.com",
         full_name="Login Fail",
         role=UserRole.PARENT,
-        hashed_password=get_password_hash("password123!"),
+        hashed_password=get_password_hash("Password123!"),
     )
     db_session.add(user)
     db_session.commit()
