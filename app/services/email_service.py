@@ -49,18 +49,24 @@ def _has_valid_sendgrid_key() -> bool:
 
 
 def send_email_sync(to_email: str, subject: str, html_content: str) -> bool:
-    """Send an email. Uses SendGrid if configured with valid key, otherwise Gmail SMTP."""
-    try:
-        if _has_valid_sendgrid_key():
+    """Send an email. Tries SendGrid first, falls back to SMTP on failure."""
+    # Try SendGrid first if configured
+    if _has_valid_sendgrid_key():
+        try:
             return _send_via_sendgrid(to_email, subject, html_content)
-        elif settings.smtp_user and settings.smtp_password:
+        except Exception as e:
+            logger.warning(f"SendGrid failed for {to_email}, falling back to SMTP | error={e}")
+
+    # Fall back to SMTP
+    if settings.smtp_user and settings.smtp_password:
+        try:
             return _send_via_smtp(to_email, subject, html_content)
-        else:
-            logger.warning("No email provider configured (set SENDGRID_API_KEY or SMTP_USER+SMTP_PASSWORD)")
+        except Exception as e:
+            logger.error(f"SMTP failed for {to_email} | error={e}")
             return False
-    except Exception as e:
-        logger.error(f"Failed to send email to {to_email} | error={e}")
-        return False
+
+    logger.warning("No email provider configured (set SENDGRID_API_KEY or SMTP_USER+SMTP_PASSWORD)")
+    return False
 
 
 async def send_email(to_email: str, subject: str, html_content: str) -> bool:

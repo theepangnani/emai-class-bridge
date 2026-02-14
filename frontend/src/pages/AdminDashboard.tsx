@@ -108,7 +108,7 @@ export function AdminDashboard() {
     setBroadcastResult('');
     try {
       const result = await adminApi.sendBroadcast(broadcastSubject, broadcastBody);
-      setBroadcastResult(`Broadcast sent to ${result.recipient_count} users. Emails sending in background.`);
+      setBroadcastResult(`Broadcast sent to ${result.recipient_count} users. ${result.email_count} emails delivered.`);
       setBroadcastSubject('');
       setBroadcastBody('');
       // Refresh broadcast history if visible

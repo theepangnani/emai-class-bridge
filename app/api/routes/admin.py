@@ -1,5 +1,4 @@
 import logging
-import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -11,7 +10,7 @@ from sqlalchemy import func, or_
 from app.core.config import settings
 from app.core.utils import escape_like
 
-from app.db.database import get_db, SessionLocal
+from app.db.database import get_db
 from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.teacher import Teacher
@@ -252,37 +251,6 @@ def _render_broadcast_email(subject: str, body: str, recipient_name: str) -> str
     )
 
 
-def _send_broadcast_emails(broadcast_id: int, subject: str, body: str) -> None:
-    """Send broadcast emails in a background thread."""
-    db = SessionLocal()
-    try:
-        users = db.query(User.id, User.email, User.full_name).filter(
-            User.is_active == True,  # noqa: E712
-            User.email.isnot(None),
-            User.email != "",
-        ).all()
-
-        email_count = 0
-        for user in users:
-            try:
-                html = _render_broadcast_email(subject, body, user.full_name)
-                if send_email_sync(user.email, f"ClassBridge: {subject}", html):
-                    email_count += 1
-            except Exception:
-                logger.warning("Failed to send broadcast email to user %s", user.id)
-
-        broadcast = db.query(Broadcast).filter(Broadcast.id == broadcast_id).first()
-        if broadcast:
-            broadcast.email_count = email_count
-            db.commit()
-
-        logger.info("Broadcast %d: sent %d emails", broadcast_id, email_count)
-    except Exception:
-        logger.error("Broadcast email thread failed", exc_info=True)
-    finally:
-        db.close()
-
-
 @router.post("/broadcast", response_model=BroadcastResponse)
 def send_broadcast(
     data: BroadcastCreate,
@@ -290,7 +258,7 @@ def send_broadcast(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
-    """Send a broadcast message to all active users. Emails sent in background."""
+    """Send a broadcast message to all active users with email."""
     active_users = db.query(User).filter(User.is_active == True).all()  # noqa: E712
 
     # Create broadcast record
@@ -324,16 +292,23 @@ def send_broadcast(
     )
 
     db.commit()
+
+    # Send emails synchronously (Cloud Run kills daemon threads after response)
+    email_count = 0
+    for user in active_users:
+        if user.email:
+            try:
+                html = _render_broadcast_email(data.subject, data.body, user.full_name)
+                if send_email_sync(user.email, f"ClassBridge: {data.subject}", html):
+                    email_count += 1
+            except Exception:
+                logger.warning("Failed to send broadcast email to user %s", user.id)
+
+    broadcast.email_count = email_count
+    db.commit()
     db.refresh(broadcast)
 
-    # Send emails in background thread
-    thread = threading.Thread(
-        target=_send_broadcast_emails,
-        args=(broadcast.id, data.subject, data.body),
-        daemon=True,
-    )
-    thread.start()
-
+    logger.info("Broadcast %d: sent %d emails to %d users", broadcast.id, email_count, len(active_users))
     return broadcast
 
 

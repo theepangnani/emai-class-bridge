@@ -10,6 +10,7 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Poll unread count every 60 seconds
@@ -77,6 +78,9 @@ export function NotificationBell() {
     if (notification.link) {
       setIsOpen(false);
       navigate(notification.link);
+    } else {
+      // Toggle expand for notifications without a link (e.g. system/broadcast)
+      setExpandedId(prev => prev === notification.id ? null : notification.id);
     }
   };
 
@@ -156,13 +160,17 @@ export function NotificationBell() {
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`notification-item ${!n.read ? 'unread' : ''}`}
+                  className={`notification-item ${!n.read ? 'unread' : ''}${expandedId === n.id ? ' expanded' : ''}`}
                   onClick={() => handleNotificationClick(n)}
                 >
                   <span className="notification-icon">{getTypeIcon(n.type)}</span>
                   <div className="notification-content">
                     <p className="notification-title">{n.title}</p>
-                    {n.content && <p className="notification-text">{n.content}</p>}
+                    {n.content && (
+                      <p className={`notification-text${expandedId === n.id ? ' expanded' : ''}`}>
+                        {n.content}
+                      </p>
+                    )}
                     <span className="notification-time">{formatTime(n.created_at)}</span>
                   </div>
                 </div>
