@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { parentApi, courseContentsApi, tasksApi } from '../api/client';
 import type { ChildSummary, ChildOverview, CourseContentItem, TaskItem, LinkedTeacher } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { useConfirm } from '../components/ConfirmModal';
 import { PageSkeleton } from '../components/Skeleton';
 import './MyKidsPage.css';
 
 export function MyKidsPage() {
   const navigate = useNavigate();
+  const { confirm, confirmModal } = useConfirm();
   const [children, setChildren] = useState<ChildSummary[]>([]);
   const [selectedChild, setSelectedChild] = useState<number | null>(null);
   const [overview, setOverview] = useState<ChildOverview | null>(null);
@@ -208,7 +210,7 @@ export function MyKidsPage() {
                   <>
                     {activeTasks.map(t => (
                       <div key={t.id} className="mykids-task-row" onClick={() => navigate(`/tasks/${t.id}`)}>
-                        <span className={`mykids-task-priority ${t.priority || 'medium'}`} />
+                        <span className={`task-priority-badge ${t.priority || 'medium'}`}>{t.priority || 'medium'}</span>
                         <span className="mykids-task-title">{t.title}</span>
                         {t.due_date && (
                           <span className="mykids-task-due">
@@ -264,6 +266,8 @@ export function MyKidsPage() {
                       className="mykids-remove-btn"
                       onClick={async () => {
                         if (!selectedChild) return;
+                        const ok = await confirm({ title: 'Remove Teacher', message: `Remove ${t.teacher_name || t.teacher_email} as a linked teacher?`, confirmLabel: 'Remove', variant: 'danger' });
+                        if (!ok) return;
                         await parentApi.unlinkTeacher(selectedChild, t.id);
                         setLinkedTeachers(prev => prev.filter(lt => lt.id !== t.id));
                       }}
@@ -306,7 +310,7 @@ export function MyKidsPage() {
             <div className="mykids-modal-actions">
               <button onClick={() => setShowAddTeacher(false)}>Cancel</button>
               <button
-                className="mykids-modal-submit"
+                className="mykids-modal-submit generate-btn"
                 disabled={addTeacherLoading || !teacherEmail.trim()}
                 onClick={async () => {
                   setAddTeacherLoading(true);
@@ -332,6 +336,7 @@ export function MyKidsPage() {
           </div>
         </div>
       )}
+      {confirmModal}
     </DashboardLayout>
   );
 }

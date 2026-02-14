@@ -188,7 +188,15 @@
   flex-shrink: 0;
 }
 
-/* Mobile responsive */
+/* Tablet */
+@media (max-width: 768px) {
+  .auth-card {
+    max-width: 380px;
+    padding: 32px;
+  }
+}
+
+/* Mobile */
 @media (max-width: 480px) {
   .auth-container {
     padding: 12px;

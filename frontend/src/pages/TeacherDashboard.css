@@ -156,3 +156,37 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Tablet */
+@media (max-width: 768px) {
+  .teacher-courses-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  .google-account-row {
+    flex-wrap: wrap;
+  }
+  .google-account-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .teacher-courses-grid {
+    grid-template-columns: 1fr;
+  }
+  .teacher-course-card {
+    padding: 14px;
+  }
+  .teacher-course-card h4 {
+    font-size: 15px;
+  }
+  .google-account-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .google-account-actions {
+    width: 100%;
+  }
+}

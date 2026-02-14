@@ -123,6 +123,8 @@ export function TasksPage() {
   };
 
   const handleDelete = async (taskId: number) => {
+    const ok = await confirm({ title: 'Archive Task', message: 'Archive this task? You can restore it later.', confirmLabel: 'Archive' });
+    if (!ok) return;
     try {
       await tasksApi.delete(taskId);
       loadTasks();

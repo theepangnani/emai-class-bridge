@@ -864,6 +864,20 @@ def update_child(
         student.grade_level = request.grade_level
     if request.school_name is not None:
         student.school_name = request.school_name
+    if request.date_of_birth is not None:
+        student.date_of_birth = request.date_of_birth
+    if request.phone is not None:
+        student.phone = request.phone
+    if request.address is not None:
+        student.address = request.address
+    if request.city is not None:
+        student.city = request.city
+    if request.province is not None:
+        student.province = request.province
+    if request.postal_code is not None:
+        student.postal_code = request.postal_code
+    if request.notes is not None:
+        student.notes = request.notes
 
     db.commit()
     db.refresh(student)
@@ -874,6 +888,13 @@ def update_child(
         full_name=user.full_name if user else "Unknown",
         grade_level=student.grade_level,
         school_name=student.school_name,
+        date_of_birth=student.date_of_birth,
+        phone=student.phone,
+        address=student.address,
+        city=student.city,
+        province=student.province,
+        postal_code=student.postal_code,
+        notes=student.notes,
         relationship_type=link.relationship_type.value if link.relationship_type else None,
     )
 

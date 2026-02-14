@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Table, Index, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Date, Enum, Table, Text, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -51,6 +51,15 @@ class Student(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     grade_level = Column(Integer, nullable=True)  # e.g., 5-12
     school_name = Column(String(255), nullable=True)
+
+    # Profile details
+    date_of_birth = Column(Date, nullable=True)
+    phone = Column(String(30), nullable=True)
+    address = Column(String(255), nullable=True)
+    city = Column(String(100), nullable=True)
+    province = Column(String(100), nullable=True)
+    postal_code = Column(String(20), nullable=True)
+    notes = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

@@ -229,15 +229,26 @@
   background: var(--color-surface-alt);
   border-radius: 6px;
 }
-.mykids-task-priority {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.mykids-task-row .task-priority-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-transform: capitalize;
   flex-shrink: 0;
 }
-.mykids-task-priority.high { background: #e53935; }
-.mykids-task-priority.medium { background: #fb8c00; }
-.mykids-task-priority.low { background: #43a047; }
+.mykids-task-row .task-priority-badge.high {
+  background: rgba(229, 57, 53, 0.12);
+  color: #c62828;
+}
+.mykids-task-row .task-priority-badge.medium {
+  background: rgba(251, 140, 0, 0.12);
+  color: #e65100;
+}
+.mykids-task-row .task-priority-badge.low {
+  background: rgba(67, 160, 71, 0.12);
+  color: #2e7d32;
+}
 .mykids-task-title {
   flex: 1;
   font-size: 14px;

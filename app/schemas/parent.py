@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from app.schemas.course import CourseResponse
@@ -24,6 +24,13 @@ class ChildSummary(BaseModel):
     full_name: str
     grade_level: Optional[int]
     school_name: Optional[str]
+    date_of_birth: Optional[date] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    province: Optional[str] = None
+    postal_code: Optional[str] = None
+    notes: Optional[str] = None
     relationship_type: str | None = None
     invite_link: str | None = None
     course_count: int = 0
@@ -61,6 +68,13 @@ class ChildUpdateRequest(BaseModel):
     full_name: Optional[str] = None
     grade_level: Optional[int] = None
     school_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    province: Optional[str] = None
+    postal_code: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class ChildOverview(BaseModel):

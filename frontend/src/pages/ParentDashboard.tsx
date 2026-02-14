@@ -94,6 +94,13 @@ export function ParentDashboard() {
   const [editChildName, setEditChildName] = useState('');
   const [editChildGrade, setEditChildGrade] = useState('');
   const [editChildSchool, setEditChildSchool] = useState('');
+  const [editChildDob, setEditChildDob] = useState('');
+  const [editChildPhone, setEditChildPhone] = useState('');
+  const [editChildAddress, setEditChildAddress] = useState('');
+  const [editChildCity, setEditChildCity] = useState('');
+  const [editChildProvince, setEditChildProvince] = useState('');
+  const [editChildPostal, setEditChildPostal] = useState('');
+  const [editChildNotes, setEditChildNotes] = useState('');
   const [editChildLoading, setEditChildLoading] = useState(false);
   const [editChildError, setEditChildError] = useState('');
 
@@ -374,6 +381,13 @@ export function ParentDashboard() {
     setEditChildName(child.full_name);
     setEditChildGrade(child.grade_level != null ? String(child.grade_level) : '');
     setEditChildSchool(child.school_name || '');
+    setEditChildDob(child.date_of_birth || '');
+    setEditChildPhone(child.phone || '');
+    setEditChildAddress(child.address || '');
+    setEditChildCity(child.city || '');
+    setEditChildProvince(child.province || '');
+    setEditChildPostal(child.postal_code || '');
+    setEditChildNotes(child.notes || '');
     setEditChildError('');
     setShowEditChildModal(true);
   };
@@ -384,6 +398,13 @@ export function ParentDashboard() {
     setEditChildName('');
     setEditChildGrade('');
     setEditChildSchool('');
+    setEditChildDob('');
+    setEditChildPhone('');
+    setEditChildAddress('');
+    setEditChildCity('');
+    setEditChildProvince('');
+    setEditChildPostal('');
+    setEditChildNotes('');
     setEditChildError('');
   };
 
@@ -396,6 +417,13 @@ export function ParentDashboard() {
         full_name: editChildName.trim(),
         grade_level: editChildGrade ? parseInt(editChildGrade, 10) : undefined,
         school_name: editChildSchool.trim() || undefined,
+        date_of_birth: editChildDob || undefined,
+        phone: editChildPhone.trim() || undefined,
+        address: editChildAddress.trim() || undefined,
+        city: editChildCity.trim() || undefined,
+        province: editChildProvince.trim() || undefined,
+        postal_code: editChildPostal.trim() || undefined,
+        notes: editChildNotes.trim() || undefined,
       });
       closeEditChildModal();
       await loadDashboard();
@@ -581,6 +609,8 @@ export function ParentDashboard() {
   };
 
   const handleDeleteTask = async (taskId: number) => {
+    const ok = await confirm({ title: 'Archive Task', message: 'Archive this task? You can restore it later.', confirmLabel: 'Archive' });
+    if (!ok) return;
     try {
       await tasksApi.delete(taskId);
       setDayTasks(prev => prev.filter(t => t.id !== taskId));
@@ -1220,6 +1250,36 @@ export function ParentDashboard() {
               <label>
                 School
                 <input type="text" value={editChildSchool} onChange={(e) => setEditChildSchool(e.target.value)} placeholder="e.g., Lincoln Elementary" disabled={editChildLoading} />
+              </label>
+              <label>
+                Date of Birth
+                <input type="date" value={editChildDob} onChange={(e) => setEditChildDob(e.target.value)} disabled={editChildLoading} />
+              </label>
+              <label>
+                Phone
+                <input type="tel" value={editChildPhone} onChange={(e) => setEditChildPhone(e.target.value)} placeholder="e.g., 555-123-4567" disabled={editChildLoading} />
+              </label>
+              <label>
+                Address
+                <input type="text" value={editChildAddress} onChange={(e) => setEditChildAddress(e.target.value)} placeholder="Street address" disabled={editChildLoading} />
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <label>
+                  City
+                  <input type="text" value={editChildCity} onChange={(e) => setEditChildCity(e.target.value)} placeholder="City" disabled={editChildLoading} />
+                </label>
+                <label>
+                  Province
+                  <input type="text" value={editChildProvince} onChange={(e) => setEditChildProvince(e.target.value)} placeholder="Province" disabled={editChildLoading} />
+                </label>
+              </div>
+              <label>
+                Postal Code
+                <input type="text" value={editChildPostal} onChange={(e) => setEditChildPostal(e.target.value)} placeholder="e.g., A1B 2C3" disabled={editChildLoading} />
+              </label>
+              <label>
+                Notes
+                <textarea value={editChildNotes} onChange={(e) => setEditChildNotes(e.target.value)} placeholder="Any additional notes about your child..." disabled={editChildLoading} rows={3} />
               </label>
               {editChildError && <p className="link-error">{editChildError}</p>}
             </div>

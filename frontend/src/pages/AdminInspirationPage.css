@@ -183,3 +183,23 @@
   font-size: 13px;
   color: var(--color-ink-muted);
 }
+
+/* Mobile */
+@media (max-width: 600px) {
+  .admin-insp-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-insp-actions {
+    justify-content: flex-end;
+  }
+  .admin-insp-row {
+    flex-direction: column;
+  }
+  .admin-insp-row-actions {
+    justify-content: flex-end;
+  }
+  .admin-insp-form {
+    padding: 14px;
+  }
+}
