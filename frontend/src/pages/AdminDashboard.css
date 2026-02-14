@@ -276,19 +276,26 @@
   max-width: 520px;
 }
 
+.admin-message-modal h2 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  color: var(--color-ink);
+}
+
 .admin-msg-subtitle {
   font-size: 13px;
   color: var(--color-ink-muted);
   margin: 0 0 20px 0;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--color-border);
+  line-height: 1.5;
 }
 
 .admin-msg-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .admin-msg-input {
@@ -298,11 +305,13 @@
   font-size: 14px;
   background: var(--color-surface);
   color: var(--color-ink);
+  transition: border-color 0.15s;
 }
 
 .admin-msg-input:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
 }
 
 .admin-msg-textarea {
@@ -312,14 +321,16 @@
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
-  min-height: 100px;
+  min-height: 120px;
   background: var(--color-surface);
   color: var(--color-ink);
+  transition: border-color 0.15s;
 }
 
 .admin-msg-textarea:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
 }
 
 .admin-msg-result {
@@ -337,6 +348,30 @@
 .admin-msg-result.error {
   background: #fee;
   color: #c00;
+}
+
+/* Submit button for admin modals */
+.admin-message-modal .submit-btn {
+  padding: 10px 22px;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-warm));
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.admin-message-modal .submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-message-modal .submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Broadcast history toggle */
