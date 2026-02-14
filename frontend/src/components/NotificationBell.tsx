@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { notificationsApi } from '../api/client';
 import type { NotificationResponse } from '../api/client';
@@ -176,8 +177,8 @@ export function NotificationBell() {
       )}
     </div>
 
-    {/* Notification Detail Modal */}
-    {modalNotification && (
+    {/* Notification Detail Modal - portaled to body to escape header stacking context */}
+    {modalNotification && createPortal(
       <div className="modal-overlay" onClick={() => setModalNotification(null)}>
         <div className="notif-modal" onClick={(e) => e.stopPropagation()}>
           <div className="notif-modal-header">
@@ -207,7 +208,8 @@ export function NotificationBell() {
             </div>
           )}
         </div>
-      </div>
+      </div>,
+      document.body
     )}
     </>
   );
