@@ -498,7 +498,7 @@ if FRONTEND_DIR.exists():
             return FileResponse(file_path)
         return FileResponse(
             FRONTEND_DIR / "index.html",
-            headers={"Cache-Control": "no-cache"},
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
         )
 else:
     @app.get("/")

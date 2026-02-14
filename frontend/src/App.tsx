@@ -10,23 +10,29 @@ import { PageLoader } from './components/PageLoader';
 import './App.css';
 
 // Retry lazy imports to handle stale chunks after deployment.
-// If a chunk 404s (old hash), retry once then force-reload the page.
+// If a chunk 404s (old hash), reload the page once to get fresh HTML,
+// then retry the import. The sessionStorage flag prevents infinite reloads.
 function lazyRetry<T extends ComponentType<any>>(
   importFn: () => Promise<{ default: T }>,
 ): React.LazyExoticComponent<T> {
   return lazy(() =>
-    importFn().catch(() => {
-      // Chunk failed to load — likely stale after a deploy.
-      // Only auto-reload once to avoid infinite reload loops.
-      const reloaded = sessionStorage.getItem('chunk_reload');
-      if (!reloaded) {
-        sessionStorage.setItem('chunk_reload', '1');
-        window.location.reload();
-        return new Promise(() => {}); // never resolves (page is reloading)
-      }
-      sessionStorage.removeItem('chunk_reload');
-      return importFn(); // final retry after reload
-    }),
+    importFn()
+      .then((module) => {
+        // Successfully loaded — clear any stale reload flag
+        sessionStorage.removeItem('chunk_reload');
+        return module;
+      })
+      .catch(() => {
+        // Chunk failed to load — likely stale after a deploy.
+        const reloaded = sessionStorage.getItem('chunk_reload');
+        if (!reloaded) {
+          sessionStorage.setItem('chunk_reload', '1');
+          window.location.reload();
+          return new Promise(() => {}); // never resolves (page is reloading)
+        }
+        sessionStorage.removeItem('chunk_reload');
+        return importFn(); // final retry after reload
+      }),
   );
 }
 
@@ -50,9 +56,6 @@ const AcceptInvite = lazyRetry(() => import('./pages/AcceptInvite').then((m) => 
 const MyKidsPage = lazyRetry(() => import('./pages/MyKidsPage').then((m) => ({ default: m.MyKidsPage })));
 const ForgotPasswordPage = lazyRetry(() => import('./pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = lazyRetry(() => import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })));
-
-// Clear the chunk reload flag on successful app boot
-sessionStorage.removeItem('chunk_reload');
 
 const queryClient = new QueryClient({
   defaultOptions: {
