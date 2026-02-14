@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { studyApi, parentApi, courseContentsApi, coursesApi, tasksApi } from '../api/client';
 import type { StudyGuide, SupportedFormats, DuplicateCheckResponse, ChildSummary, CourseContentItem, AutoCreatedTask } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +46,7 @@ interface CourseOption {
 export function StudyGuidesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isParent = user?.role === 'parent';
   const { confirm, confirmModal } = useConfirm();
 
@@ -115,6 +116,14 @@ export function StudyGuidesPage() {
       startGeneration(params);
     }
   }, []);
+
+  // Set filter from navigation state (parent dashboard child selection)
+  useEffect(() => {
+    const navState = location.state as { selectedChild?: number | null } | null;
+    if (navState?.selectedChild) {
+      setFilterChild(navState.selectedChild);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (showModal && !supportedFormats) {

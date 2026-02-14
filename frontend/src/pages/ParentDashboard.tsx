@@ -548,7 +548,7 @@ export function ParentDashboard() {
       });
       setDuplicateCheck(null);
       resetStudyModal();
-      navigate('/course-materials');
+      navigate('/course-materials', { state: { selectedChild } });
     } finally {
       setIsGenerating(false);
     }
@@ -813,7 +813,7 @@ export function ParentDashboard() {
         type: 'study_guide',
         mode: 'text',
       });
-      navigate('/course-materials');
+      navigate('/course-materials', { state: { selectedChild } });
     } catch {
       // On error, fall back to the modal
       setStudyTitle(assignment.title);
@@ -829,7 +829,7 @@ export function ParentDashboard() {
   };
 
   const handleViewStudyGuides = () => {
-    navigate('/course-materials');
+    navigate('/course-materials', { state: { selectedChild } });
   };
 
   // ============================================
@@ -1003,7 +1003,7 @@ export function ParentDashboard() {
             <button className="btn-accent-outline" onClick={() => setShowStudyModal(true)}>
               + Create Course Material
             </button>
-            <button className="btn-accent-outline" onClick={() => navigate('/course-materials')}>
+            <button className="btn-accent-outline" onClick={() => navigate('/course-materials', { state: { selectedChild } })}>
               View Course Materials
             </button>
           </div>
