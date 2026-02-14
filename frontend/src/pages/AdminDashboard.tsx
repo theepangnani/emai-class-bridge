@@ -8,6 +8,7 @@ import { ListSkeleton } from '../components/Skeleton';
 import './AdminDashboard.css';
 
 const PAGE_SIZE = 10;
+const ALL_ROLES = ['parent', 'student', 'teacher', 'admin'] as const;
 
 export function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -18,6 +19,11 @@ export function AdminDashboard() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const debouncedSearch = useDebounce(search, 400);
+
+  // Role management modal
+  const [selectedUser, setSelectedUser] = useState<AdminUserItem | null>(null);
+  const [roleLoading, setRoleLoading] = useState<Record<string, boolean>>({});
+  const [roleError, setRoleError] = useState('');
 
   useEffect(() => {
     loadStats();
@@ -54,34 +60,60 @@ export function AdminDashboard() {
     }
   };
 
+  const handleToggleRole = async (role: string) => {
+    if (!selectedUser) return;
+    const hasRole = selectedUser.roles.includes(role);
+
+    if (hasRole && selectedUser.roles.length <= 1) {
+      setRoleError('Cannot remove the last role');
+      return;
+    }
+
+    setRoleLoading(prev => ({ ...prev, [role]: true }));
+    setRoleError('');
+
+    try {
+      const updated = hasRole
+        ? await adminApi.removeRole(selectedUser.id, role)
+        : await adminApi.addRole(selectedUser.id, role);
+
+      setSelectedUser(updated);
+      setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+    } catch (err: any) {
+      setRoleError(err.response?.data?.detail || 'Failed to update role');
+    } finally {
+      setRoleLoading(prev => ({ ...prev, [role]: false }));
+    }
+  };
+
   const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
 
   return (
     <DashboardLayout welcomeSubtitle="Platform administration">
       <div className="dashboard-grid">
         <div className="dashboard-card">
-          <div className="card-icon">👥</div>
+          <div className="card-icon">&#128101;</div>
           <h3>Total Users</h3>
           <p className="card-value">{stats?.total_users ?? '—'}</p>
           <p className="card-label">Registered users</p>
         </div>
 
         <div className="dashboard-card">
-          <div className="card-icon">🎓</div>
+          <div className="card-icon">&#127891;</div>
           <h3>Students</h3>
           <p className="card-value">{stats?.users_by_role?.student ?? 0}</p>
           <p className="card-label">Active students</p>
         </div>
 
         <div className="dashboard-card">
-          <div className="card-icon">👨‍🏫</div>
+          <div className="card-icon">&#128104;&#8205;&#127979;</div>
           <h3>Teachers</h3>
           <p className="card-value">{stats?.users_by_role?.teacher ?? 0}</p>
           <p className="card-label">Active teachers</p>
         </div>
 
         <div className="dashboard-card">
-          <div className="card-icon">📚</div>
+          <div className="card-icon">&#128218;</div>
           <h3>Courses</h3>
           <p className="card-value">{stats?.total_courses ?? 0}</p>
           <p className="card-label">Total courses</p>
@@ -129,9 +161,10 @@ export function AdminDashboard() {
                   <tr>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Role</th>
+                    <th>Roles</th>
                     <th>Status</th>
                     <th>Created</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -140,20 +173,30 @@ export function AdminDashboard() {
                       <td>{user.full_name}</td>
                       <td>{user.email}</td>
                       <td>
-                        <span className={`role-badge-small ${user.role}`}>
-                          {user.role}
-                        </span>
+                        <div className="admin-roles-cell">
+                          {(user.roles?.length ? user.roles : [user.role]).map(r => (
+                            <span key={r} className={`role-badge-small ${r}`}>{r}</span>
+                          ))}
+                        </div>
                       </td>
                       <td>
                         <span className={`status-dot ${user.is_active ? 'active' : 'inactive'}`} />
                         {user.is_active ? 'Active' : 'Inactive'}
                       </td>
                       <td>{new Date(user.created_at).toLocaleDateString()}</td>
+                      <td>
+                        <button
+                          className="admin-manage-btn"
+                          onClick={() => { setSelectedUser(user); setRoleError(''); }}
+                        >
+                          Manage Roles
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#999' }}>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#999' }}>
                         No users found
                       </td>
                     </tr>
@@ -180,6 +223,50 @@ export function AdminDashboard() {
           )}
         </section>
       </div>
+
+      {/* Role Management Modal */}
+      {selectedUser && (
+        <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
+          <div className="modal admin-role-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Manage Roles</h2>
+            <div className="admin-role-user-info">
+              <span className="admin-role-user-name">{selectedUser.full_name}</span>
+              <span className="admin-role-user-email">{selectedUser.email}</span>
+            </div>
+
+            <div className="admin-role-list">
+              {ALL_ROLES.map(role => {
+                const hasRole = selectedUser.roles.includes(role);
+                const isLoading = roleLoading[role];
+                const isLastRole = hasRole && selectedUser.roles.length <= 1;
+
+                return (
+                  <label
+                    key={role}
+                    className={`admin-role-checkbox-row${isLoading ? ' loading' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={hasRole}
+                      disabled={isLoading || isLastRole}
+                      onChange={() => handleToggleRole(role)}
+                    />
+                    <span className={`role-badge-small ${role}`}>{role}</span>
+                    {isLoading && <span className="admin-role-spinner" />}
+                    {isLastRole && <span className="admin-role-hint">Last role</span>}
+                  </label>
+                );
+              })}
+            </div>
+
+            {roleError && <p className="admin-role-error">{roleError}</p>}
+
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setSelectedUser(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

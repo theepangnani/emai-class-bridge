@@ -147,6 +147,120 @@
   background: var(--color-surface-alt);
 }
 
+/* Roles cell */
+.admin-roles-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Manage button */
+.admin-manage-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-accent);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.admin-manage-btn:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+/* Role management modal */
+.admin-role-modal {
+  width: 90%;
+  max-width: 400px;
+}
+
+.admin-role-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-role-user-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-ink);
+}
+
+.admin-role-user-email {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+}
+
+.admin-role-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-role-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admin-role-checkbox-row:hover {
+  background: var(--color-surface-alt);
+}
+
+.admin-role-checkbox-row.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.admin-role-checkbox-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-accent);
+}
+
+.admin-role-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: admin-role-spin 0.6s linear infinite;
+}
+
+@keyframes admin-role-spin {
+  to { transform: rotate(360deg); }
+}
+
+.admin-role-hint {
+  font-size: 11px;
+  color: var(--color-ink-muted);
+  font-style: italic;
+}
+
+.admin-role-error {
+  color: #c00;
+  font-size: 13px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: #fee;
+  border-radius: 6px;
+}
+
 /* Mobile responsive */
 @media (max-width: 600px) {
   .admin-filters {

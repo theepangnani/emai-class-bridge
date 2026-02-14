@@ -937,6 +937,7 @@ export interface AdminUserItem {
   email: string;
   full_name: string;
   role: string;
+  roles: string[];
   is_active: boolean;
   created_at: string;
 }
@@ -986,6 +987,16 @@ export const adminApi = {
   getAuditLogs: async (params?: { user_id?: number; action?: string; resource_type?: string; date_from?: string; date_to?: string; search?: string; skip?: number; limit?: number }) => {
     const response = await api.get('/api/admin/audit-logs', { params });
     return response.data as AuditLogList;
+  },
+
+  addRole: async (userId: number, role: string) => {
+    const response = await api.post(`/api/admin/users/${userId}/add-role`, { role });
+    return response.data as AdminUserItem;
+  },
+
+  removeRole: async (userId: number, role: string) => {
+    const response = await api.post(`/api/admin/users/${userId}/remove-role`, { role });
+    return response.data as AdminUserItem;
   },
 };
 

@@ -112,3 +112,63 @@ class TestAdminPermissions:
         headers = _auth(client, users["student"].email)
         resp = client.get("/api/admin/users", headers=headers)
         assert resp.status_code == 403
+
+
+# ── Admin role management ────────────────────────────────────
+
+class TestAdminRoleManagement:
+    def test_add_teacher_role_to_parent(self, client, users):
+        headers = _auth(client, users["admin"].email)
+        parent = users["parent"]
+        resp = client.post(
+            f"/api/admin/users/{parent.id}/add-role",
+            json={"role": "teacher"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "teacher" in data["roles"]
+        assert "parent" in data["roles"]
+
+    def test_remove_teacher_role_from_multi_role_user(self, client, users, db_session):
+        headers = _auth(client, users["admin"].email)
+        parent = users["parent"]
+        # Ensure parent has teacher role (may have been added in previous test)
+        from app.models.user import UserRole
+        db_session.refresh(parent)
+        if not parent.has_role(UserRole.TEACHER):
+            client.post(
+                f"/api/admin/users/{parent.id}/add-role",
+                json={"role": "teacher"},
+                headers=headers,
+            )
+        resp = client.post(
+            f"/api/admin/users/{parent.id}/remove-role",
+            json={"role": "teacher"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "teacher" not in data["roles"]
+        assert "parent" in data["roles"]
+
+    def test_cannot_remove_last_role(self, client, users):
+        headers = _auth(client, users["admin"].email)
+        student = users["student"]
+        resp = client.post(
+            f"/api/admin/users/{student.id}/remove-role",
+            json={"role": "student"},
+            headers=headers,
+        )
+        assert resp.status_code == 400
+        assert "only role" in resp.json()["detail"].lower()
+
+    def test_non_admin_cannot_add_role(self, client, users):
+        headers = _auth(client, users["parent"].email)
+        student = users["student"]
+        resp = client.post(
+            f"/api/admin/users/{student.id}/add-role",
+            json={"role": "teacher"},
+            headers=headers,
+        )
+        assert resp.status_code == 403
