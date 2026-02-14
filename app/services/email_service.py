@@ -14,7 +14,7 @@ def _send_via_sendgrid(to_email: str, subject: str, html_content: str) -> bool:
     from sendgrid.helpers.mail import Mail
 
     message = Mail(
-        from_email=settings.from_email,
+        from_email=(settings.from_email, "ClassBridge"),
         to_emails=to_email,
         subject=subject,
         html_content=html_content,
@@ -28,7 +28,7 @@ def _send_via_sendgrid(to_email: str, subject: str, html_content: str) -> bool:
 def _send_via_smtp(to_email: str, subject: str, html_content: str) -> bool:
     """Send via Gmail SMTP."""
     msg = MIMEMultipart("alternative")
-    msg["From"] = settings.smtp_user
+    msg["From"] = f"ClassBridge <{settings.smtp_user}>"
     msg["To"] = to_email
     msg["Subject"] = subject
     msg.attach(MIMEText(html_content, "html"))
