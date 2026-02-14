@@ -3,12 +3,19 @@ import { CalendarDayCell } from './CalendarDayCell';
 import type { CalendarAssignment } from './types';
 import { dateKey } from './types';
 
+interface TouchDragHandlers {
+  handleTouchStart: (e: React.TouchEvent, data: { id: number; itemType: string }) => void;
+  handleTouchMove: (e: React.TouchEvent) => void;
+  handleTouchEnd: () => void;
+}
+
 interface CalendarMonthGridProps {
   currentDate: Date;
   assignments: CalendarAssignment[];
   onAssignmentClick: (assignment: CalendarAssignment, anchorRect: DOMRect) => void;
   onDayClick: (date: Date) => void;
   onTaskDrop?: (assignmentId: number, newDate: Date) => void;
+  touchDrag?: TouchDragHandlers;
 }
 
 const DAY_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -27,7 +34,7 @@ function getMonthGridDates(year: number, month: number): Date[] {
   return dates;
 }
 
-export function CalendarMonthGrid({ currentDate, assignments, onAssignmentClick, onDayClick, onTaskDrop }: CalendarMonthGridProps) {
+export function CalendarMonthGrid({ currentDate, assignments, onAssignmentClick, onDayClick, onTaskDrop, touchDrag }: CalendarMonthGridProps) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const gridDates = useMemo(() => getMonthGridDates(year, month), [year, month]);
@@ -58,6 +65,7 @@ export function CalendarMonthGrid({ currentDate, assignments, onAssignmentClick,
             onAssignmentClick={onAssignmentClick}
             onDayClick={onDayClick}
             onTaskDrop={onTaskDrop}
+            touchDrag={touchDrag}
           />
         ))}
       </div>

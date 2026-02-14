@@ -3,6 +3,12 @@ import { CalendarEntry } from './CalendarEntry';
 import type { CalendarAssignment } from './types';
 import { isSameDay } from './types';
 
+interface TouchDragHandlers {
+  handleTouchStart: (e: React.TouchEvent, data: { id: number; itemType: string }) => void;
+  handleTouchMove: (e: React.TouchEvent) => void;
+  handleTouchEnd: () => void;
+}
+
 interface CalendarDayCellProps {
   date: Date;
   isCurrentMonth: boolean;
@@ -10,11 +16,12 @@ interface CalendarDayCellProps {
   onAssignmentClick: (assignment: CalendarAssignment, anchorRect: DOMRect) => void;
   onDayClick: (date: Date) => void;
   onTaskDrop?: (assignmentId: number, newDate: Date) => void;
+  touchDrag?: TouchDragHandlers;
 }
 
 const MAX_VISIBLE = 3;
 
-export function CalendarDayCell({ date, isCurrentMonth, assignments, onAssignmentClick, onDayClick, onTaskDrop }: CalendarDayCellProps) {
+export function CalendarDayCell({ date, isCurrentMonth, assignments, onAssignmentClick, onDayClick, onTaskDrop, touchDrag }: CalendarDayCellProps) {
   const isToday = isSameDay(date, new Date());
   const overflow = assignments.length - MAX_VISIBLE;
   const [dragOver, setDragOver] = useState(false);
@@ -52,6 +59,7 @@ export function CalendarDayCell({ date, isCurrentMonth, assignments, onAssignmen
   return (
     <div
       className={`cal-day-cell${!isCurrentMonth ? ' outside-month' : ''}${isToday ? ' today' : ''}${dragOver ? ' cal-day-drag-over' : ''}`}
+      data-drop-date={`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
@@ -71,6 +79,7 @@ export function CalendarDayCell({ date, isCurrentMonth, assignments, onAssignmen
             assignment={a}
             variant="chip"
             onClick={(e) => onAssignmentClick(a, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+            touchDrag={touchDrag}
           />
         ))}
         {overflow > 0 && (

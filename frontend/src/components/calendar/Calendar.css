@@ -531,6 +531,23 @@
   outline-offset: -2px;
 }
 
+/* Touch drag ghost */
+.cal-touch-ghost {
+  background: var(--color-accent, #3b82f6);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 9999;
+  opacity: 0.9;
+}
+
 /* ================================================
    Responsive
    ================================================ */

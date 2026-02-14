@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { parentApi, courseContentsApi, tasksApi } from '../api/client';
 import type { ChildSummary, ChildOverview, CourseContentItem, TaskItem, LinkedTeacher } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
@@ -7,11 +7,24 @@ import { useConfirm } from '../components/ConfirmModal';
 import { PageSkeleton } from '../components/Skeleton';
 import './MyKidsPage.css';
 
+const CHILD_COLORS = [
+  '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b',
+  '#3b82f6', '#ef4444', '#10b981', '#6366f1',
+];
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0]?.[0] || '?').toUpperCase();
+}
+
 export function MyKidsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { confirm, confirmModal } = useConfirm();
   const [children, setChildren] = useState<ChildSummary[]>([]);
   const [selectedChild, setSelectedChild] = useState<number | null>(null);
+  const urlStudentId = searchParams.get('student_id');
   const [overview, setOverview] = useState<ChildOverview | null>(null);
   const [materials, setMaterials] = useState<CourseContentItem[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -37,13 +50,17 @@ export function MyKidsPage() {
       try {
         const kids = await parentApi.getChildren();
         setChildren(kids);
-        if (kids.length === 1) {
+        const urlSid = urlStudentId ? Number(urlStudentId) : null;
+        const match = urlSid ? kids.find(k => k.student_id === urlSid) : null;
+        if (match) {
+          setSelectedChild(match.student_id);
+        } else if (kids.length === 1) {
           setSelectedChild(kids[0].student_id);
         }
       } catch { /* */ }
       finally { setLoading(false); }
     })();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load child data when selection changes
   useEffect(() => {
@@ -78,7 +95,7 @@ export function MyKidsPage() {
 
   if (loading) {
     return (
-      <DashboardLayout welcomeSubtitle="Your children's progress">
+      <DashboardLayout welcomeSubtitle="Detailed child profiles, courses, and teacher management">
         <PageSkeleton />
       </DashboardLayout>
     );
@@ -86,7 +103,7 @@ export function MyKidsPage() {
 
   if (children.length === 0) {
     return (
-      <DashboardLayout welcomeSubtitle="Your children's progress">
+      <DashboardLayout welcomeSubtitle="Detailed child profiles, courses, and teacher management">
         <div className="mykids-empty">
           <h3>No children linked yet</h3>
           <p>Add a child from your Dashboard to get started.</p>
@@ -101,8 +118,34 @@ export function MyKidsPage() {
   const activeTasks = tasks.filter(t => !t.is_completed);
   const completedTasks = tasks.filter(t => t.is_completed);
 
+  // Per-child task stats for the selected child
+  const selectedTaskStats = useMemo(() => {
+    if (!selectedChild || tasks.length === 0) return null;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const totalTasks = tasks.length;
+    const completed = completedTasks.length;
+    const completionPct = totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0;
+    const pendingWithDue = activeTasks
+      .filter(t => t.due_date)
+      .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
+    let nextDeadline: { title: string; label: string } | null = null;
+    if (pendingWithDue.length > 0) {
+      const next = pendingWithDue[0];
+      const dueDate = new Date(next.due_date!);
+      const diffDays = Math.floor((dueDate.getTime() - todayStart.getTime()) / 86400000);
+      let label: string;
+      if (diffDays < 0) label = `overdue by ${Math.abs(diffDays)}d`;
+      else if (diffDays === 0) label = 'due today';
+      else if (diffDays === 1) label = 'due tomorrow';
+      else label = `due in ${diffDays} days`;
+      nextDeadline = { title: next.title, label };
+    }
+    return { totalTasks, completed, completionPct, nextDeadline };
+  }, [selectedChild, tasks, activeTasks, completedTasks]);
+
   return (
-    <DashboardLayout welcomeSubtitle="Your children's progress">
+    <DashboardLayout welcomeSubtitle="Detailed child profiles, courses, and teacher management">
       {/* Child Tabs */}
       <div className="child-selector">
         {children.length > 1 && (
@@ -113,12 +156,13 @@ export function MyKidsPage() {
             All Children
           </button>
         )}
-        {children.map(child => (
+        {children.map((child, index) => (
           <button
             key={child.student_id}
             className={`child-tab ${selectedChild === child.student_id ? 'active' : ''}`}
             onClick={() => setSelectedChild(child.student_id)}
           >
+            <span className="child-color-dot" style={{ backgroundColor: CHILD_COLORS[index % CHILD_COLORS.length] }} />
             {child.full_name}
             {child.grade_level != null && <span className="grade-badge">Grade {child.grade_level}</span>}
           </button>
@@ -128,23 +172,27 @@ export function MyKidsPage() {
       {!selectedChild ? (
         /* All-children overview */
         <div className="mykids-overview-grid">
-          {children.map(child => (
+          {children.map((child, index) => (
             <div
               key={child.student_id}
-              className="mykids-child-card"
+              className="mykids-child-card-enhanced"
               onClick={() => setSelectedChild(child.student_id)}
             >
-              <div className="mykids-child-card-name">
-                {child.full_name}
-                {child.grade_level != null && <span className="grade-badge">Grade {child.grade_level}</span>}
+              <div className="mykids-child-avatar" style={{ backgroundColor: CHILD_COLORS[index % CHILD_COLORS.length] }}>
+                {getInitials(child.full_name)}
               </div>
-              {child.school_name && <div className="mykids-child-card-school">{child.school_name}</div>}
-              <div className="mykids-child-card-stats">
-                <span className="mykids-stat">{child.course_count} {child.course_count === 1 ? 'course' : 'courses'}</span>
-                <span className="mykids-stat-sep">&middot;</span>
-                <span className="mykids-stat">{child.active_task_count} active {child.active_task_count === 1 ? 'task' : 'tasks'}</span>
+              <div className="mykids-child-card-content">
+                <div className="mykids-child-card-header">
+                  <span className="mykids-child-card-name">{child.full_name}</span>
+                  {child.grade_level != null && <span className="grade-badge">Grade {child.grade_level}</span>}
+                </div>
+                {child.school_name && <div className="mykids-child-card-school">{child.school_name}</div>}
+                <div className="mykids-child-card-stats">
+                  <span className="mykids-child-stat">{child.course_count} {child.course_count === 1 ? 'course' : 'courses'}</span>
+                  <span className="mykids-child-stat">{child.active_task_count} active {child.active_task_count === 1 ? 'task' : 'tasks'}</span>
+                </div>
               </div>
-              <div className="mykids-child-card-action">View details &rarr;</div>
+              <div className="mykids-child-card-arrow">&rarr;</div>
             </div>
           ))}
         </div>
@@ -152,6 +200,32 @@ export function MyKidsPage() {
         <PageSkeleton />
       ) : (
         <div className="mykids-sections">
+          {/* ── Progress Summary ──────────────────── */}
+          {selectedTaskStats && selectedTaskStats.totalTasks > 0 && (() => {
+            const childIndex = children.findIndex(c => c.student_id === selectedChild);
+            const color = CHILD_COLORS[childIndex >= 0 ? childIndex % CHILD_COLORS.length : 0];
+            return (
+              <div className="mykids-progress-summary">
+                <div className="mykids-progress-info">
+                  <span className="mykids-progress-text">
+                    {selectedTaskStats.completed}/{selectedTaskStats.totalTasks} tasks complete
+                  </span>
+                  {selectedTaskStats.nextDeadline && (
+                    <span className="mykids-next-deadline">
+                      Next: <strong>{selectedTaskStats.nextDeadline.title}</strong> — {selectedTaskStats.nextDeadline.label}
+                    </span>
+                  )}
+                </div>
+                <div className="mykids-progress-bar-wrap">
+                  <div className="mykids-progress-bar">
+                    <div className="mykids-progress-fill" style={{ width: `${selectedTaskStats.completionPct}%`, backgroundColor: color }} />
+                  </div>
+                  <span className="mykids-progress-pct">{selectedTaskStats.completionPct}%</span>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ── Courses ───────────────────────────── */}
           <div className="mykids-section">
             <button className="mykids-section-header" onClick={() => setShowCourses(p => !p)}>

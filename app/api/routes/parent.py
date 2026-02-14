@@ -660,6 +660,25 @@ def discover_children_google(
         db.flush()
         logger.info(f"Auto-created student account for {email} via Google Classroom discovery")
 
+        # Send invite email so the child can set their password
+        invite_link = f"{settings.frontend_url}/accept-invite?token={token}"
+        try:
+            invite_html = f"""
+                <h2>You've been invited to ClassBridge</h2>
+                <p><strong>{current_user.full_name}</strong> has added you as a student on ClassBridge.</p>
+                <p>Click the link below to set your password and get started:</p>
+                <p><a href="{invite_link}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">Create My Account</a></p>
+                <p style="color:#666;font-size:14px;">This invite expires in 30 days.</p>
+                """
+            invite_html = add_inspiration_to_email(invite_html, db, "student")
+            send_email_sync(
+                to_email=email,
+                subject=f"{current_user.full_name} invited you to ClassBridge",
+                html_content=invite_html,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send invite email to {email}: {e}")
+
         matched_users.append(new_user)
 
     db.commit()

@@ -5,6 +5,7 @@ import { CalendarMonthGrid } from './CalendarMonthGrid';
 import { CalendarWeekGrid } from './CalendarWeekGrid';
 import { CalendarDayGrid } from './CalendarDayGrid';
 import { CalendarEntryPopover } from './CalendarEntryPopover';
+import { useTouchDrag } from './useTouchDrag';
 import type { CalendarAssignment } from './types';
 import { dateKey } from './types';
 import './Calendar.css';
@@ -34,6 +35,7 @@ function getMonday(d: Date): Date {
 export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: externalDayClick, onTaskDrop, onGoToCourse, onViewStudyGuides, generatingStudyId }: CalendarViewProps) {
   const nav = useCalendarNav('month');
   const [popover, setPopover] = useState<{ assignment: CalendarAssignment; rect: DOMRect } | null>(null);
+  const touchDrag = useTouchDrag(onTaskDrop);
 
   const handleAssignmentClick = (assignment: CalendarAssignment, anchorRect: DOMRect) => {
     setPopover({ assignment, rect: anchorRect });
@@ -123,6 +125,7 @@ export function CalendarView({ assignments, onCreateStudyGuide, onDayClick: exte
           onAssignmentClick={handleAssignmentClick}
           onDayClick={handleDayClick}
           onTaskDrop={onTaskDrop}
+          touchDrag={touchDrag}
         />
       )}
 

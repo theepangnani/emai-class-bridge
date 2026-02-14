@@ -833,7 +833,7 @@ export function ParentDashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout welcomeSubtitle="Monitor your child's progress">
+      <DashboardLayout welcomeSubtitle="At-a-glance monitoring, calendar, and quick actions">
         <PageSkeleton />
       </DashboardLayout>
     );
@@ -841,7 +841,7 @@ export function ParentDashboard() {
 
   return (
     <DashboardLayout
-      welcomeSubtitle="Monitor your child's progress"
+      welcomeSubtitle="At-a-glance monitoring, calendar, and quick actions"
       sidebarActions={[
         { label: '+ Add Child', onClick: () => setShowLinkModal(true) },
         { label: '+ Create Course Material', onClick: () => setShowStudyModal(true) },
@@ -922,8 +922,8 @@ export function ParentDashboard() {
                 return (
                   <div
                     key={h.student_id}
-                    className={`child-card-enhanced${selectedChild === h.student_id ? ' selected' : ''}`}
-                    onClick={() => setSelectedChild(prev => prev === h.student_id ? null : h.student_id)}
+                    className="child-card-enhanced"
+                    onClick={() => navigate(`/my-kids?student_id=${h.student_id}`)}
                   >
                     <div className="child-avatar" style={{ backgroundColor: CHILD_COLORS[index % CHILD_COLORS.length] }}>
                       {getInitials(h.full_name)}
@@ -961,8 +961,8 @@ export function ParentDashboard() {
                       </div>
                     </div>
                     <div className="child-card-actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="child-action-btn" title="Courses" onClick={() => navigate('/courses')}>{'\u{1F4DA}'}</button>
-                      <button className="child-action-btn" title="Tasks" onClick={() => navigate('/tasks')}>{'\u2705'}</button>
+                      <button className="child-action-btn" title="Courses" onClick={() => navigate(`/courses?student_id=${h.student_id}`)}>{'\u{1F4DA}'}</button>
+                      <button className="child-action-btn" title="Tasks" onClick={() => navigate(`/tasks?assignee=${childSummary?.user_id || ''}`)}>{'\u2705'}</button>
                       <button className="child-action-btn" title="Edit" onClick={() => { if (childSummary) openEditChild(childSummary); }}>{'\u270F\uFE0F'}</button>
                     </div>
                   </div>

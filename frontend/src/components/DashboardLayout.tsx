@@ -46,8 +46,8 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
   const navItems = useMemo(() => {
     if (user?.role === 'parent') {
       return [
-        { label: 'Home', path: '/dashboard' },
-        { label: 'My Kids', path: '/my-kids' },
+        { label: 'Overview', path: '/dashboard' },
+        { label: 'Child Profiles', path: '/my-kids' },
         { label: 'Tasks', path: '/tasks' },
         { label: 'Messages', path: '/messages' },
       ];

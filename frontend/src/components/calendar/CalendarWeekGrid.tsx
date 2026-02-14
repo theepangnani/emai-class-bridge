@@ -3,16 +3,23 @@ import { CalendarEntry } from './CalendarEntry';
 import type { CalendarAssignment } from './types';
 import { dateKey, isSameDay } from './types';
 
+interface TouchDragHandlers {
+  handleTouchStart: (e: React.TouchEvent, data: { id: number; itemType: string }) => void;
+  handleTouchMove: (e: React.TouchEvent) => void;
+  handleTouchEnd: () => void;
+}
+
 interface CalendarWeekGridProps {
   dates: Date[];
   assignments: CalendarAssignment[];
   onAssignmentClick: (assignment: CalendarAssignment, anchorRect: DOMRect) => void;
   onTaskDrop?: (assignmentId: number, newDate: Date) => void;
+  touchDrag?: TouchDragHandlers;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function CalendarWeekGrid({ dates, assignments, onAssignmentClick, onTaskDrop }: CalendarWeekGridProps) {
+export function CalendarWeekGrid({ dates, assignments, onAssignmentClick, onTaskDrop, touchDrag }: CalendarWeekGridProps) {
   const today = new Date();
   const [dragOverCol, setDragOverCol] = useState<number | null>(null);
 
@@ -58,6 +65,7 @@ export function CalendarWeekGrid({ dates, assignments, onAssignmentClick, onTask
             </div>
             <div
               className={`cal-week-column-body${dragOverCol === i ? ' cal-day-drag-over' : ''}`}
+              data-drop-date={`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`}
               onDragOver={handleDragOver}
               onDragEnter={(e) => { e.preventDefault(); setDragOverCol(i); }}
               onDragLeave={(e) => {
@@ -74,6 +82,7 @@ export function CalendarWeekGrid({ dates, assignments, onAssignmentClick, onTask
                     assignment={a}
                     variant="card"
                     onClick={(e) => onAssignmentClick(a, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+                    touchDrag={touchDrag}
                   />
                 ))
               )}

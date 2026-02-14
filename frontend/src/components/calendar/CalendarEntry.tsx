@@ -2,13 +2,20 @@ import { useState } from 'react';
 import type { CalendarAssignment } from './types';
 import { TASK_PRIORITY_COLORS } from './types';
 
+interface TouchDragHandlers {
+  handleTouchStart: (e: React.TouchEvent, data: { id: number; itemType: string }) => void;
+  handleTouchMove: (e: React.TouchEvent) => void;
+  handleTouchEnd: () => void;
+}
+
 interface CalendarEntryProps {
   assignment: CalendarAssignment;
   variant: 'chip' | 'card';
   onClick: (e: React.MouseEvent) => void;
+  touchDrag?: TouchDragHandlers;
 }
 
-export function CalendarEntry({ assignment, variant, onClick }: CalendarEntryProps) {
+export function CalendarEntry({ assignment, variant, onClick, touchDrag }: CalendarEntryProps) {
   const isTask = assignment.itemType === 'task';
   const color = isTask
     ? TASK_PRIORITY_COLORS[assignment.priority || 'medium']
@@ -26,10 +33,17 @@ export function CalendarEntry({ assignment, variant, onClick }: CalendarEntryPro
     setDragging(false);
   };
 
+  const touchProps = isTask && touchDrag ? {
+    onTouchStart: (e: React.TouchEvent) => touchDrag.handleTouchStart(e, { id: assignment.id, itemType: 'task' }),
+    onTouchMove: touchDrag.handleTouchMove,
+    onTouchEnd: touchDrag.handleTouchEnd,
+  } : {};
+
   const dragProps = isTask ? {
     draggable: true,
     onDragStart: handleDragStart,
     onDragEnd: handleDragEnd,
+    ...touchProps,
   } : {};
 
   const draggingClass = dragging ? ' cal-entry-dragging' : '';
