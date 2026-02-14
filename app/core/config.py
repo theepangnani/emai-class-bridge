@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Email
     sendgrid_api_key: str = ""
-    from_email: str = "noreply@classbridge.app"
+    from_email: str = "clazzbridge@gmail.com"
     # Gmail SMTP (used when SendGrid is not configured)
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
