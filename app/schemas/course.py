@@ -8,12 +8,14 @@ class CourseCreate(BaseModel):
     description: str | None = None
     subject: str | None = None
     teacher_id: int | None = None
+    teacher_email: str | None = None
 
 
 class CourseUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     subject: Optional[str] = None
+    teacher_email: Optional[str] = None
 
 
 class CourseResponse(BaseModel):
@@ -23,6 +25,8 @@ class CourseResponse(BaseModel):
     subject: str | None
     google_classroom_id: str | None
     teacher_id: int | None
+    teacher_name: str | None = None
+    teacher_email: str | None = None
     created_by_user_id: int | None = None
     is_private: bool = False
     is_default: bool = False
@@ -30,3 +34,7 @@ class CourseResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AddStudentRequest(BaseModel):
+    email: str

@@ -47,6 +47,7 @@ export function CoursesPage() {
   const [courseName, setCourseName] = useState('');
   const [courseSubject, setCourseSubject] = useState('');
   const [courseDescription, setCourseDescription] = useState('');
+  const [courseTeacherEmail, setCourseTeacherEmail] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState('');
 
@@ -110,6 +111,7 @@ export function CoursesPage() {
         name: courseName.trim(),
         subject: courseSubject.trim() || undefined,
         description: courseDescription.trim() || undefined,
+        teacher_email: courseTeacherEmail.trim() || undefined,
       });
       closeCreateModal();
       if (isParent) {
@@ -134,6 +136,7 @@ export function CoursesPage() {
     setCourseName('');
     setCourseSubject('');
     setCourseDescription('');
+    setCourseTeacherEmail('');
     setCreateError('');
   };
 
@@ -369,6 +372,12 @@ export function CoursesPage() {
                 Description (optional)
                 <textarea value={courseDescription} onChange={(e) => setCourseDescription(e.target.value)} placeholder="Course details..." rows={3} disabled={createLoading} />
               </label>
+              {user?.role !== 'teacher' && (
+                <label>
+                  Teacher Email (optional)
+                  <input type="email" value={courseTeacherEmail} onChange={(e) => setCourseTeacherEmail(e.target.value)} placeholder="teacher@example.com" disabled={createLoading} />
+                </label>
+              )}
               {createError && <p className="link-error">{createError}</p>}
             </div>
             <div className="modal-actions">

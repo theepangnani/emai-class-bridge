@@ -86,6 +86,14 @@
   line-height: 1.6;
 }
 
+.course-detail-teacher {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  font-weight: 500;
+}
+
 .course-detail-date {
   display: block;
   margin-top: 10px;
@@ -403,6 +411,92 @@
 .content-type-badge.readings { background: rgba(33, 150, 243, 0.12); color: var(--badge-readings); }
 .content-type-badge.resources { background: rgba(76, 175, 80, 0.12); color: var(--badge-resources); }
 .content-type-badge.assignments { background: rgba(244, 67, 54, 0.12); color: var(--badge-assignments); }
+
+/* Student Roster */
+.course-roster-section {
+  margin-top: 28px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+}
+
+.course-roster-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.course-roster-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-ink);
+}
+
+.course-roster-empty {
+  color: var(--color-ink-muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.course-roster-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.course-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.course-roster-row:last-child {
+  border-bottom: none;
+}
+
+.course-roster-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.course-roster-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--color-ink);
+}
+
+.course-roster-email {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+
+.course-roster-remove {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-ink-muted);
+  transition: all 0.2s;
+}
+
+.course-roster-remove:hover {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.link-success {
+  color: var(--color-success);
+  font-size: 13px;
+  margin: 4px 0;
+}
 
 @media (max-width: 600px) {
   .course-detail-header {

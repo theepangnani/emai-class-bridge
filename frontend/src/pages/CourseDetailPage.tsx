@@ -27,10 +27,20 @@ interface CourseDetail {
   description: string | null;
   subject: string | null;
   teacher_id: number | null;
+  teacher_name: string | null;
+  teacher_email: string | null;
   created_by_user_id: number | null;
   is_private: boolean;
   created_at: string;
   google_classroom_id: string | null;
+}
+
+interface RosterStudent {
+  student_id: number;
+  user_id: number;
+  full_name: string;
+  email: string;
+  grade_level: number | null;
 }
 
 export function CourseDetailPage() {
@@ -44,11 +54,20 @@ export function CourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [contentsLoading, setContentsLoading] = useState(false);
 
+  // Student roster
+  const [students, setStudents] = useState<RosterStudent[]>([]);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [addStudentEmail, setAddStudentEmail] = useState('');
+  const [addStudentLoading, setAddStudentLoading] = useState(false);
+  const [addStudentError, setAddStudentError] = useState('');
+  const [addStudentSuccess, setAddStudentSuccess] = useState('');
+
   // Edit course modal
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editSubject, setEditSubject] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editTeacherEmail, setEditTeacherEmail] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -111,6 +130,12 @@ export function CourseDetailPage() {
       } catch {
         setContents([]);
       }
+      try {
+        const roster = await coursesApi.listStudents(courseId);
+        setStudents(roster);
+      } catch {
+        setStudents([]);
+      }
     } catch {
       setCourse(null);
     } finally {
@@ -130,7 +155,39 @@ export function CourseDetailPage() {
 
   const isCreator = course?.created_by_user_id === user?.id;
   const isAdmin = user?.role === 'admin';
+  const isTeacher = user?.role === 'teacher';
   const canEdit = isCreator || isAdmin;
+  const canManageRoster = isCreator || isAdmin || isTeacher;
+
+  const handleAddStudent = async () => {
+    if (!addStudentEmail.trim()) return;
+    setAddStudentLoading(true);
+    setAddStudentError('');
+    setAddStudentSuccess('');
+    try {
+      const result = await coursesApi.addStudent(courseId, addStudentEmail.trim());
+      if (result.invited) {
+        setAddStudentSuccess(result.message);
+      } else {
+        setStudents(prev => [...prev, result]);
+        setAddStudentSuccess(`${result.full_name} has been added to the course.`);
+      }
+      setAddStudentEmail('');
+    } catch (err: any) {
+      setAddStudentError(err.response?.data?.detail || 'Failed to add student');
+    } finally {
+      setAddStudentLoading(false);
+    }
+  };
+
+  const handleRemoveStudent = async (studentId: number, name: string) => {
+    const ok = await confirm({ title: 'Remove Student', message: `Remove ${name} from this course?`, variant: 'danger' });
+    if (!ok) return;
+    try {
+      await coursesApi.removeStudent(courseId, studentId);
+      setStudents(prev => prev.filter(s => s.student_id !== studentId));
+    } catch { /* ignore */ }
+  };
 
   // Edit course handlers
   const openEditModal = () => {
@@ -138,6 +195,7 @@ export function CourseDetailPage() {
     setEditName(course.name);
     setEditSubject(course.subject || '');
     setEditDescription(course.description || '');
+    setEditTeacherEmail(course.teacher_email || '');
     setEditError('');
     setShowEditModal(true);
   };
@@ -151,6 +209,7 @@ export function CourseDetailPage() {
         name: editName.trim(),
         subject: editSubject.trim() || undefined,
         description: editDescription.trim() || undefined,
+        teacher_email: editTeacherEmail.trim() !== (course?.teacher_email || '') ? editTeacherEmail.trim() : undefined,
       });
       setCourse(updated);
       setShowEditModal(false);
@@ -435,6 +494,11 @@ export function CourseDetailPage() {
               {course.is_private && <span className="course-detail-badge private">Private</span>}
             </div>
             {course.description && <p className="course-detail-desc">{course.description}</p>}
+            {course.teacher_name && (
+              <span className="course-detail-teacher">
+                Teacher: {course.teacher_name}{course.teacher_email ? ` (${course.teacher_email})` : ''}
+              </span>
+            )}
             <span className="course-detail-date">
               Created {new Date(course.created_at).toLocaleDateString()}
             </span>
@@ -529,6 +593,65 @@ export function CourseDetailPage() {
         )}
       </div>
 
+      {/* Student Roster */}
+      {canManageRoster && (
+        <div className="course-roster-section">
+          <div className="course-roster-header">
+            <h3>Enrolled Students ({students.length})</h3>
+            <button className="courses-btn secondary" onClick={() => { setAddStudentEmail(''); setAddStudentError(''); setAddStudentSuccess(''); setShowAddStudentModal(true); }}>
+              + Add Student
+            </button>
+          </div>
+          {students.length === 0 ? (
+            <p className="course-roster-empty">No students enrolled yet.</p>
+          ) : (
+            <div className="course-roster-list">
+              {students.map(s => (
+                <div key={s.student_id} className="course-roster-row">
+                  <div className="course-roster-info">
+                    <span className="course-roster-name">{s.full_name}</span>
+                    <span className="course-roster-email">{s.email}</span>
+                  </div>
+                  {s.grade_level != null && <span className="grade-badge">Grade {s.grade_level}</span>}
+                  <button className="course-roster-remove" onClick={() => handleRemoveStudent(s.student_id, s.full_name)}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add Student Modal */}
+      {showAddStudentModal && (
+        <div className="modal-overlay" onClick={() => setShowAddStudentModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Add Student</h2>
+            <p className="modal-desc">Enter the student's email address. If they don't have an account, an invitation will be sent.</p>
+            <div className="modal-form">
+              <label>
+                Student Email *
+                <input
+                  type="email"
+                  value={addStudentEmail}
+                  onChange={(e) => setAddStudentEmail(e.target.value)}
+                  placeholder="student@example.com"
+                  disabled={addStudentLoading}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddStudent()}
+                />
+              </label>
+              {addStudentError && <p className="link-error">{addStudentError}</p>}
+              {addStudentSuccess && <p className="link-success">{addStudentSuccess}</p>}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setShowAddStudentModal(false)} disabled={addStudentLoading}>Close</button>
+              <button className="generate-btn" onClick={handleAddStudent} disabled={addStudentLoading || !addStudentEmail.trim()}>
+                {addStudentLoading ? 'Adding...' : 'Add Student'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Course Modal */}
       {showEditModal && (
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
@@ -546,6 +669,10 @@ export function CourseDetailPage() {
               <label>
                 Description
                 <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Course details..." rows={3} disabled={editSaving} />
+              </label>
+              <label>
+                Teacher Email (optional)
+                <input type="email" value={editTeacherEmail} onChange={(e) => setEditTeacherEmail(e.target.value)} placeholder="teacher@example.com" disabled={editSaving} />
               </label>
               {editError && <p className="link-error">{editError}</p>}
             </div>

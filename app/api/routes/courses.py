@@ -1,16 +1,29 @@
+import os
+import secrets
+import logging
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import insert
 
 from app.db.database import get_db
 from app.models.course import Course, student_courses
 from app.models.user import User, UserRole
 from app.models.teacher import Teacher
 from app.models.student import Student
-from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
+from app.models.invite import Invite, InviteType
+from app.models.notification import Notification, NotificationType
+from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse, AddStudentRequest
 from app.api.deps import get_current_user, require_role, can_access_course
 from app.services.audit_service import log_action
+from app.services.email_service import send_email_sync
+from app.core.config import settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/courses", tags=["Courses"])
+
+_template_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates")
 
 
 def get_or_create_default_course(db: Session, user: User) -> Course:
@@ -34,6 +47,55 @@ def get_or_create_default_course(db: Session, user: User) -> Course:
     return course
 
 
+def _resolve_teacher_by_email(db: Session, email: str, inviter: User, course: Course) -> int | None:
+    """Look up teacher by email. If exists, return teacher.id. If not, create invite and return None."""
+    email = email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+    if user:
+        if not user.has_role(UserRole.TEACHER):
+            raise HTTPException(status_code=400, detail=f"{email} is not a teacher account")
+        teacher = db.query(Teacher).filter(Teacher.user_id == user.id).first()
+        if not teacher:
+            raise HTTPException(status_code=400, detail=f"Teacher profile not found for {email}")
+        return teacher.id
+
+    # Check for existing pending invite
+    existing = db.query(Invite).filter(
+        Invite.email == email,
+        Invite.invite_type == InviteType.TEACHER,
+        Invite.accepted_at.is_(None),
+    ).first()
+    if not existing:
+        token = secrets.token_urlsafe(32)
+        invite = Invite(
+            email=email,
+            invite_type=InviteType.TEACHER,
+            token=token,
+            expires_at=datetime.utcnow() + timedelta(days=30),
+            invited_by_user_id=inviter.id,
+            metadata_json={"course_id": course.id},
+        )
+        db.add(invite)
+        db.flush()
+        invite_link = f"{settings.frontend_url}/accept-invite?token={token}"
+        try:
+            tpl_path = os.path.join(_template_dir, "teacher_course_invite.html")
+            with open(tpl_path, "r") as f:
+                html = f.read()
+            html = (html
+                .replace("{{inviter_name}}", inviter.full_name)
+                .replace("{{course_name}}", course.name)
+                .replace("{{invite_link}}", invite_link))
+            send_email_sync(
+                to_email=email,
+                subject=f"{inviter.full_name} invited you to teach on ClassBridge",
+                html_content=html,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send teacher course invite email to {email}: {e}")
+    return None
+
+
 @router.post("/", response_model=CourseResponse)
 def create_course(
     course_data: CourseCreate,
@@ -44,7 +106,7 @@ def create_course(
     if not any(current_user.has_role(r) for r in [UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT, UserRole.ADMIN]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to create courses")
 
-    course_dict = course_data.model_dump(exclude={"teacher_id"})
+    course_dict = course_data.model_dump(exclude={"teacher_id", "teacher_email"})
     course_dict["created_by_user_id"] = current_user.id
 
     if current_user.role == UserRole.TEACHER:
@@ -60,6 +122,14 @@ def create_course(
     course = Course(**course_dict)
     db.add(course)
     db.flush()
+
+    # Resolve teacher by email if provided and no teacher_id yet
+    if course_data.teacher_email and not course.teacher_id:
+        teacher_id = _resolve_teacher_by_email(db, course_data.teacher_email, current_user, course)
+        if teacher_id:
+            course.teacher_id = teacher_id
+            course.is_private = False
+
     log_action(db, user_id=current_user.id, action="create", resource_type="course", resource_id=course.id, details={"name": course.name})
     db.commit()
     db.refresh(course)
@@ -197,8 +267,19 @@ def update_course(
         )
 
     update_data = data.model_dump(exclude_unset=True)
+    teacher_email = update_data.pop("teacher_email", None)
     for field, value in update_data.items():
         setattr(course, field, value)
+
+    # Handle teacher assignment/unassignment by email
+    if teacher_email is not None:
+        if teacher_email.strip() == "":
+            course.teacher_id = None
+        else:
+            teacher_id = _resolve_teacher_by_email(db, teacher_email, current_user, course)
+            if teacher_id:
+                course.teacher_id = teacher_id
+                course.is_private = False
 
     db.flush()
     log_action(db, user_id=current_user.id, action="update", resource_type="course", resource_id=course_id)
@@ -274,28 +355,30 @@ def unenroll_from_course(
     return {"message": "Successfully unenrolled from course", "course_id": course_id}
 
 
+def _require_course_manager(db: Session, current_user: User, course: Course):
+    """Check that current_user is the course teacher, admin, or course creator."""
+    if current_user.has_role(UserRole.ADMIN):
+        return
+    if course.created_by_user_id == current_user.id:
+        return
+    if current_user.has_role(UserRole.TEACHER):
+        teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
+        if teacher and course.teacher_id == teacher.id:
+            return
+    raise HTTPException(status_code=403, detail="You do not have permission to manage this course roster")
+
+
 @router.get("/{course_id}/students")
 def list_course_students(
     course_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.TEACHER, UserRole.ADMIN)),
+    current_user: User = Depends(get_current_user),
 ):
-    """List all students enrolled in a course (teacher of course or admin)."""
+    """List all students enrolled in a course (teacher, admin, or course creator)."""
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Course not found",
-        )
-
-    # Admin can view any course; teacher must own this course
-    if not current_user.has_role(UserRole.ADMIN):
-        teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
-        if not teacher or course.teacher_id != teacher.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not the teacher of this course",
-            )
+        raise HTTPException(status_code=404, detail="Course not found")
+    _require_course_manager(db, current_user, course)
 
     return [
         {
@@ -307,3 +390,127 @@ def list_course_students(
         }
         for s in course.students
     ]
+
+
+@router.post("/{course_id}/students")
+def add_student_to_course(
+    course_id: int,
+    body: AddStudentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add a student to a course by email. If student doesn't exist, send invite."""
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    _require_course_manager(db, current_user, course)
+
+    email = body.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+
+    if user:
+        if not user.has_role(UserRole.STUDENT):
+            raise HTTPException(status_code=400, detail=f"{email} is not a student account")
+        student = db.query(Student).filter(Student.user_id == user.id).first()
+        if not student:
+            raise HTTPException(status_code=400, detail=f"Student profile not found for {email}")
+
+        # Check already enrolled
+        already = db.execute(
+            student_courses.select().where(
+                student_courses.c.student_id == student.id,
+                student_courses.c.course_id == course.id,
+            )
+        ).first()
+        if already:
+            raise HTTPException(status_code=400, detail="Student is already enrolled in this course")
+
+        db.execute(insert(student_courses).values(student_id=student.id, course_id=course.id))
+
+        # Send in-app notification
+        notif = Notification(
+            user_id=user.id,
+            type=NotificationType.SYSTEM,
+            title=f"Enrolled in {course.name}",
+            content=f"{current_user.full_name} added you to {course.name}",
+            link=f"/courses/{course.id}",
+        )
+        db.add(notif)
+        db.commit()
+
+        return {
+            "student_id": student.id,
+            "user_id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "grade_level": student.grade_level,
+        }
+
+    # User doesn't exist — create invite with course context
+    existing_invite = db.query(Invite).filter(
+        Invite.email == email,
+        Invite.invite_type == InviteType.STUDENT,
+        Invite.accepted_at.is_(None),
+    ).first()
+    if not existing_invite:
+        token = secrets.token_urlsafe(32)
+        invite = Invite(
+            email=email,
+            invite_type=InviteType.STUDENT,
+            token=token,
+            expires_at=datetime.utcnow() + timedelta(days=30),
+            invited_by_user_id=current_user.id,
+            metadata_json={"course_id": course.id},
+        )
+        db.add(invite)
+        db.flush()
+        invite_link = f"{settings.frontend_url}/accept-invite?token={token}"
+        try:
+            tpl_path = os.path.join(_template_dir, "student_course_invite.html")
+            with open(tpl_path, "r") as f:
+                html = f.read()
+            html = (html
+                .replace("{{inviter_name}}", current_user.full_name)
+                .replace("{{course_name}}", course.name)
+                .replace("{{invite_link}}", invite_link))
+            send_email_sync(
+                to_email=email,
+                subject=f"{current_user.full_name} invited you to join {course.name} on ClassBridge",
+                html_content=html,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send student course invite email to {email}: {e}")
+    db.commit()
+    return {"invited": True, "message": f"Invitation sent to {email}"}
+
+
+@router.delete("/{course_id}/students/{student_id}")
+def remove_student_from_course(
+    course_id: int,
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove a student from a course."""
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    _require_course_manager(db, current_user, course)
+
+    row = db.execute(
+        student_courses.select().where(
+            student_courses.c.student_id == student_id,
+            student_courses.c.course_id == course_id,
+        )
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Student is not enrolled in this course")
+
+    db.execute(
+        student_courses.delete().where(
+            student_courses.c.student_id == student_id,
+            student_courses.c.course_id == course_id,
+        )
+    )
+    db.commit()
+    return {"message": "Student removed from course"}

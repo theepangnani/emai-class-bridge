@@ -189,6 +189,7 @@ def accept_invite(data: AcceptInviteRequest, request: Request, db: Session = Dep
         else:
             teacher = Teacher(user_id=user.id, teacher_type=teacher_type_value)
             db.add(teacher)
+        db.flush()
     elif role == UserRole.STUDENT:
         student = Student(user_id=user.id)
         db.add(student)
@@ -207,6 +208,21 @@ def accept_invite(data: AcceptInviteRequest, request: Request, db: Session = Dep
                     relationship_type=rel_type,
                 )
             )
+
+    # Auto-enroll/assign based on course_id in invite metadata
+    metadata = invite.metadata_json or {}
+    course_id = metadata.get("course_id")
+    if course_id:
+        from app.models.course import Course, student_courses as _sc
+        _course = db.query(Course).filter(Course.id == course_id).first()
+        if _course:
+            if role == UserRole.STUDENT:
+                # Auto-enroll student in the course
+                db.execute(insert(_sc).values(student_id=student.id, course_id=_course.id))
+            elif role == UserRole.TEACHER:
+                # Auto-assign teacher to course if still unassigned
+                if _course.teacher_id is None:
+                    _course.teacher_id = teacher.id
 
     # Mark invite as accepted
     invite.accepted_at = datetime.utcnow()

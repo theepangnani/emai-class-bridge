@@ -39,6 +39,22 @@ class Course(Base):
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     students = relationship("Student", secondary=student_courses, backref="courses", passive_deletes=True)
 
+    @property
+    def teacher_name(self) -> str | None:
+        if not self.teacher:
+            return None
+        if self.teacher.is_shadow:
+            return self.teacher.full_name
+        return self.teacher.user.full_name if self.teacher.user else None
+
+    @property
+    def teacher_email(self) -> str | None:
+        if not self.teacher:
+            return None
+        if self.teacher.is_shadow:
+            return self.teacher.google_email
+        return self.teacher.user.email if self.teacher.user else None
+
     __table_args__ = (
         Index("ix_courses_teacher", "teacher_id"),
         Index("ix_courses_created_by", "created_by_user_id"),

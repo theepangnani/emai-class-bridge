@@ -151,12 +151,12 @@ export const coursesApi = {
     return response.data;
   },
 
-  create: async (data: { name: string; description?: string; subject?: string }) => {
+  create: async (data: { name: string; description?: string; subject?: string; teacher_email?: string }) => {
     const response = await api.post('/api/courses/', data);
     return response.data;
   },
 
-  update: async (id: number, data: { name?: string; description?: string; subject?: string }) => {
+  update: async (id: number, data: { name?: string; description?: string; subject?: string; teacher_email?: string }) => {
     const response = await api.patch(`/api/courses/${id}`, data);
     return response.data;
   },
@@ -168,6 +168,21 @@ export const coursesApi = {
 
   getDefault: async () => {
     const response = await api.get('/api/courses/default');
+    return response.data;
+  },
+
+  listStudents: async (courseId: number) => {
+    const response = await api.get(`/api/courses/${courseId}/students`);
+    return response.data as Array<{ student_id: number; user_id: number; full_name: string; email: string; grade_level: number | null }>;
+  },
+
+  addStudent: async (courseId: number, email: string) => {
+    const response = await api.post(`/api/courses/${courseId}/students`, { email });
+    return response.data;
+  },
+
+  removeStudent: async (courseId: number, studentId: number) => {
+    const response = await api.delete(`/api/courses/${courseId}/students/${studentId}`);
     return response.data;
   },
 };

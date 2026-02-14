@@ -46,6 +46,8 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
       return [
         { label: 'Home', path: '/dashboard' },
         { label: 'My Kids', path: '/my-kids' },
+        { label: 'Courses', path: '/courses' },
+        { label: 'Tasks', path: '/tasks' },
         { label: 'Messages', path: '/messages' },
       ];
     }
