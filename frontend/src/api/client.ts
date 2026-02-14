@@ -191,6 +191,11 @@ export const coursesApi = {
     return response.data;
   },
 
+  announce: async (courseId: number, subject: string, body: string) => {
+    const response = await api.post(`/api/courses/${courseId}/announce`, { subject, body });
+    return response.data as { recipient_count: number; email_count: number; course_name: string };
+  },
+
   enrolledByMe: async () => {
     const response = await api.get('/api/courses/enrolled/me');
     return response.data;

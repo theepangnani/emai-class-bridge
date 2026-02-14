@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import insert
 
@@ -13,11 +14,13 @@ from app.models.user import User, UserRole
 from app.models.teacher import Teacher
 from app.models.student import Student, parent_students
 from app.models.invite import Invite, InviteType
+from app.models.broadcast import Broadcast
 from app.models.notification import Notification, NotificationType
+from app.models.message import Conversation, Message
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse, AddStudentRequest
 from app.api.deps import get_current_user, require_role, can_access_course
 from app.services.audit_service import log_action
-from app.services.email_service import send_email_sync, add_inspiration_to_email
+from app.services.email_service import send_email_sync, send_emails_batch, add_inspiration_to_email
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -562,3 +565,116 @@ def remove_student_from_course(
     )
     db.commit()
     return {"message": "Student removed from course"}
+
+
+# ── Teacher Course Announcements ─────────────────────────────
+
+class AnnouncementRequest(PydanticBaseModel):
+    subject: str
+    body: str
+
+
+def _get_or_create_conversation(db: Session, user_a_id: int, user_b_id: int, subject: str | None = None) -> Conversation:
+    """Find or create a conversation between two users."""
+    from sqlalchemy import or_, and_
+    conv = db.query(Conversation).filter(
+        or_(
+            and_(Conversation.participant_1_id == user_a_id, Conversation.participant_2_id == user_b_id),
+            and_(Conversation.participant_1_id == user_b_id, Conversation.participant_2_id == user_a_id),
+        )
+    ).first()
+    if not conv:
+        conv = Conversation(participant_1_id=user_a_id, participant_2_id=user_b_id, subject=subject)
+        db.add(conv)
+        db.flush()
+    return conv
+
+
+@router.post("/{course_id}/announce")
+def send_course_announcement(
+    course_id: int,
+    data: AnnouncementRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send an announcement to all parents of students in a course."""
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    _require_course_manager(db, current_user, course)
+
+    # Find all parents of enrolled students
+    parent_ids = set()
+    for student in course.students:
+        rows = db.execute(
+            parent_students.select().where(parent_students.c.student_id == student.id)
+        ).fetchall()
+        for row in rows:
+            parent_ids.add(row.parent_id)
+
+    if not parent_ids:
+        raise HTTPException(status_code=400, detail="No parents found for students in this course")
+
+    parent_users = db.query(User).filter(User.id.in_(parent_ids), User.is_active == True).all()  # noqa: E712
+
+    # Create broadcast record
+    broadcast = Broadcast(
+        sender_id=current_user.id,
+        subject=data.subject,
+        body=data.body,
+        recipient_count=len(parent_users),
+        email_count=0,
+    )
+    db.add(broadcast)
+    db.flush()
+
+    # Create in-app notifications + conversation messages
+    message_content = f"[{course.name} Announcement] {data.subject}\n\n{data.body}"
+    for parent in parent_users:
+        db.add(Notification(
+            user_id=parent.id,
+            type=NotificationType.SYSTEM,
+            title=f"{course.name}: {data.subject}",
+            content=data.body[:200],
+        ))
+        conv = _get_or_create_conversation(db, current_user.id, parent.id, subject=data.subject)
+        db.add(Message(
+            conversation_id=conv.id,
+            sender_id=current_user.id,
+            content=message_content,
+        ))
+
+    # Extract email data before commit
+    email_recipients = [(u.email, u.full_name) for u in parent_users if u.email]
+    db.commit()
+
+    # Send emails
+    import html as _html
+    email_batch = []
+    for email, name in email_recipients:
+        html_body = f"""
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+            <h2 style="color:#4f46e5;">{_html.escape(course.name)}: {_html.escape(data.subject)}</h2>
+            <p style="color:#666;font-size:14px;">From {_html.escape(current_user.full_name)}</p>
+            <div style="padding:16px;background:#f8f9fa;border-radius:8px;margin:16px 0;">
+                <p style="font-size:15px;line-height:1.6;">{_html.escape(data.body).replace(chr(10), '<br>')}</p>
+            </div>
+            <p style="color:#999;font-size:13px;">
+                Sent via <a href="{settings.frontend_url}" style="color:#4f46e5;">ClassBridge</a>
+            </p>
+        </div>
+        """
+        email_batch.append((email, f"{course.name}: {data.subject}", html_body))
+
+    email_count = send_emails_batch(email_batch) if email_batch else 0
+    broadcast.email_count = email_count
+    db.commit()
+
+    logger.info("Course announcement %d: sent to %d parents (%d emails) for course %s",
+                broadcast.id, len(parent_users), email_count, course.name)
+
+    return {
+        "recipient_count": len(parent_users),
+        "email_count": email_count,
+        "course_name": course.name,
+    }

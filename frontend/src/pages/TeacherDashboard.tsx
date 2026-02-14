@@ -47,6 +47,15 @@ export function TeacherDashboard() {
   // Course search
   const [courseSearch, setCourseSearch] = useState('');
 
+  // Announcement modal state
+  const [showAnnounceModal, setShowAnnounceModal] = useState(false);
+  const [announceCourseId, setAnnounceCourseId] = useState<number | ''>('');
+  const [announceSubject, setAnnounceSubject] = useState('');
+  const [announceBody, setAnnounceBody] = useState('');
+  const [announceSending, setAnnounceSending] = useState(false);
+  const [announceError, setAnnounceError] = useState('');
+  const [announceSuccess, setAnnounceSuccess] = useState('');
+
   useEffect(() => {
     loadData();
   }, []);
@@ -194,6 +203,32 @@ export function TeacherDashboard() {
     }
   };
 
+  const closeAnnounceModal = () => {
+    setShowAnnounceModal(false);
+    setAnnounceCourseId('');
+    setAnnounceSubject('');
+    setAnnounceBody('');
+    setAnnounceError('');
+    setAnnounceSuccess('');
+  };
+
+  const handleSendAnnouncement = async () => {
+    if (!announceCourseId || !announceSubject.trim() || !announceBody.trim()) return;
+    setAnnounceSending(true);
+    setAnnounceError('');
+    setAnnounceSuccess('');
+    try {
+      const result = await coursesApi.announce(announceCourseId as number, announceSubject.trim(), announceBody.trim());
+      setAnnounceSuccess(`Sent to ${result.recipient_count} parent${result.recipient_count !== 1 ? 's' : ''} (${result.email_count} email${result.email_count !== 1 ? 's' : ''})`);
+      setAnnounceSubject('');
+      setAnnounceBody('');
+    } catch (err: any) {
+      setAnnounceError(err.response?.data?.detail || 'Failed to send announcement');
+    } finally {
+      setAnnounceSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout welcomeSubtitle="Your classroom overview">
@@ -224,6 +259,13 @@ export function TeacherDashboard() {
           <h3>Communications</h3>
           <p className="card-value">View</p>
           <p className="card-label">Email monitoring</p>
+        </div>
+
+        <div className="dashboard-card clickable" onClick={() => setShowAnnounceModal(true)}>
+          <div className="card-icon">📢</div>
+          <h3>Announcement</h3>
+          <p className="card-value">Send</p>
+          <p className="card-label">Notify all parents</p>
         </div>
 
         <div className="dashboard-card clickable" onClick={() => setShowInviteParentModal(true)}>
@@ -481,6 +523,66 @@ export function TeacherDashboard() {
                 disabled={inviteLoading || !inviteParentEmail.trim()}
               >
                 {inviteLoading ? 'Sending...' : 'Send Invitation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Announcement Modal */}
+      {showAnnounceModal && (
+        <div className="modal-overlay" onClick={closeAnnounceModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Send Announcement</h2>
+            <p className="modal-desc">
+              Send a message to all parents of students in a course.
+            </p>
+            <div className="modal-form">
+              <label>
+                Course *
+                <select
+                  value={announceCourseId}
+                  onChange={(e) => { setAnnounceCourseId(e.target.value ? Number(e.target.value) : ''); setAnnounceError(''); }}
+                  disabled={announceSending}
+                >
+                  <option value="">Select a course...</option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Subject *
+                <input
+                  type="text"
+                  value={announceSubject}
+                  onChange={(e) => { setAnnounceSubject(e.target.value); setAnnounceError(''); }}
+                  placeholder="e.g., Upcoming field trip"
+                  disabled={announceSending}
+                />
+              </label>
+              <label>
+                Message *
+                <textarea
+                  value={announceBody}
+                  onChange={(e) => { setAnnounceBody(e.target.value); setAnnounceError(''); }}
+                  placeholder="Write your announcement..."
+                  rows={5}
+                  disabled={announceSending}
+                />
+              </label>
+              {announceError && <p className="link-error">{announceError}</p>}
+              {announceSuccess && <p className="link-success">{announceSuccess}</p>}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={closeAnnounceModal} disabled={announceSending}>
+                {announceSuccess ? 'Close' : 'Cancel'}
+              </button>
+              <button
+                className="generate-btn"
+                onClick={handleSendAnnouncement}
+                disabled={announceSending || !announceCourseId || !announceSubject.trim() || !announceBody.trim()}
+              >
+                {announceSending ? 'Sending...' : 'Send Announcement'}
               </button>
             </div>
           </div>

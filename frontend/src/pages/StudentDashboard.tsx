@@ -333,6 +333,23 @@ export function StudentDashboard() {
     }
   };
 
+  const calculateStreak = (guides: StudyGuide[]): number => {
+    if (!guides.length) return 0;
+    const uniqueDates = Array.from(
+      new Set(guides.map(g => new Date(g.created_at).toDateString()))
+    ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let streak = 0;
+    for (let i = 0; i < uniqueDates.length; i++) {
+      const expected = new Date(today);
+      expected.setDate(expected.getDate() - i);
+      if (new Date(uniqueDates[i]).toDateString() !== expected.toDateString()) break;
+      streak++;
+    }
+    return streak;
+  };
+
   if (initialLoading) {
     return (
       <DashboardLayout welcomeSubtitle="Here's your learning overview">
@@ -392,6 +409,13 @@ export function StudentDashboard() {
           <h3>Study Materials</h3>
           <p className="card-value">{studyGuides.length || '--'}</p>
           <p className="card-label">Guides, quizzes & flashcards</p>
+        </div>
+
+        <div className="dashboard-card streak-card">
+          <div className="card-icon">🔥</div>
+          <h3>Study Streak</h3>
+          <p className="card-value">{calculateStreak(studyGuides)}</p>
+          <p className="card-label">{calculateStreak(studyGuides) === 1 ? 'day' : 'days'} in a row</p>
         </div>
 
         <div className="dashboard-card">

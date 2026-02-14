@@ -190,6 +190,15 @@ export function QuizPage() {
             <p className="score-percent">
               {Math.round((score / questions.length) * 100)}% correct
             </p>
+            <p className="quiz-encouragement">
+              {(() => {
+                const pct = Math.round((score / questions.length) * 100);
+                if (pct === 100) return 'Perfect score! Outstanding work!';
+                if (pct >= 80) return 'Great job! You really know this material!';
+                if (pct >= 60) return 'Good effort! A bit more practice and you\'ll master it.';
+                return 'Keep studying — every attempt makes you stronger!';
+              })()}
+            </p>
             <div className="results-actions">
               <button
                 className="retry-btn"

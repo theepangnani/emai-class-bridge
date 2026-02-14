@@ -249,7 +249,15 @@
   font-size: 1.25rem;
   color: var(--color-ink-muted);
   margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.quiz-encouragement {
+  font-size: 1.1rem;
+  color: var(--color-accent);
+  font-weight: 500;
   margin-bottom: 2rem;
+  font-style: italic;
 }
 
 .results-actions {

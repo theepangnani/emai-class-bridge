@@ -768,6 +768,11 @@
   color: var(--color-ink-muted);
 }
 
+/* Study Streak Card */
+.streak-card .card-value {
+  color: var(--color-accent-warm, #e85d04);
+}
+
 /* Onboarding Tour */
 .tour-overlay {
   position: fixed;
