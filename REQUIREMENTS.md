@@ -933,6 +933,37 @@ When a user receives a new in-app message, the system sends an email notificatio
 - `app/templates/message_notification.html` — branded email template
 - `tests/test_messages.py` — `TestMessageNotifications` class with 5 tests
 
+### 6.28 Manual Parent-to-Teacher Linking (Phase 1) - PLANNED
+
+Currently, parent-teacher messaging recipients are derived from the chain: Parent → Child → Course (enrolled) → Teacher. This is too restrictive — parents need to manually link their child to a teacher (by email) so they can message them directly, even before the child is enrolled in a course.
+
+**Requirements:**
+1. New `student_teachers` join table: direct student-teacher relationship (student_id, teacher_id, created_by_user_id, created_at)
+2. `POST /api/parent/children/{student_id}/teachers` — parent links a teacher to their child by email
+3. `GET /api/parent/children/{student_id}/teachers` — list linked teachers for a child
+4. `DELETE /api/parent/children/{student_id}/teachers/{teacher_id}` — unlink a teacher
+5. Update `GET /api/messages/recipients` to include teachers linked via `student_teachers` (in addition to course-based chain), with deduplication
+6. Frontend: "Add Teacher" button in parent dashboard per child, with email input modal and linked teachers list
+
+**Relationship model update:**
+```
+Existing: Parent → Child → Course → Teacher (inferred)
+New:      Parent → Child → Teacher (direct via student_teachers)
+```
+
+**Sub-tasks:**
+- [ ] Backend: Create `student_teachers` join table (#220)
+- [ ] Backend: Add CRUD endpoints for teacher linking (#221)
+- [ ] Backend: Update message recipients to include direct links (#222)
+- [ ] Frontend: Add "Link Teacher" UI (#223)
+- [ ] Testing: Manual teacher linking + updated recipients (#224)
+
+**Key files (planned):**
+- `app/models/student.py` — `student_teachers` table
+- `app/api/routes/parent.py` — new endpoints
+- `app/api/routes/messages.py` — updated `get_valid_recipients()`
+- `frontend/src/pages/ParentDashboard.tsx` or `MyKidsPage.tsx`
+
 ---
 
 ## 7. Role-Based Dashboards - IMPLEMENTED
