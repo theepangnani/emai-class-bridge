@@ -16,6 +16,17 @@ const MAX_FILE_SIZE_MB = 100;
 type LinkTab = 'create' | 'email' | 'google';
 type DiscoveryState = 'idle' | 'discovering' | 'results' | 'no_results';
 
+const CHILD_COLORS = [
+  '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b',
+  '#3b82f6', '#ef4444', '#10b981', '#6366f1',
+];
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0]?.[0] || '?').toUpperCase();
+}
+
 export function ParentDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -580,6 +591,34 @@ export function ParentDashboard() {
     return { taskOverdueCount: overdue, taskDueTodayCount: dueToday };
   }, [filteredTasks]);
 
+  // Per-child task stats for enhanced cards
+  const childTaskStats = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return children.map(child => {
+      const childTasks = allTasks.filter(t => t.assigned_to_user_id === child.user_id && !t.archived_at);
+      const totalTasks = childTasks.length;
+      const completedTasks = childTasks.filter(t => t.is_completed).length;
+      const completionPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const pendingWithDue = childTasks
+        .filter(t => !t.is_completed && t.due_date)
+        .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
+      let nextDeadline: { title: string; label: string } | null = null;
+      if (pendingWithDue.length > 0) {
+        const next = pendingWithDue[0];
+        const dueDate = new Date(next.due_date!);
+        const diffDays = Math.floor((dueDate.getTime() - todayStart.getTime()) / (86400000));
+        let label: string;
+        if (diffDays < 0) label = `overdue by ${Math.abs(diffDays)}d`;
+        else if (diffDays === 0) label = 'due today';
+        else if (diffDays === 1) label = 'due tomorrow';
+        else label = `due in ${diffDays} days`;
+        nextDeadline = { title: next.title, label };
+      }
+      return { studentId: child.student_id, totalTasks, completedTasks, completionPct, nextDeadline };
+    });
+  }, [children, allTasks]);
+
   const openDayModal = (date: Date) => {
     setDayModalDate(date);
     setNewTaskTitle('');
@@ -830,23 +869,16 @@ export function ParentDashboard() {
                 All Children
               </button>
             )}
-            {children.map((child) => (
-              <div key={child.student_id} className="child-tab-wrapper">
-                <button
-                  className={`child-tab ${selectedChild === child.student_id ? 'active' : ''}`}
-                  onClick={() => handleChildTabClick(child.student_id)}
-                >
-                  {child.full_name}
-                  {child.grade_level != null && <span className="grade-badge">Grade {child.grade_level}</span>}
-                </button>
-                <button
-                  className="child-edit-btn"
-                  onClick={(e) => { e.stopPropagation(); openEditChild(child); }}
-                  title="Edit child info"
-                >
-                  &#9998;
-                </button>
-              </div>
+            {children.map((child, index) => (
+              <button
+                key={child.student_id}
+                className={`child-tab ${selectedChild === child.student_id ? 'active' : ''}`}
+                onClick={() => handleChildTabClick(child.student_id)}
+              >
+                <span className="child-color-dot" style={{ backgroundColor: CHILD_COLORS[index % CHILD_COLORS.length] }} />
+                {child.full_name}
+                {child.grade_level != null && <span className="grade-badge">Grade {child.grade_level}</span>}
+              </button>
             ))}
           </div>
 
@@ -881,48 +913,61 @@ export function ParentDashboard() {
             </div>
           )}
 
-          {/* Per-Child Highlights */}
-          {dashboardData && dashboardData.child_highlights.length > 1 && (
+          {/* Per-Child Enhanced Cards */}
+          {dashboardData && dashboardData.child_highlights.length > 0 && (
             <div className="child-highlights">
-              {dashboardData.child_highlights.map(h => (
-                <div
-                  key={h.student_id}
-                  className="child-highlight-card"
-                  onClick={() => {
-                    setSelectedChild(prev => prev === h.student_id ? null : h.student_id);
-                  }}
-                >
-                  <div className="child-highlight-header">
-                    <span className="child-highlight-name">{h.full_name}</span>
-                    {h.grade_level != null && <span className="grade-badge">Grade {h.grade_level}</span>}
-                  </div>
-                  <div className="child-highlight-stats">
-                    {h.overdue_count > 0 && (
-                      <span className="child-stat overdue">{h.overdue_count} overdue</span>
-                    )}
-                    {h.due_today_count > 0 && (
-                      <span className="child-stat due-today">{h.due_today_count} due today</span>
-                    )}
-                    {h.overdue_count === 0 && h.due_today_count === 0 && (
-                      <span className="child-stat all-clear">All caught up</span>
-                    )}
-                    <span className="child-stat courses">{h.courses.length} course{h.courses.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  {h.overdue_items.length > 0 && (
-                    <div className="child-highlight-items">
-                      {h.overdue_items.slice(0, 3).map((item, i) => (
-                        <div key={i} className="child-highlight-item overdue">
-                          <span className="child-highlight-item-title">{item.title}</span>
-                          <span className="child-highlight-item-course">{item.course_name}</span>
-                        </div>
-                      ))}
-                      {h.overdue_items.length > 3 && (
-                        <span className="child-highlight-more">+{h.overdue_items.length - 3} more</span>
-                      )}
+              {dashboardData.child_highlights.map((h, index) => {
+                const childSummary = children.find(c => c.student_id === h.student_id);
+                const stats = childTaskStats.find(s => s.studentId === h.student_id);
+                return (
+                  <div
+                    key={h.student_id}
+                    className={`child-card-enhanced${selectedChild === h.student_id ? ' selected' : ''}`}
+                    onClick={() => setSelectedChild(prev => prev === h.student_id ? null : h.student_id)}
+                  >
+                    <div className="child-avatar" style={{ backgroundColor: CHILD_COLORS[index % CHILD_COLORS.length] }}>
+                      {getInitials(h.full_name)}
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div className="child-card-content">
+                      <div className="child-card-header">
+                        <span className="child-card-name">{h.full_name}</span>
+                        {h.grade_level != null && <span className="grade-badge">Grade {h.grade_level}</span>}
+                      </div>
+                      {childSummary?.school_name && (
+                        <div className="child-card-school">{childSummary.school_name}</div>
+                      )}
+                      <div className="child-card-stats">
+                        <span className="child-card-stat">{h.courses.length} course{h.courses.length !== 1 ? 's' : ''}</span>
+                        <span className="child-card-stat">{stats?.totalTasks ?? 0} task{(stats?.totalTasks ?? 0) !== 1 ? 's' : ''}</span>
+                        {h.overdue_count > 0 && <span className="child-card-stat overdue">{h.overdue_count} overdue</span>}
+                      </div>
+                      {stats && stats.totalTasks > 0 && (
+                        <div className="child-card-progress">
+                          <div className="child-card-progress-bar">
+                            <div className="child-card-progress-fill" style={{ width: `${stats.completionPct}%`, backgroundColor: CHILD_COLORS[index % CHILD_COLORS.length] }} />
+                          </div>
+                          <span className="child-card-progress-label">{stats.completionPct}%</span>
+                        </div>
+                      )}
+                      <div className="child-card-deadline">
+                        {stats?.nextDeadline ? (
+                          <>
+                            <span className="child-card-deadline-title">{stats.nextDeadline.title}</span>
+                            <span className="child-card-deadline-label">{stats.nextDeadline.label}</span>
+                          </>
+                        ) : (
+                          <span className="child-card-all-clear">All caught up!</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="child-card-actions" onClick={(e) => e.stopPropagation()}>
+                      <button className="child-action-btn" title="Courses" onClick={() => navigate('/courses')}>{'\u{1F4DA}'}</button>
+                      <button className="child-action-btn" title="Tasks" onClick={() => navigate('/tasks')}>{'\u2705'}</button>
+                      <button className="child-action-btn" title="Edit" onClick={() => { if (childSummary) openEditChild(childSummary); }}>{'\u270F\uFE0F'}</button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 

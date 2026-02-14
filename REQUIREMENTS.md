@@ -1018,6 +1018,32 @@ Improve the My Kids page visual hierarchy and parent navigation for better disco
 - [x] Frontend: Section header icons (#237)
 - [x] Frontend: Remove Courses from parent nav (#237)
 
+### 6.31b My Kids Visual Overhaul (Phase 2) - IMPLEMENTED
+
+Visual redesign of the My Kids section on the parent dashboard for improved clarity and usability (#301).
+
+**Requirements:**
+1. **Colored child avatars** - IMPLEMENTED
+   - Each child gets a unique colored circle with initials (first+last initial)
+   - Color assigned from an 8-color palette, consistent across tabs and cards
+2. **Enhanced child cards** - IMPLEMENTED
+   - Avatar + Name/Grade + School + Stats row (courses, tasks, overdue)
+   - Task completion progress bar (computed from `all_tasks` per child)
+   - Next deadline countdown ("due today", "due tomorrow", "due in X days", "overdue by Xd")
+   - Quick action buttons: Courses, Tasks, Edit
+3. **Simplified tabs** - IMPLEMENTED
+   - Colored dot matching avatar color before each child name
+   - Edit button moved from tab to card actions
+4. **Responsive** - Cards single-column on tablet, action buttons horizontal on mobile
+5. **Theme compatible** - Works across light, dark, and focus themes
+
+**Sub-tasks:**
+- [x] Add CHILD_COLORS palette and getInitials helper
+- [x] Add childTaskStats useMemo (completion %, next deadline per child)
+- [x] Replace child tabs (color dot, remove edit button)
+- [x] Replace child cards with enhanced layout (avatar, progress, deadline, actions)
+- [x] CSS: new card styles, responsive breakpoints
+
 ### 6.32 Manual Assignment Creation for Teachers (Phase 1) - IMPLEMENTED
 
 Teachers can create, edit, and delete assignments for their courses without Google Classroom sync (#49).
@@ -1574,6 +1600,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Mobile responsive CSS** — Breakpoints for 5+ pages (#152) (IMPLEMENTED)
 - [x] **Backend test expansion** — 288+ route tests (#155) (IMPLEMENTED)
 - [x] **Inspirational messages** — Role-based dashboard greetings with admin CRUD (#230-#233) (IMPLEMENTED)
+- [x] **My Kids visual overhaul** — Colored avatars, task progress bars, next-deadline countdowns, quick action buttons (#301) (IMPLEMENTED)
 - [ ] Manual course creation for teachers
 - [ ] Manual assignment creation for teachers
 - [ ] Multi-Google account support for teachers
