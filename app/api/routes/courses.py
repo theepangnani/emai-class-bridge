@@ -22,6 +22,7 @@ from app.api.deps import get_current_user, require_role, can_access_course
 from app.services.audit_service import log_action
 from app.services.email_service import send_email_sync, send_emails_batch, add_inspiration_to_email
 from app.core.config import settings
+from app.domains.education.services import EducationService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/courses", tags=["Courses"])
@@ -146,46 +147,8 @@ def list_courses(
     current_user: User = Depends(get_current_user),
 ):
     """List courses visible to the current user (respects privacy)."""
-    from sqlalchemy import or_
-    from app.models.student import parent_students
-
-    # Public courses are visible to all
-    filters = [Course.is_private == False]  # noqa: E712
-
-    # Users can always see courses they created
-    filters.append(Course.created_by_user_id == current_user.id)
-
-    if current_user.role == UserRole.STUDENT:
-        # Students can see courses they're enrolled in
-        student = db.query(Student).filter(Student.user_id == current_user.id).first()
-        if student:
-            enrolled_ids = [c.id for c in student.courses]
-            if enrolled_ids:
-                filters.append(Course.id.in_(enrolled_ids))
-
-    elif current_user.role == UserRole.PARENT:
-        # Parents can see courses assigned to their children
-        child_student_ids = (
-            db.query(parent_students.c.student_id)
-            .filter(parent_students.c.parent_id == current_user.id)
-            .all()
-        )
-        child_sids = [r[0] for r in child_student_ids]
-        if child_sids:
-            enrolled_course_ids = (
-                db.query(student_courses.c.course_id)
-                .filter(student_courses.c.student_id.in_(child_sids))
-                .all()
-            )
-            ecids = [r[0] for r in enrolled_course_ids]
-            if ecids:
-                filters.append(Course.id.in_(ecids))
-
-    elif current_user.role == UserRole.ADMIN:
-        # Admins see everything
-        return db.query(Course).all()
-
-    return db.query(Course).filter(or_(*filters)).all()
+    education_service = EducationService(db)
+    return education_service.get_visible_courses(current_user)
 
 
 @router.get("/teaching", response_model=list[CourseResponse])
@@ -194,10 +157,8 @@ def list_teaching_courses(
     current_user: User = Depends(require_role(UserRole.TEACHER)),
 ):
     """List courses taught by the current teacher."""
-    teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
-    if not teacher:
-        return []
-    return db.query(Course).filter(Course.teacher_id == teacher.id).all()
+    education_service = EducationService(db)
+    return education_service.get_teaching_courses(current_user)
 
 
 @router.get("/created/me", response_model=list[CourseResponse])
@@ -215,10 +176,8 @@ def list_my_enrolled_courses(
     current_user: User = Depends(require_role(UserRole.STUDENT)),
 ):
     """List all courses the current student is enrolled in."""
-    student = db.query(Student).filter(Student.user_id == current_user.id).first()
-    if not student:
-        return []
-    return student.courses
+    education_service = EducationService(db)
+    return education_service.get_enrolled_courses(current_user)
 
 
 @router.get("/default", response_model=CourseResponse)
@@ -367,15 +326,9 @@ def unenroll_from_course(
 
 def _require_course_manager(db: Session, current_user: User, course: Course):
     """Check that current_user is the course teacher, admin, or course creator."""
-    if current_user.has_role(UserRole.ADMIN):
-        return
-    if course.created_by_user_id == current_user.id:
-        return
-    if current_user.has_role(UserRole.TEACHER):
-        teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
-        if teacher and course.teacher_id == teacher.id:
-            return
-    raise HTTPException(status_code=403, detail="You do not have permission to manage this course roster")
+    education_service = EducationService(db)
+    if not education_service.can_manage_course(current_user, course):
+        raise HTTPException(status_code=403, detail="You do not have permission to manage this course roster")
 
 
 @router.get("/{course_id}/students")

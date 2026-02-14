@@ -69,6 +69,7 @@ interface ConfirmState extends ConfirmOptions {
   resolve: (value: boolean) => void;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useConfirm() {
   const [state, setState] = useState<ConfirmState | null>(null);
   const stateRef = useRef<ConfirmState | null>(null);

@@ -25,7 +25,24 @@
       "Bash(git commit:*)",
       "Bash(git status:*)",
       "Bash(git push)",
-      "Bash(gh pr create:*)"
+      "Bash(gh pr create:*)",
+      "Bash(gh run:*)",
+      "Bash(git restore:*)",
+      "Bash(npm run build:*)",
+      "Bash(gh issue close:*)",
+      "Bash(git -C \"c:/dev/emai/emai-dev-03\" push origin master)",
+      "Bash(git push:*)",
+      "Bash(where:*)",
+      "Bash(\"C:\\\\apps\\\\Cloud SDK\\\\google-cloud-sdk\\\\bin\\\\gcloud.cmd\" logging read \"resource.type=cloud_run_revision AND resource.labels.service_name=classbridge AND severity>=WARNING\" --project=emai-dev-01 --limit=10 --format=json)",
+      "Bash(powershell:*)",
+      "Bash(grep:*)",
+      "Bash(xargs -I {} bash -c 'if ! grep -q \"\"@media\"\" \"\"$0\"\"; then echo \"\"$0\"\"; fi' {})",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(git -C c:/dev/emai/emai-dev-03 add app/core/utils.py app/core/middleware.py app/core/rate_limit.py app/api/deps.py app/api/routes/admin.py app/api/routes/auth.py app/api/routes/search.py app/api/routes/study.py app/api/routes/teacher_communications.py main.py requirements.txt tests/conftest.py)",
+      "Bash(git -C c:/dev/emai/emai-dev-03 commit -m \"$\\(cat <<''EOF''\nAdd security hardening: rate limiting, security headers, LIKE injection fix \\(#140, #141, #184\\)\n\n- Add slowapi rate limiting: 5/min login, 3/min register, 10/min AI generation, 5/min file upload\n- Add SecurityHeadersMiddleware: X-Content-Type-Options, X-Frame-Options, HSTS, CSP, Referrer-Policy\n- Add escape_like\\(\\) utility to sanitize LIKE wildcards \\(%, _\\) in 14 search queries\n- Set request.state.user_id in get_current_user for per-user rate limiting and request logging\n- Disable rate limiting in test suite via conftest fixture\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C c:devemaiemai-dev-03 status)",
+      "Bash(cmd /c \"cd /d c:\\\\dev\\\\emai\\\\emai-dev-03\\\\frontend && call npm run build 2>&1\")"
     ]
   }
 }

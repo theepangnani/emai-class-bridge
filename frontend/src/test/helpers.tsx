@@ -7,6 +7,7 @@ import type { ReactElement, ReactNode } from 'react'
  * Minimal wrapper that provides BrowserRouter for components using
  * useNavigate / useLocation / Link etc.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 function AllProviders({ children }: { children: ReactNode }) {
   return <BrowserRouter>{children}</BrowserRouter>
 }

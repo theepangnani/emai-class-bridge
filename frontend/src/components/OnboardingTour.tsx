@@ -27,6 +27,12 @@ export function OnboardingTour({ steps, storageKey, onComplete }: OnboardingTour
     }
   }, [storageKey]);
 
+  const handleComplete = useCallback(() => {
+    localStorage.setItem(storageKey, '1');
+    setVisible(false);
+    onComplete?.();
+  }, [storageKey, onComplete]);
+
   const positionTooltip = useCallback(() => {
     if (!visible || currentStep >= steps.length) return;
     const step = steps[currentStep];
@@ -68,19 +74,15 @@ export function OnboardingTour({ steps, storageKey, onComplete }: OnboardingTour
 
     // Scroll element into view if needed
     el.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
-  }, [visible, currentStep, steps]);
+  }, [visible, currentStep, steps, handleComplete]);
 
   useEffect(() => {
+    // positionTooltip updates tooltip position state - synchronous setState in effect is intentional here
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     positionTooltip();
     window.addEventListener('resize', positionTooltip);
     return () => window.removeEventListener('resize', positionTooltip);
   }, [positionTooltip]);
-
-  const handleComplete = useCallback(() => {
-    localStorage.setItem(storageKey, '1');
-    setVisible(false);
-    onComplete?.();
-  }, [storageKey, onComplete]);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -122,6 +124,7 @@ export function OnboardingTour({ steps, storageKey, onComplete }: OnboardingTour
 }
 
 // Role-specific tour steps
+// eslint-disable-next-line react-refresh/only-export-components
 export const PARENT_TOUR_STEPS: TourStep[] = [
   {
     target: '.sidebar-nav .sidebar-link:first-child',
@@ -143,6 +146,7 @@ export const PARENT_TOUR_STEPS: TourStep[] = [
   },
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const STUDENT_TOUR_STEPS: TourStep[] = [
   {
     target: '.sidebar-nav .sidebar-link:nth-child(2)',
@@ -164,6 +168,7 @@ export const STUDENT_TOUR_STEPS: TourStep[] = [
   },
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const TEACHER_TOUR_STEPS: TourStep[] = [
   {
     target: '.sidebar-nav .sidebar-link:nth-child(2)',

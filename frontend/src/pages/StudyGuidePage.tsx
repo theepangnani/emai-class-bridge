@@ -92,7 +92,7 @@ export function StudyGuidePage() {
     try {
       await studyApi.deleteGuide(guide.id);
       navigate('/dashboard');
-    } catch (err) {
+    } catch {
       setError('Failed to delete study guide');
     }
   };

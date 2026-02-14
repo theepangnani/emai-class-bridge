@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.utils import escape_like
 from app.core.rate_limit import limiter, get_user_id_or_ip
 from app.db.database import get_db
+from app.domains.study.services import StudyService
 from app.models.study_guide import StudyGuide
 from app.models.assignment import Assignment
 from app.models.course import Course
@@ -71,37 +72,6 @@ def enforce_study_guide_limit(db: Session, user: User) -> None:
             db.delete(guide)
 
 
-def compute_content_hash(title: str, guide_type: str, assignment_id: int | None = None) -> str:
-    """Compute a hash for duplicate detection based on title + guide_type + assignment_id."""
-    key = f"{title.strip().lower()}|{guide_type}|{assignment_id or ''}"
-    return hashlib.sha256(key.encode()).hexdigest()
-
-
-def get_version_info(db: Session, regenerate_from_id: int, user_id: int):
-    """Get version info for regeneration. Returns (root_guide_id, next_version)."""
-    original = db.query(StudyGuide).filter(
-        StudyGuide.id == regenerate_from_id,
-        StudyGuide.user_id == user_id,
-    ).first()
-    if not original:
-        raise HTTPException(status_code=404, detail="Original study guide not found")
-
-    # Find the root guide (version 1)
-    root_id = original.parent_guide_id if original.parent_guide_id else original.id
-
-    # Find max version in the chain
-    max_version = (
-        db.query(sa_func.max(StudyGuide.version))
-        .filter(
-            or_(
-                StudyGuide.id == root_id,
-                StudyGuide.parent_guide_id == root_id,
-            )
-        )
-        .scalar()
-    ) or 1
-
-    return root_id, max_version + 1
 
 
 def get_student_enrolled_course_ids(db: Session, user_id: int) -> list[int]:
@@ -171,21 +141,6 @@ def ensure_course_and_content(
     return course.id, cc.id
 
 
-def find_recent_duplicate(
-    db: Session, user_id: int, content_hash: str, seconds: int = 60
-) -> StudyGuide | None:
-    """Return an existing study guide if one with the same hash was created recently."""
-    cutoff = datetime.now(timezone.utc) - timedelta(seconds=seconds)
-    return (
-        db.query(StudyGuide)
-        .filter(
-            StudyGuide.user_id == user_id,
-            StudyGuide.content_hash == content_hash,
-            StudyGuide.created_at >= cutoff,
-        )
-        .order_by(StudyGuide.created_at.desc())
-        .first()
-    )
 
 
 CRITICAL_DATES_SEPARATOR = "--- CRITICAL_DATES ---"
@@ -293,34 +248,20 @@ def check_duplicate(
     current_user: User = Depends(get_current_user),
 ):
     """Check if a similar study guide already exists before generating."""
-    # Check by assignment_id + guide_type (most specific)
-    if request.assignment_id:
-        existing = db.query(StudyGuide).filter(
-            StudyGuide.user_id == current_user.id,
-            StudyGuide.assignment_id == request.assignment_id,
-            StudyGuide.guide_type == request.guide_type,
-        ).order_by(StudyGuide.version.desc()).first()
-        if existing:
-            return DuplicateCheckResponse(
-                exists=True,
-                existing_guide=existing,
-                message=f"A {request.guide_type.replace('_', ' ')} already exists for this assignment (v{existing.version})",
-            )
+    study_service = StudyService(db)
+    result = study_service.check_duplicate(
+        title=request.title,
+        guide_type=request.guide_type,
+        user_id=current_user.id,
+        assignment_id=request.assignment_id,
+    )
 
-    # Check by title + guide_type (fallback)
-    title = request.title
-    if title:
-        existing = db.query(StudyGuide).filter(
-            StudyGuide.user_id == current_user.id,
-            StudyGuide.title.ilike(f"%{escape_like(title.strip())}%"),
-            StudyGuide.guide_type == request.guide_type,
-        ).order_by(StudyGuide.version.desc()).first()
-        if existing:
-            return DuplicateCheckResponse(
-                exists=True,
-                existing_guide=existing,
-                message=f"A similar {request.guide_type.replace('_', ' ')} already exists: \"{existing.title}\" (v{existing.version})",
-            )
+    if result["exists"]:
+        return DuplicateCheckResponse(
+            exists=True,
+            existing_guide=result["existing_guide"],
+            message=result["message"],
+        )
 
     return DuplicateCheckResponse(exists=False)
 
@@ -339,11 +280,13 @@ async def generate_study_guide_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Generate a study guide from an assignment or custom content."""
+    study_service = StudyService(db)
+
     # Handle versioning
     version = 1
     parent_guide_id = None
     if body.regenerate_from_id:
-        parent_guide_id, version = get_version_info(db, body.regenerate_from_id, current_user.id)
+        parent_guide_id, version = study_service.get_version_info(body.regenerate_from_id, current_user.id)
 
     # Get source content
     assignment = None
@@ -392,8 +335,8 @@ async def generate_study_guide_endpoint(
     content, critical_dates = parse_critical_dates(raw_content)
 
     # Deduplicate: return existing if same hash was created recently
-    content_hash = compute_content_hash(title, "study_guide", body.assignment_id)
-    existing = find_recent_duplicate(db, current_user.id, content_hash)
+    content_hash = study_service.compute_content_hash(title, "study_guide", body.assignment_id)
+    existing = study_service.find_recent_duplicate(current_user.id, content_hash)
     if existing:
         return existing
 
@@ -449,11 +392,13 @@ async def generate_quiz_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Generate a practice quiz from an assignment or custom content."""
+    study_service = StudyService(db)
+
     # Handle versioning
     version = 1
     parent_guide_id = None
     if body.regenerate_from_id:
-        parent_guide_id, version = get_version_info(db, body.regenerate_from_id, current_user.id)
+        parent_guide_id, version = study_service.get_version_info(body.regenerate_from_id, current_user.id)
 
     topic = body.topic or "Quiz"
     content = body.content or ""
@@ -492,8 +437,8 @@ async def generate_quiz_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
     # Deduplicate: return existing if same hash was created recently
-    content_hash = compute_content_hash(f"Quiz: {topic}", "quiz", body.assignment_id)
-    existing = find_recent_duplicate(db, current_user.id, content_hash)
+    content_hash = study_service.compute_content_hash(f"Quiz: {topic}", "quiz", body.assignment_id)
+    existing = study_service.find_recent_duplicate(current_user.id, content_hash)
     if existing:
         existing_questions = [QuizQuestion(**q) for q in json.loads(existing.content)]
         return QuizResponse(
@@ -560,11 +505,13 @@ async def generate_flashcards_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Generate flashcards from an assignment or custom content."""
+    study_service = StudyService(db)
+
     # Handle versioning
     version = 1
     parent_guide_id = None
     if body.regenerate_from_id:
-        parent_guide_id, version = get_version_info(db, body.regenerate_from_id, current_user.id)
+        parent_guide_id, version = study_service.get_version_info(body.regenerate_from_id, current_user.id)
 
     topic = body.topic or "Flashcards"
     content = body.content or ""
@@ -603,8 +550,8 @@ async def generate_flashcards_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
     # Deduplicate: return existing if same hash was created recently
-    content_hash = compute_content_hash(f"Flashcards: {topic}", "flashcards", body.assignment_id)
-    existing = find_recent_duplicate(db, current_user.id, content_hash)
+    content_hash = study_service.compute_content_hash(f"Flashcards: {topic}", "flashcards", body.assignment_id)
+    existing = study_service.find_recent_duplicate(current_user.id, content_hash)
     if existing:
         existing_cards = [Flashcard(**c) for c in json.loads(existing.content)]
         return FlashcardSetResponse(
@@ -905,6 +852,8 @@ async def generate_from_file_upload(
     Supports: PDF, DOCX, PPTX, XLSX, TXT, images (OCR), and ZIP archives.
     Maximum file size: 100 MB.
     """
+    study_service = StudyService(db)
+
     if guide_type not in ("study_guide", "quiz", "flashcards"):
         raise HTTPException(
             status_code=400,
@@ -956,7 +905,7 @@ async def generate_from_file_upload(
                 title=f"Quiz: {title}",
                 content=quiz_json,
                 guide_type="quiz",
-                content_hash=compute_content_hash(f"Quiz: {title}", "quiz"),
+                content_hash=study_service.compute_content_hash(f"Quiz: {title}", "quiz"),
             )
 
         elif guide_type == "flashcards":
@@ -975,7 +924,7 @@ async def generate_from_file_upload(
                 title=f"Flashcards: {title}",
                 content=cards_json,
                 guide_type="flashcards",
-                content_hash=compute_content_hash(f"Flashcards: {title}", "flashcards"),
+                content_hash=study_service.compute_content_hash(f"Flashcards: {title}", "flashcards"),
             )
 
         else:  # study_guide
@@ -991,7 +940,7 @@ async def generate_from_file_upload(
                 title=f"Study Guide: {title}",
                 content=content,
                 guide_type="study_guide",
-                content_hash=compute_content_hash(f"Study Guide: {title}", "study_guide"),
+                content_hash=study_service.compute_content_hash(f"Study Guide: {title}", "study_guide"),
             )
 
     except json.JSONDecodeError:
@@ -1001,7 +950,7 @@ async def generate_from_file_upload(
 
     # Deduplicate: return existing if same hash was created recently
     if study_guide.content_hash:
-        existing = find_recent_duplicate(db, current_user.id, study_guide.content_hash)
+        existing = study_service.find_recent_duplicate(current_user.id, study_guide.content_hash)
         if existing:
             return existing
 

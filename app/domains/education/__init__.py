@@ -1,0 +1,1 @@
+"""Education/course domain services."""

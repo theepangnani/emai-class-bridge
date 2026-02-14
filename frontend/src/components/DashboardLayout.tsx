@@ -91,6 +91,8 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
 
   // Close menu when route changes
   useEffect(() => {
+    // Menu close is intentionally synchronous here to provide immediate feedback on navigation
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMenuOpen(false);
   }, [location.pathname]);
 

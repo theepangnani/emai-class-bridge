@@ -1,0 +1,178 @@
+import { api } from './client';
+
+// Study Guide Types
+export interface AutoCreatedTask {
+  id: number;
+  title: string;
+  due_date: string;
+  priority: string;
+}
+
+export interface StudyGuide {
+  id: number;
+  user_id: number;
+  assignment_id: number | null;
+  course_id: number | null;
+  course_content_id: number | null;
+  title: string;
+  content: string;
+  guide_type: string;
+  version: number;
+  parent_guide_id: number | null;
+  created_at: string;
+  archived_at: string | null;
+  auto_created_tasks?: AutoCreatedTask[];
+}
+
+export interface DuplicateCheckResponse {
+  exists: boolean;
+  existing_guide: StudyGuide | null;
+  message: string | null;
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: { A: string; B: string; C: string; D: string };
+  correct_answer: string;
+  explanation: string;
+}
+
+export interface Quiz {
+  id: number;
+  title: string;
+  questions: QuizQuestion[];
+  guide_type: string;
+  version: number;
+  parent_guide_id: number | null;
+  created_at: string;
+  auto_created_tasks?: AutoCreatedTask[];
+}
+
+export interface Flashcard {
+  front: string;
+  back: string;
+}
+
+export interface FlashcardSet {
+  id: number;
+  title: string;
+  cards: Flashcard[];
+  guide_type: string;
+  version: number;
+  parent_guide_id: number | null;
+  created_at: string;
+  auto_created_tasks?: AutoCreatedTask[];
+}
+
+export interface SupportedFormats {
+  documents: string[];
+  spreadsheets: string[];
+  presentations: string[];
+  images: string[];
+  archives: string[];
+  max_file_size_mb: number;
+  ocr_available: boolean;
+}
+
+export interface ExtractedText {
+  filename: string;
+  text: string;
+  character_count: number;
+  word_count: number;
+}
+
+// Study Tools API
+export const studyApi = {
+  generateGuide: async (params: { assignment_id?: number; course_id?: number; course_content_id?: number; title?: string; content?: string; regenerate_from_id?: number }) => {
+    const response = await api.post('/api/study/generate', params);
+    return response.data as StudyGuide;
+  },
+
+  generateQuiz: async (params: { assignment_id?: number; course_id?: number; course_content_id?: number; topic?: string; content?: string; num_questions?: number; regenerate_from_id?: number }) => {
+    const response = await api.post('/api/study/quiz/generate', params);
+    return response.data as Quiz;
+  },
+
+  generateFlashcards: async (params: { assignment_id?: number; course_id?: number; course_content_id?: number; topic?: string; content?: string; num_cards?: number; regenerate_from_id?: number }) => {
+    const response = await api.post('/api/study/flashcards/generate', params);
+    return response.data as FlashcardSet;
+  },
+
+  checkDuplicate: async (params: { title?: string; guide_type: string; assignment_id?: number; course_id?: number }) => {
+    const response = await api.post('/api/study/check-duplicate', params);
+    return response.data as DuplicateCheckResponse;
+  },
+
+  listGuides: async (params?: { guide_type?: string; course_id?: number; course_content_id?: number; include_children?: boolean; include_archived?: boolean; student_user_id?: number }) => {
+    const response = await api.get('/api/study/guides', { params: params || {} });
+    return response.data as StudyGuide[];
+  },
+
+  listGuideVersions: async (guideId: number) => {
+    const response = await api.get(`/api/study/guides/${guideId}/versions`);
+    return response.data as StudyGuide[];
+  },
+
+  getGuide: async (id: number) => {
+    const response = await api.get(`/api/study/guides/${id}`);
+    return response.data as StudyGuide;
+  },
+
+  deleteGuide: async (id: number) => {
+    await api.delete(`/api/study/guides/${id}`);
+  },
+
+  restoreGuide: async (id: number) => {
+    const response = await api.patch(`/api/study/guides/${id}/restore`);
+    return response.data as StudyGuide;
+  },
+
+  permanentDeleteGuide: async (id: number) => {
+    await api.delete(`/api/study/guides/${id}/permanent`);
+  },
+
+  updateGuide: async (id: number, data: { course_id?: number | null; course_content_id?: number | null }) => {
+    const response = await api.patch(`/api/study/guides/${id}`, data);
+    return response.data as StudyGuide;
+  },
+
+  // File Upload Methods
+  getSupportedFormats: async () => {
+    const response = await api.get('/api/study/upload/formats');
+    return response.data as SupportedFormats;
+  },
+
+  generateFromFile: async (params: {
+    file: File;
+    title?: string;
+    guide_type: 'study_guide' | 'quiz' | 'flashcards';
+    num_questions?: number;
+    num_cards?: number;
+    course_id?: number;
+    course_content_id?: number;
+  }) => {
+    const formData = new FormData();
+    formData.append('file', params.file);
+    if (params.title) formData.append('title', params.title);
+    formData.append('guide_type', params.guide_type);
+    if (params.num_questions) formData.append('num_questions', params.num_questions.toString());
+    if (params.num_cards) formData.append('num_cards', params.num_cards.toString());
+    if (params.course_id) formData.append('course_id', params.course_id.toString());
+    if (params.course_content_id) formData.append('course_content_id', params.course_content_id.toString());
+
+    const response = await api.post('/api/study/upload/generate', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data as StudyGuide;
+  },
+
+  extractTextFromFile: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post('/api/study/upload/extract-text', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data as ExtractedText;
+  },
+};
