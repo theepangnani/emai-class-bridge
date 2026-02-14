@@ -1105,6 +1105,45 @@ Complete enrollment/unenrollment matrix for all roles.
 - [ ] Backend: Add visibility check to self-enroll endpoint (#251)
 - [ ] Backend: Notify parent when teacher enrolls child (#238)
 
+### 6.35 Teacher Invite & Notification System (Phase 1) - PLANNED
+
+Teachers should be able to invite parents and students to ClassBridge, resend invites on demand, and trigger proper notifications when enrolling students.
+
+**Current state:**
+
+| Flow | Email | In-App | Status |
+|------|-------|--------|--------|
+| Teacher adds new student to course | ✅ Invite email | — | IMPLEMENTED |
+| Teacher adds existing student to course | ❌ | ✅ Notification | PARTIAL (#254) |
+| Teacher invites parent | ❌ | ❌ | MISSING (#252) |
+| Resend any invite on demand | ❌ | ❌ | MISSING (#253) |
+
+**Requirements:**
+1. **Teacher invites parent to ClassBridge** (#252)
+   - Add `PARENT` to `InviteType` enum
+   - `POST /api/teacher/invite-parent` — create invite + send email
+   - New email template: `parent_invite.html`
+   - On acceptance: create Parent profile, optionally auto-link to student
+   - Frontend: "Invite Parent" button on teacher views
+2. **Resend/re-invite on demand** (#253)
+   - `POST /api/invites/{id}/resend` — refresh expiry, new token, resend email
+   - `GET /api/invites/sent` — list invites sent by current user
+   - Rate limit: max 1 resend per hour
+   - Frontend: "Sent Invites" section with resend button
+3. **Email notification on existing student enrollment** (#254)
+   - When teacher enrolls existing student in course, send email (not just in-app notification)
+   - New template: `student_enrolled_notification.html`
+
+**Sub-tasks:**
+- [ ] Backend: Add PARENT invite type and teacher-to-parent endpoint (#252)
+- [ ] Backend: Parent invite email template (#252)
+- [ ] Backend: Update accept_invite for PARENT type (#252)
+- [ ] Frontend: Teacher invite parent UI (#252)
+- [ ] Backend: Resend invite endpoint with token refresh (#253)
+- [ ] Backend: List sent invites endpoint (#253)
+- [ ] Frontend: Sent invites dashboard with resend button (#253)
+- [ ] Backend: Email notification on existing student enrollment (#254)
+
 ### 6.30 Role-Based Inspirational Messages (Phase 2) - IMPLEMENTED
 
 Replace the static "Welcome back" dashboard greeting with role-specific inspirational messages that rotate on each visit. Messages are maintained in JSON seed files and imported into the database. Admins can manage messages via the admin dashboard.
