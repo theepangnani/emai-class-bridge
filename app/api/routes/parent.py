@@ -18,6 +18,7 @@ from app.models.message import Conversation, Message
 from app.models.invite import Invite, InviteType
 from app.api.deps import require_role
 from app.services.audit_service import log_action
+from app.services.email_service import send_email_sync
 from app.core.config import settings
 from app.core.security import UNUSABLE_PASSWORD_HASH
 from app.schemas.parent import (
@@ -300,6 +301,22 @@ def create_child(
         db.flush()
         invite_link = f"{settings.frontend_url}/accept-invite?token={token}"
 
+        # Send invite email to the child
+        try:
+            send_email_sync(
+                to_email=request.email,
+                subject=f"{current_user.full_name} invited you to ClassBridge",
+                html_content=f"""
+                <h2>You've been invited to ClassBridge</h2>
+                <p><strong>{current_user.full_name}</strong> has added you as a student on ClassBridge.</p>
+                <p>Click the link below to set your password and get started:</p>
+                <p><a href="{invite_link}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">Create My Account</a></p>
+                <p style="color:#666;font-size:14px;">This invite expires in 30 days.</p>
+                """,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send invite email to {request.email}: {e}")
+
     # Create Student record
     student = Student(user_id=student_user.id)
     db.add(student)
@@ -373,6 +390,22 @@ def link_child(
         db.flush()
         invite_link = f"{settings.frontend_url}/accept-invite?token={token}"
         logger.info(f"Auto-created student account for {request.student_email}, invite token generated")
+
+        # Send invite email to the child
+        try:
+            send_email_sync(
+                to_email=request.student_email,
+                subject=f"{current_user.full_name} invited you to ClassBridge",
+                html_content=f"""
+                <h2>You've been invited to ClassBridge</h2>
+                <p><strong>{current_user.full_name}</strong> has added you as a student on ClassBridge.</p>
+                <p>Click the link below to set your password and get started:</p>
+                <p><a href="{invite_link}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">Create My Account</a></p>
+                <p style="color:#666;font-size:14px;">This invite expires in 30 days.</p>
+                """,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send invite email to {request.student_email}: {e}")
 
     # Find or create the Student record
     student = db.query(Student).filter(Student.user_id == student_user.id).first()
