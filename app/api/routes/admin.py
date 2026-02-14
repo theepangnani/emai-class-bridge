@@ -273,12 +273,15 @@ def _get_or_create_conversation(
 
 
 def _render_broadcast_email(subject: str, body: str, recipient_name: str) -> str:
+    import html as _html
     template_path = TEMPLATE_DIR / "admin_broadcast.html"
-    html = template_path.read_text()
+    tpl = template_path.read_text()
+    # Convert plain text body to HTML: escape special chars, then convert newlines to <br>
+    body_html = _html.escape(body).replace("\n", "<br>\n")
     return (
-        html.replace("{{subject}}", subject)
-        .replace("{{body}}", body)
-        .replace("{{recipient_name}}", recipient_name)
+        tpl.replace("{{subject}}", _html.escape(subject))
+        .replace("{{body}}", body_html)
+        .replace("{{recipient_name}}", _html.escape(recipient_name))
         .replace("{{app_url}}", settings.frontend_url)
     )
 
