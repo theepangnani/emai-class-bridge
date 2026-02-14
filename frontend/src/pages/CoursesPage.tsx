@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { parentApi, coursesApi, googleApi } from '../api/client';
 import type { ChildSummary, ChildOverview } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -25,10 +25,12 @@ type SyncState = 'idle' | 'syncing' | 'done' | 'error';
 
 export function CoursesPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { confirm, confirmModal } = useConfirm();
   const isParent = user?.role === 'parent';
   const isStudent = user?.role === 'student';
+  const urlStudentId = searchParams.get('student_id');
 
   // Student self-enrollment state
   const [enrolledCourses, setEnrolledCourses] = useState<CourseItem[]>([]);
@@ -83,7 +85,9 @@ export function CoursesPage() {
         setChildren(childrenData);
         setMyCourses(courses);
         if (childrenData.length > 0) {
-          setSelectedChild(childrenData[0].student_id);
+          const urlSid = urlStudentId ? Number(urlStudentId) : null;
+          const match = urlSid ? childrenData.find(c => c.student_id === urlSid) : null;
+          setSelectedChild(match ? match.student_id : childrenData[0].student_id);
         }
         try {
           const status = await googleApi.getStatus();

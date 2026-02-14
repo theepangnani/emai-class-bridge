@@ -26,7 +26,10 @@ export function TasksPage() {
     const due = searchParams.get('due');
     return (due === 'overdue' || due === 'today' || due === 'week') ? due : 'all';
   });
-  const [filterAssignee, setFilterAssignee] = useState<number | 'all'>('all');
+  const [filterAssignee, setFilterAssignee] = useState<number | 'all'>(() => {
+    const assignee = searchParams.get('assignee');
+    return assignee ? Number(assignee) : 'all';
+  });
 
   // Create task form
   const [showCreate, setShowCreate] = useState(false);

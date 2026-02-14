@@ -70,52 +70,153 @@
 
 /* All-children overview grid */
 .mykids-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-top: 16px;
 }
-.mykids-child-card {
+
+/* Enhanced child card */
+.mykids-child-card-enhanced {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border);
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
   cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.15s;
+  transition: all 0.2s;
 }
-.mykids-child-card:hover {
+.mykids-child-card-enhanced:hover {
+  border-color: var(--color-accent);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
+}
+.mykids-child-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+.mykids-child-card-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mykids-child-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .mykids-child-card-name {
   font-weight: 600;
   font-size: 16px;
   color: var(--color-ink);
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 .mykids-child-card-school {
   font-size: 13px;
   color: var(--color-ink-muted);
-  margin-top: 4px;
 }
 .mykids-child-card-stats {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: 4px;
+}
+.mykids-child-stat {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+  color: var(--color-ink-muted);
+}
+.mykids-child-card-arrow {
+  font-size: 18px;
+  color: var(--color-ink-muted);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.mykids-child-card-enhanced:hover .mykids-child-card-arrow {
+  transform: translateX(4px);
+  color: var(--color-accent);
+}
+
+/* Color dot for tabs */
+.child-color-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.child-tab.active .child-color-dot {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+/* Progress summary bar (selected child) */
+.mykids-progress-summary {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mykids-progress-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.mykids-progress-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.mykids-next-deadline {
   font-size: 13px;
   color: var(--color-ink-muted);
 }
-.mykids-stat-sep {
-  color: var(--color-border);
-}
-.mykids-child-card-action {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--color-accent);
+.mykids-next-deadline strong {
+  color: var(--color-ink);
   font-weight: 500;
+}
+.mykids-progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mykids-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--color-surface-alt);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.mykids-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+.mykids-progress-pct {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Section icons */
