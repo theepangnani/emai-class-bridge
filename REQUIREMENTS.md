@@ -3,7 +3,7 @@
 **Product Name:** ClassBridge
 **Author:** Theepan Gnanasabapathy
 **Version:** 1.0 (Based on PRD v4)
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-02-14
 
 ---
 
@@ -1081,12 +1081,10 @@ Complete enrollment/unenrollment matrix for all roles.
 | Teacher removes student | ✅ `DELETE /courses/{id}/students/{sid}` | ✅ CourseDetailPage roster | IMPLEMENTED (#225) |
 | Parent assigns course to child | ✅ `POST /parent/children/{sid}/courses` | ✅ CoursesPage assign modal | IMPLEMENTED |
 | Parent unassigns course from child | ✅ `DELETE /parent/children/{sid}/courses/{cid}` | ✅ CoursesPage unassign button | IMPLEMENTED |
-| Student self-enrolls | ✅ `POST /courses/{id}/enroll` | ❌ No UI | PLANNED (#250) |
-| Student unenrolls self | ✅ `DELETE /courses/{id}/enroll` | ❌ No UI | PLANNED (#250) |
+| Student self-enrolls | ✅ `POST /courses/{id}/enroll` | ✅ CoursesPage browse/enroll | IMPLEMENTED (#250) |
+| Student unenrolls self | ✅ `DELETE /courses/{id}/enroll` | ✅ CoursesPage unenroll | IMPLEMENTED (#250) |
 
 **Known gaps:**
-- Student self-enrollment has no frontend UI (#250)
-- Student self-enrollment endpoint lacks visibility check — can enroll in private courses (#251)
 - No parent notification when teacher enrolls their child (#238)
 
 **Sub-tasks:**
@@ -1095,11 +1093,11 @@ Complete enrollment/unenrollment matrix for all roles.
 - [x] Backend: Parent assign/unassign courses
 - [x] Frontend: Parent course assignment UI
 - [x] Backend: Student self-enroll/unenroll endpoints
-- [ ] Frontend: Student browse/enroll/unenroll UI (#250)
-- [ ] Backend: Add visibility check to self-enroll endpoint (#251)
+- [x] Frontend: Student browse/enroll/unenroll UI (#250)
+- [x] Backend: Add visibility check to self-enroll endpoint (#251) — rejects `is_private` courses
 - [ ] Backend: Notify parent when teacher enrolls child (#238)
 
-### 6.35 Teacher Invite & Notification System (Phase 1) - PLANNED
+### 6.35 Teacher Invite & Notification System (Phase 1) - PARTIAL
 
 Teachers should be able to invite parents and students to ClassBridge, resend invites on demand, and trigger proper notifications when enrolling students.
 
@@ -1109,16 +1107,16 @@ Teachers should be able to invite parents and students to ClassBridge, resend in
 |------|-------|--------|--------|
 | Teacher adds new student to course | ✅ Invite email | — | IMPLEMENTED |
 | Teacher adds existing student to course | ❌ | ✅ Notification | PARTIAL (#254) |
-| Teacher invites parent | ❌ | ❌ | MISSING (#252) |
+| Teacher invites parent | ✅ Invite email | ✅ TeacherDashboard modal | IMPLEMENTED (#252) |
 | Resend any invite on demand | ❌ | ❌ | MISSING (#253) |
 
 **Requirements:**
-1. **Teacher invites parent to ClassBridge** (#252)
-   - Add `PARENT` to `InviteType` enum
-   - `POST /api/teacher/invite-parent` — create invite + send email
+1. **Teacher invites parent to ClassBridge** (#252) — IMPLEMENTED
+   - Added `PARENT` to `InviteType` enum
+   - `POST /api/invites/invite-parent` — create invite + send email
    - New email template: `parent_invite.html`
-   - On acceptance: create Parent profile, optionally auto-link to student
-   - Frontend: "Invite Parent" button on teacher views
+   - On acceptance: creates Parent profile, auto-links to student via `metadata_json.student_id`
+   - Frontend: "Invite Parent" card on TeacherDashboard with email + student selector modal
 2. **Resend/re-invite on demand** (#253)
    - `POST /api/invites/{id}/resend` — refresh expiry, new token, resend email
    - `GET /api/invites/sent` — list invites sent by current user
@@ -1129,10 +1127,10 @@ Teachers should be able to invite parents and students to ClassBridge, resend in
    - New template: `student_enrolled_notification.html`
 
 **Sub-tasks:**
-- [ ] Backend: Add PARENT invite type and teacher-to-parent endpoint (#252)
-- [ ] Backend: Parent invite email template (#252)
-- [ ] Backend: Update accept_invite for PARENT type (#252)
-- [ ] Frontend: Teacher invite parent UI (#252)
+- [x] Backend: Add PARENT invite type and teacher-to-parent endpoint (#252)
+- [x] Backend: Parent invite email template (#252)
+- [x] Backend: Update accept_invite for PARENT type (#252)
+- [x] Frontend: Teacher invite parent UI (#252)
 - [ ] Backend: Resend invite endpoint with token refresh (#253)
 - [ ] Backend: List sent invites endpoint (#253)
 - [ ] Frontend: Sent invites dashboard with resend button (#253)
@@ -1605,7 +1603,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 
 #### Data Integrity & Performance (Tier 0)
 - [ ] **Missing database indexes** — Add indexes on StudyGuide(assignment_id), StudyGuide(user_id, created_at), Task(created_by_user_id, created_at), Invite(email, expires_at), Message(conversation_id) (#73)
-- [ ] **N+1 query patterns** — `_task_to_response()` does 3-4 extra queries per task; `list_children()` iterates students; assignment reminder job loads all users individually (#144)
+- [x] **N+1 query patterns** — ~~`_task_to_response()` does 3-4 extra queries per task; `list_children()` iterates students; assignment reminder job loads all users individually (#144)~~ ✅ Fixed with selectinload/batch-fetch in tasks.py, messages.py, parent.py (#241)
 - [x] **CASCADE delete rules** — ~~Task, StudyGuide, Assignment FKs lack ON DELETE CASCADE/SET NULL; orphaned records possible (#145)~~ ✅ Fixed in #187
 - [x] **Unique constraint on parent_students** — ~~No unique constraint on (parent_id, student_id); duplicate links possible (#146)~~ ✅ Fixed in #187
 
@@ -2007,9 +2005,22 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #258: Admin broadcast messaging: send message + email to all users~~ ✅
 - ~~Issue #259: Admin individual messaging: send message + email to a specific user~~ ✅
 - Issue #260: Inspirational messages in emails: add role-based quotes to all outgoing emails (PLANNED)
-- Issue #261: Notification click opens popup modal with full message content
-- Issue #262: Messages page: show all admin messages for every user
-- Issue #263: User-to-admin messaging: any user can message admin, all admins get email
+- ~~Issue #261: Notification click opens popup modal with full message content~~ ✅
+- ~~Issue #262: Messages page: show all admin messages for every user~~ ✅
+- ~~Issue #263: User-to-admin messaging: any user can message admin, all admins get email~~ ✅
+
+### Phase 1 - Implemented (Feb 14 Sprint)
+- ~~Issue #144: Fix N+1 query patterns in task list, child list, and reminder job~~ ✅ (fixed in #241)
+- ~~Issue #180: HIGH: Add JWT token revocation and rate limiting~~ ✅
+- ~~Issue #186: MEDIUM: Fix N+1 queries in messages, tasks, and parent routes~~ ✅ (fixed in #241)
+- ~~Issue #241: Performance: Fix N+1 queries in tasks, messages, and parent dashboard~~ ✅
+- ~~Issue #246: UX: Parent-first flow improvements~~ ✅
+- ~~Issue #250: Student self-enrollment: add browse/enroll/unenroll UI~~ ✅
+- ~~Issue #251: Add visibility check to student self-enrollment endpoint~~ ✅
+- ~~Issue #252: Teacher invites parent to ClassBridge~~ ✅
+- ~~Issue #261: Notification click opens popup modal with full message content~~ ✅
+- ~~Issue #262: Messages page: show all admin messages for every user~~ ✅
+- ~~Issue #263: User-to-admin messaging: any user can message admin, all admins get email~~ ✅
 
 ### Phase 1 - Open
 - Issue #41: Multi-Google account support for teachers
@@ -2080,7 +2091,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #141: Add security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)~~ ✅
 - Issue #142: Add input validation and field length limits across all endpoints
 - ~~Issue #143: Add password reset flow (Forgot Password)~~ ✅
-- Issue #144: Fix N+1 query patterns in task list, child list, and reminder job
+- ~~Issue #144: Fix N+1 query patterns in task list, child list, and reminder job~~ ✅ (fixed in #241)
 - ~~Issue #145: Add CASCADE delete rules to FK relationships~~ ✅ (fixed in #187)
 - ~~Issue #146: Add unique constraint on parent_students (parent_id, student_id)~~ ✅ (fixed in #187)
 - ~~Issue #147: Add React ErrorBoundary for graceful error handling~~ ✅
@@ -2099,12 +2110,12 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #177: CRITICAL: Fix CORS wildcard and secure authentication tokens~~ ✅
 - ~~Issue #178: CRITICAL: Secure Google OAuth flow~~ ✅
 - ~~Issue #179: CRITICAL: Fix hardcoded JWT secret key~~ ✅
-- Issue #180: HIGH: Add JWT token revocation and rate limiting
+- ~~Issue #180: HIGH: Add JWT token revocation and rate limiting~~ ✅
 - ~~Issue #181: HIGH: Fix RBAC gaps on students, assignments, courses, users, and content routes~~ ✅
 - ~~Issue #182: HIGH: Secure logging endpoint and parent-created student passwords~~ ✅
 - ~~Issue #184: MEDIUM: Fix LIKE pattern injection in search and study guide routes~~ ✅
 - Issue #185: MEDIUM: Add database migration tooling (Alembic)
-- Issue #186: MEDIUM: Fix N+1 queries in messages, tasks, and parent routes
+- ~~Issue #186: MEDIUM: Fix N+1 queries in messages, tasks, and parent routes~~ ✅ (fixed in #241)
 - ~~Issue #187: MEDIUM: Add cascading deletes and unique constraints~~ ✅
 - Issue #188: LOW: Replace deprecated dependencies (python-jose, PyPDF2, datetime.utcnow)
 - Issue #189: LOW: Add deployment pipeline tests and database backup strategy
