@@ -62,12 +62,18 @@ def get_stats(
     """Get platform statistics."""
     total_users = db.query(User).count()
 
-    role_counts = (
-        db.query(User.role, func.count(User.id))
-        .group_by(User.role)
-        .all()
-    )
-    users_by_role = {role.value: count for role, count in role_counts}
+    # Count users who hold each role (checking multi-role 'roles' column)
+    users_by_role: dict[str, int] = {}
+    for r in UserRole:
+        count = db.query(User).filter(
+            or_(
+                User.roles.contains(r.value),
+                # Fallback for users with no roles column set
+                (User.role == r) & (User.roles.is_(None) | (User.roles == "")),
+            )
+        ).count()
+        if count:
+            users_by_role[r.value] = count
 
     total_courses = db.query(Course).count()
     total_assignments = db.query(Assignment).count()
