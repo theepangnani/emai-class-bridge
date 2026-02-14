@@ -1138,6 +1138,90 @@ Teachers should be able to invite parents and students to ClassBridge, resend in
 - [ ] Frontend: Sent invites dashboard with resend button (#253)
 - [ ] Backend: Email notification on existing student enrollment (#254)
 
+### 6.36 Security Hardening Phase 2 (Phase 1) - IMPLEMENTED
+
+Additional security improvements beyond the initial §6.23 risk audit fixes:
+
+#### 6.36.1 Rate Limiting (#140)
+- Added `slowapi` rate limiting to authentication endpoints (5/min login, 3/min register)
+- AI generation endpoints rate-limited (10/min per user)
+- File upload endpoints rate-limited (20/min per user)
+- Rate limit headers returned in responses (X-RateLimit-Limit, X-RateLimit-Remaining)
+
+#### 6.36.2 Security Headers (#141)
+- Added security middleware with HSTS (`Strict-Transport-Security`), CSP (`Content-Security-Policy`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection`, `Referrer-Policy`
+- Headers applied globally via FastAPI middleware
+
+#### 6.36.3 LIKE Pattern Injection Fix (#184)
+- Escaped `%` and `_` wildcards in user-supplied search terms before passing to SQL LIKE clauses
+- Applied to global search, study guide search, and course content search endpoints
+
+### 6.37 Task Reminders (Phase 1) - IMPLEMENTED
+
+Daily background job that sends in-app notifications for upcoming task due dates (#112).
+
+**Implementation:**
+- **Background job:** APScheduler job runs daily at 8:00 AM, checks tasks with due dates 1 or 3 days away
+- **User preference:** `task_reminder_days` column on User model (default `"1,3"`) — comma-separated days before due date to notify
+- **Notification type:** `TASK_DUE` added to `NotificationType` enum
+- **Scope:** Sends to task creator and assigned user (deduped if same person)
+- **Skips:** Already-completed tasks, tasks with no due date, tasks where reminder already sent (dedup via title+link matching)
+
+**Files:**
+- `app/jobs/task_reminders.py` — reminder job logic
+- `app/models/user.py` — `task_reminder_days` column
+- `app/models/notification.py` — `TASK_DUE` enum value
+- `main.py` — APScheduler registration + DB migration for new column
+
+### 6.38 Infrastructure & Reliability (Phase 1) - IMPLEMENTED
+
+Cross-cutting infrastructure improvements for email delivery, auth, UX, testing, and mobile support.
+
+#### 6.38.1 Email Delivery (#213-#217)
+- Fixed SendGrid delivery: use synchronous `sg.send()` calls from synchronous FastAPI endpoints (async `SendGridAPIClientAsync` caused silent failures)
+- Added Gmail SMTP fallback when SendGrid API key is unavailable or fails
+- Parent invite emails now sent automatically when parent creates or links a child
+- SMTP environment secrets added to Cloud Run deployment workflow
+
+#### 6.38.2 JWT Token Refresh (#149)
+- Added `POST /api/auth/refresh` endpoint that accepts a refresh token and returns new access + refresh tokens
+- Refresh tokens have 30-day expiry (vs 24-hour access tokens)
+- Frontend Axios interceptor auto-refreshes on 401 responses before retrying the failed request
+- Refresh token stored in localStorage alongside access token
+
+#### 6.38.3 Loading Skeletons (#150, #218)
+- Replaced text "Loading..." states with animated skeleton screens
+- `PageSkeleton` and `ListSkeleton` reusable components in `components/Skeleton.tsx`
+- Applied to: StudentDashboard, MessagesPage, QuizPage, FlashcardsPage, CourseDetailPage, MyKidsPage
+
+#### 6.38.4 Mobile Responsive CSS (#152)
+- Added CSS breakpoints (`@media (max-width: 768px)` and `(max-width: 480px)`) to 5+ CSS files
+- Responsive layout for DashboardLayout, CalendarSection, TasksPage, CoursesPage, MessagesPage
+- Touch-friendly tap targets (min 44px), stacked layouts on small screens
+
+#### 6.38.5 Backend Test Expansion (#155)
+- Expanded `pytest` route tests from ~220 to ~288+ tests
+- Added test coverage for: messages (send, list, conversations), notifications (list, mark read), study guides (generate, list), Google integration endpoints, admin routes, invite acceptance flow
+
+### 6.39 Bug Fixes & Ad-hoc Improvements (Feb 11-12, 2026)
+
+Defect fixes and ad-hoc improvements made during this development sprint:
+
+| Fix | Description | Commit |
+|-----|-------------|--------|
+| Google OAuth double login | OAuth callback redirect required user to log in again; fixed to auto-set token | `9a317a1` |
+| Password reset crash | `audit_logs.action` column was VARCHAR(20), too short for `"password_reset_request"` → widened to VARCHAR(50) | `7433746` |
+| Role switcher not appearing | Local SQLite missing `task_reminder_days` column caused `/me` endpoint to crash silently; frontend never received `roles` array | `12b8d31` |
+| Admin promotion | One-time migration to set `theepang@gmail.com` as admin+teacher in all environments | `12b8d31` |
+| CSS variable mismatches | MyKidsPage.css used undefined CSS variables (`--card-bg`, `--border-color`, etc.) instead of design system vars (`--color-surface`, `--color-border`, etc.) | `29635f9` |
+| Dashboard count mismatch (#208) | Overdue/due-today counts on parent dashboard didn't match TasksPage totals; fixed to use same query logic | `078545a` |
+| Dashboard count child filter (#208) | Overdue/due-today counts didn't respond to child filter selection | `6376d0e` |
+| Assignee filter (#209) | Added assignee dropdown filter to TasksPage for filtering tasks by student | `9677314` |
+| Calendar default expanded (#207) | Calendar section defaulted to collapsed on some screen sizes; fixed to always start expanded | `4369eb5` |
+| Task inline edit (#210) | Added inline edit mode to Task Detail page — edit button toggles card into form with all fields | `ba3cae8` |
+| Inspiration messages Docker | `data/` directory not included in Docker image; added COPY directive and handled admin role in inspiration API | `a5b2f5d` |
+| TypeScript build fix | Added `refresh_token` to `acceptInvite` return type and `loginWithToken` signature | `95a9618` |
+
 ### 6.30 Role-Based Inspirational Messages (Phase 2) - IMPLEMENTED
 
 Replace the static "Welcome back" dashboard greeting with role-specific inspirational messages that rotate on each visit. Messages are maintained in JSON seed files and imported into the database. Admins can manage messages via the admin dashboard.
@@ -1337,12 +1421,12 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] Study guide list/management UI for parents and students
 - [x] Study guide course assignment (PATCH endpoint + CourseAssignSelect component)
 - [x] **Parent Dashboard calendar-centric redesign (v1)** — calendar views (Day/3-Day/Week/Month), action bar, sidebar, course color-coding, assignment popover
-- [ ] **Parent Dashboard v2: Left navigation** — move Add Child, Add Course, Create Study Guide, Add Task to DashboardLayout left nav; compact header padding
-- [ ] **Parent Dashboard v2: Child filter toggle** — click/unclick child tabs; "All" mode merges all children's data + parent tasks; child-name labels in All mode
-- [ ] **Parent Dashboard v2: Edit Child modal** — edit child details, manage course assignments, setup reminders
-- [ ] **Parent Dashboard v2: Day Detail Modal** — click date to open modal with CRUD for all tasks/assignments on that date
-- [ ] **Parent Dashboard v2: Dedicated Courses page** — `/courses` route with full CRUD, multi-child assignment, study guide creation from course
-- [ ] **Parent Dashboard v2: Dedicated Study Guides page** — `/study-guides` route with full CRUD, course assignment, filtering
+- [x] **Parent Dashboard v2: Left navigation** — move Add Child, Add Course, Create Study Guide, Add Task to DashboardLayout left nav; compact header padding (IMPLEMENTED)
+- [x] **Parent Dashboard v2: Child filter toggle** — click/unclick child tabs; "All" mode merges all children's data + parent tasks; child-name labels in All mode (IMPLEMENTED)
+- [x] **Parent Dashboard v2: Edit Child modal** — edit child details, manage course assignments, setup reminders (IMPLEMENTED)
+- [x] **Parent Dashboard v2: Day Detail Modal** — click date to open modal with CRUD for all tasks/assignments on that date (IMPLEMENTED)
+- [x] **Parent Dashboard v2: Dedicated Courses page** — `/courses` route with full CRUD, multi-child assignment, study guide creation from course (IMPLEMENTED)
+- [x] **Parent Dashboard v2: Dedicated Study Guides page** — `/study-guides` route with full CRUD, course assignment, filtering (IMPLEMENTED)
 - [x] **Task system: Backend** — `tasks` table, CRUD API endpoints (`/api/tasks/`), cross-role assignment (IMPLEMENTED)
 - [x] **Task system: Frontend** — Dedicated Tasks page, task entries on calendar, task editing (IMPLEMENTED)
 - [x] **Task system: Calendar integration** — tasks appear alongside assignments on calendar, Day Detail Modal with sticky note cards (IMPLEMENTED)
@@ -1376,13 +1460,28 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Color theme system: Hardcoded color cleanup** — Converted hardcoded hex/rgba values to CSS variables across all CSS files (IMPLEMENTED)
 - [x] **Color theme system: Dark mode** — Deep dark palette with purple glow in `[data-theme="dark"]`, ThemeContext, ThemeToggle in header (IMPLEMENTED)
 - [x] **Color theme system: Focus mode** — Warm muted tones in `[data-theme="focus"]` for study sessions (IMPLEMENTED)
-- [ ] **Make student email optional** — parent can create child with name only (no email, no login)
-- [ ] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional
-- [ ] **Parent creates courses** — allow PARENT role to create courses (private to their children)
-- [ ] **Parent assigns courses to children** — `POST /api/parent/children/{student_id}/courses`
-- [ ] **Student creates courses** — allow STUDENT role to create courses (visible to self only)
-- [ ] **Add `created_by_user_id` and `is_private` to Course model**
-- [ ] **Disable auto-sync jobs by default** — all Google Classroom/Gmail sync is manual, on-demand only
+- [x] **Make student email optional** — parent can create child with name only (no email, no login) (IMPLEMENTED)
+- [x] **Parent creates child** endpoint (`POST /api/parent/children/create`) — name required, email optional (IMPLEMENTED)
+- [x] **Parent creates courses** — allow PARENT role to create courses (private to their children) (IMPLEMENTED)
+- [x] **Parent assigns courses to children** — `POST /api/parent/children/{student_id}/courses` (IMPLEMENTED)
+- [x] **Student creates courses** — allow STUDENT role to create courses (visible to self only) (IMPLEMENTED)
+- [x] **Add `created_by_user_id` and `is_private` to Course model** (IMPLEMENTED)
+- [x] **Disable auto-sync jobs by default** — all Google Classroom/Gmail sync is manual, on-demand only (IMPLEMENTED)
+- [x] **Multi-role support Phase A** — `roles` column, role switcher, ProtectedRoute checks all roles (#211) (IMPLEMENTED)
+- [x] **Security hardening Phase 2** — Rate limiting, security headers, LIKE injection fix (#140, #141, #184) (IMPLEMENTED)
+- [x] **Task reminders** — Daily in-app notifications for upcoming task due dates (#112) (IMPLEMENTED)
+- [x] **Password reset flow** — Email-based JWT token reset with forgot-password UI (#143) (IMPLEMENTED)
+- [x] **Course materials lifecycle** — Soft delete, archive, retention policies, auto-archive (#212) (IMPLEMENTED)
+- [x] **Message email notifications** — Email on new message with dedup (#213) (IMPLEMENTED)
+- [x] **Parent-to-teacher linking** — Manual link via MyKidsPage, email notifications (#219-#224, #234, #235) (IMPLEMENTED)
+- [x] **Teacher course roster management** — Add/remove students, assign teacher by email (#225-#227) (IMPLEMENTED)
+- [x] **Manual assignment CRUD** — Teachers create/edit/delete assignments on CourseDetailPage (#49) (IMPLEMENTED)
+- [x] **My Kids page** — Dedicated parent page with child cards, sections, teacher linking (#236, #237) (IMPLEMENTED)
+- [x] **JWT token refresh** — Auto-refresh on 401 with 30-day refresh tokens (#149) (IMPLEMENTED)
+- [x] **Loading skeletons** — Animated skeleton screens for all major pages (#150, #218) (IMPLEMENTED)
+- [x] **Mobile responsive CSS** — Breakpoints for 5+ pages (#152) (IMPLEMENTED)
+- [x] **Backend test expansion** — 288+ route tests (#155) (IMPLEMENTED)
+- [x] **Inspirational messages** — Role-based dashboard greetings with admin CRUD (#230-#233) (IMPLEMENTED)
 - [ ] Manual course creation for teachers
 - [ ] Manual assignment creation for teachers
 - [ ] Multi-Google account support for teachers
@@ -1773,18 +1872,42 @@ Current feature issues are tracked in GitHub:
 
 ### Phase 1 - Implemented (Teacher & Parent Enhancements)
 - ~~Issue #187: Add cascading deletes and unique constraints~~ ✅
+- ~~Issue #211: Multi-role support: allow users to hold multiple roles (Phase A)~~ ✅
+- ~~Issue #212: Course materials lifecycle management (soft delete, archive, retention)~~ ✅
+- ~~Issue #213: Message email notifications with dedup~~ ✅
+- ~~Issue #218: Add loading skeleton preloaders to remaining pages~~ ✅
+- ~~Issue #219-#224: Manual parent-to-teacher linking~~ ✅
 - ~~Issue #225: Teacher adds/removes students from courses~~ ✅
 - ~~Issue #226: Assign teacher to course during creation/editing~~ ✅
 - ~~Issue #227: Teacher invite via course context~~ ✅
+- ~~Issue #230-#233: Role-based inspirational messages~~ ✅
 - ~~Issue #234: Teacher linking: send email notification to new teacher~~ ✅
 - ~~Issue #235: Teacher linking: send email notification to existing teacher~~ ✅
+- ~~Issue #236: MyKids: Add quick stats (course count, active tasks) to child overview cards~~ ✅
+- ~~Issue #237: MyKids: Add icons to section headers and remove Courses from parent nav~~ ✅
+
+### Phase 1 - Implemented (Feb 11-12 Sprint)
+- ~~Issue #49: Manual assignment creation for teachers~~ ✅
+- ~~Issue #112: Task reminders: daily in-app notifications for upcoming task due dates~~ ✅
+- ~~Issue #140: Add rate limiting to auth, AI generation, and file upload endpoints~~ ✅
+- ~~Issue #141: Add security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)~~ ✅
+- ~~Issue #143: Add password reset flow (Forgot Password)~~ ✅
+- ~~Issue #149: Implement JWT token refresh mechanism~~ ✅
+- ~~Issue #152: Mobile responsive web: CSS breakpoints for 5+ pages~~ ✅
+- ~~Issue #155: Add backend route tests for google, study, messages, notifications, admin, invites~~ ✅
+- ~~Issue #181: HIGH: Fix RBAC gaps on students, assignments, courses, users, and content routes~~ ✅
+- ~~Issue #182: HIGH: Secure logging endpoint and parent-created student passwords~~ ✅
+- ~~Issue #184: MEDIUM: Fix LIKE pattern injection in search and study guide routes~~ ✅
+- ~~Issue #206: Parent UX: Consolidated parent navigation via My Kids page~~ ✅
+- ~~Issue #207: Parent Dashboard: Calendar default expanded on all screen sizes~~ ✅
+- ~~Issue #208: Fix overdue/due-today count mismatch between dashboard and TasksPage~~ ✅
+- ~~Issue #209: Add assignee filter to TasksPage for filtering by student~~ ✅
+- ~~Issue #210: Task Detail Page: Inline edit mode with all fields~~ ✅
+- ~~Issue #255-#257: Multi-role support Phase B requirements and issues created~~ (PLANNED)
 
 ### Phase 1 - Open
-- Issue #236: MyKids: Add quick stats (course count, active tasks) to child overview cards
-- Issue #237: MyKids: Add icons to section headers and remove Courses from parent nav
 - Issue #41: Multi-Google account support for teachers
 - Issue #42: Manual course creation for teachers
-- Issue #49: Manual assignment creation for teachers
 - Issue #57: Auto-send invite email to shadow teachers on creation
 - Issue #58: Add is_platform_user flag to Teacher model
 - Issue #59: Teacher Dashboard course management view with source badges
@@ -1794,7 +1917,6 @@ Current feature issues are tracked in GitHub:
 - Issue #109: AI explanation of assignments
 - Issue #110: Add assignment/test to task (link tasks to assignments) — courses, content, and study guides now linkable; assignment linking pending
 - ~~Issue #111: Student self-learn: create and manage personal courses~~ ✅
-- Issue #112: Task reminders: email notifications with opt-out
 - Issue #114: Course materials: file upload and storage (GCS) — upload + text extraction done, GCS pending
 - ~~Issue #116: Courses: Add structured course content types + reference/Google Classroom links~~ ✅
 - Issue #119: Recurring Tasks: Feasibility + implementation proposal
@@ -1807,7 +1929,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #174: Global search: backend unified search endpoint~~ ✅
 - ~~Issue #175: Global search: frontend search component in DashboardLayout~~ ✅
 - ~~Issue #183: Task Detail Page: link/unlink resources (courses, materials, study guides)~~ ✅
-- Issue #193: ~~Task list: click task row to navigate to task detail page~~ ✅
+- ~~Issue #193: Task list: click task row to navigate to task detail page~~ ✅
 - Issue #194: Rename 'Study Guide' to 'Course Material' across UI and navigation
 - ~~Issue #169: Color theme: Clean up hardcoded CSS colors (prerequisite for themes)~~ ✅
 - ~~Issue #170: Color theme: Dark mode (ThemeContext, ThemeToggle, dark palette)~~ ✅
@@ -1816,7 +1938,7 @@ Current feature issues are tracked in GitHub:
 ### Phase 1.5 - Calendar Extension, Content, Search, Mobile & School Integration
 - ~~Issue #174: Global search: backend unified search endpoint~~ ✅
 - ~~Issue #175: Global search: frontend search component in DashboardLayout~~ ✅
-- Issue #152: Mobile responsive web: fix CSS gaps, breakpoints, and touch support
+- ~~Issue #152: Mobile responsive web: CSS breakpoints for 5+ pages~~ ✅
 - Issue #195: AI auto-task creation: extract critical dates from generated course materials
 - Issue #96: Student email identity merging (personal + school email)
 - Issue #45: Extend calendar to other roles (student, teacher) with role-aware data (parent calendar done in #97)
@@ -1830,8 +1952,8 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #203: Parent UX: One-click study material generation~~ ✅
 - ~~Issue #204: Parent UX: Fix filter cascade on Course Materials page~~ ✅
 - ~~Issue #205: Parent UX: Reduce modal nesting~~ ✅
-- Issue #206: Parent UX: Consolidated 3-item navigation (Phase 2 — deferred)
-- Issue #207: Parent Dashboard: Collapsible/expandable calendar section
+- ~~Issue #206: Parent UX: Consolidated parent navigation via My Kids page~~ ✅
+- ~~Issue #207: Parent Dashboard: Calendar default expanded on all screen sizes~~ ✅
 
 ### Phase 2
 - Issue #26: Performance Analytics Dashboard
@@ -1847,23 +1969,23 @@ Current feature issues are tracked in GitHub:
 - Issue #31: AI Email Communication Agent
 
 ### Security & Hardening (Codebase Analysis — Feb 2026)
-- Issue #139: Security: Fix authorization gaps in list_students, get_user, list_assignments
-- Issue #140: Add rate limiting to auth, AI generation, and file upload endpoints
-- Issue #141: Add security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)
+- ~~Issue #139: Security: Fix authorization gaps in list_students, get_user, list_assignments~~ ✅
+- ~~Issue #140: Add rate limiting to auth, AI generation, and file upload endpoints~~ ✅
+- ~~Issue #141: Add security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)~~ ✅
 - Issue #142: Add input validation and field length limits across all endpoints
-- Issue #143: Add password reset flow (Forgot Password)
+- ~~Issue #143: Add password reset flow (Forgot Password)~~ ✅
 - Issue #144: Fix N+1 query patterns in task list, child list, and reminder job
 - ~~Issue #145: Add CASCADE delete rules to FK relationships~~ ✅ (fixed in #187)
 - ~~Issue #146: Add unique constraint on parent_students (parent_id, student_id)~~ ✅ (fixed in #187)
 - ~~Issue #147: Add React ErrorBoundary for graceful error handling~~ ✅
 - ~~Issue #148: Add global toast notification system for user feedback~~ ✅
-- Issue #149: Implement JWT token refresh mechanism
+- ~~Issue #149: Implement JWT token refresh mechanism~~ ✅
 - ~~Issue #150: Add loading skeletons to replace text loading states~~ ✅
 - Issue #151: Accessibility audit: aria labels, keyboard nav, skip-to-content
-- Issue #152: Mobile responsive web: fix CSS gaps, breakpoints, and touch support
+- ~~Issue #152: Mobile responsive web: CSS breakpoints for 5+ pages~~ ✅
 - Issue #153: Fix FlashcardsPage stale closure bug in keyboard handler
 - Issue #154: Add frontend unit tests (vitest)
-- Issue #155: Add backend route tests for google, study, messages, notifications, admin, invites
+- ~~Issue #155: Add backend route tests for google, study, messages, notifications, admin, invites~~ ✅
 - Issue #156: Add PostgreSQL test environment to CI for cross-DB coverage
 
 ### Risk Audit (Full Application Review — Feb 2026)
@@ -1872,9 +1994,9 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #178: CRITICAL: Secure Google OAuth flow~~ ✅
 - ~~Issue #179: CRITICAL: Fix hardcoded JWT secret key~~ ✅
 - Issue #180: HIGH: Add JWT token revocation and rate limiting
-- Issue #181: HIGH: Fix RBAC gaps on students, assignments, courses, users, and content routes
-- Issue #182: HIGH: Secure logging endpoint and parent-created student passwords
-- Issue #184: MEDIUM: Fix LIKE pattern injection in search and study guide routes
+- ~~Issue #181: HIGH: Fix RBAC gaps on students, assignments, courses, users, and content routes~~ ✅
+- ~~Issue #182: HIGH: Secure logging endpoint and parent-created student passwords~~ ✅
+- ~~Issue #184: MEDIUM: Fix LIKE pattern injection in search and study guide routes~~ ✅
 - Issue #185: MEDIUM: Add database migration tooling (Alembic)
 - Issue #186: MEDIUM: Fix N+1 queries in messages, tasks, and parent routes
 - ~~Issue #187: MEDIUM: Add cascading deletes and unique constraints~~ ✅
