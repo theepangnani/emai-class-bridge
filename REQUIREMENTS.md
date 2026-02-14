@@ -1275,6 +1275,47 @@ All outgoing emails from ClassBridge should include a role-based inspirational m
 - [ ] Backend: Add inspiration message injection to email service (#260)
 - [ ] Templates: Update all 8+ email templates with inspiration footer (#260)
 
+### 6.42 Admin Messaging Improvements: Notification Modal, User-to-Admin Messaging (Phase 1)
+
+Enhance the admin messaging system so notifications open in a popup modal, all users can see admin messages in the Messages page, and any user can send a message to the admin team with email notification to all admins.
+
+**A. Notification Click → Popup Modal (#261)**
+
+When a user clicks on a notification (in the NotificationBell dropdown), the full message should open in a popup modal overlay instead of expanding inline or navigating away.
+
+- **Frontend (NotificationBell):** Clicking any notification opens a centered modal showing:
+  - Notification title (bold header)
+  - Full notification content (body text, no truncation)
+  - Timestamp
+  - "Close" button and click-outside-to-dismiss
+  - If notification has a `link`, show a "Go to…" action button in the modal footer
+- **Marks as read** on open (existing behavior preserved)
+- **CSS:** Uses shared `.modal-overlay` / `.modal` pattern from `Dashboard.css`
+
+**B. Messages Page: Show All Admin Messages (#262)**
+
+When any user opens the Messages page, they must see conversations from all admin users — not just teachers/parents they have explicit relationships with.
+
+- **Backend (`messages.py`):** Update `list_conversations` to include conversations where the other participant is an admin user. Currently conversations are filtered only by participant ID match — this already works since admin messages now create Conversation records. No query change needed if conversations are created correctly.
+- **Backend (`messages.py`):** Update `get_valid_recipients` to include admin users in the recipient list for all roles — so users can initiate conversations with admins from the "New Conversation" modal.
+- **Frontend (MessagesPage):** No structural changes — admin conversations will appear naturally in the list. Admin users should display with an "Admin" badge or label in the conversation list for clarity.
+
+**C. Any User Can Message Admin (#263)**
+
+Any authenticated user (parent, student, teacher) can send a message to any admin. All admin users receive the message in their Messages page AND receive an email notification.
+
+- **Backend (`messages.py`):**
+  - Update `get_valid_recipients` to always include all admin users as valid recipients for every authenticated user (regardless of role or relationships).
+  - When a message is sent to an admin, also deliver the message (as a new Conversation or appended message) to **all other admin users** and send them email notifications.
+  - New helper: `_notify_all_admins(db, sender, message_content, conversation_id)` — creates notifications and sends emails to all admin users except the sender.
+- **Backend (email):** Use existing `send_email_sync` for individual admin emails, or `send_emails_batch` if notifying multiple admins.
+- **Frontend (MessagesPage):** Admin users appear in the recipient list with an "Admin" badge. Selecting any admin as recipient sends to all admins.
+
+**Sub-tasks:**
+- [ ] Frontend: Notification click opens popup modal (#261)
+- [ ] Backend + Frontend: Show admin messages in Messages page (#262)
+- [ ] Backend + Frontend: User-to-admin messaging with email to all admins (#263)
+
 ### 6.30 Role-Based Inspirational Messages (Phase 2) - IMPLEMENTED
 
 Replace the static "Welcome back" dashboard greeting with role-specific inspirational messages that rotate on each visit. Messages are maintained in JSON seed files and imported into the database. Admins can manage messages via the admin dashboard.
@@ -1966,6 +2007,9 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #258: Admin broadcast messaging: send message + email to all users~~ ✅
 - ~~Issue #259: Admin individual messaging: send message + email to a specific user~~ ✅
 - Issue #260: Inspirational messages in emails: add role-based quotes to all outgoing emails (PLANNED)
+- Issue #261: Notification click opens popup modal with full message content
+- Issue #262: Messages page: show all admin messages for every user
+- Issue #263: User-to-admin messaging: any user can message admin, all admins get email
 
 ### Phase 1 - Open
 - Issue #41: Multi-Google account support for teachers
