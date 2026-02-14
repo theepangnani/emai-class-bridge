@@ -933,36 +933,55 @@ When a user receives a new in-app message, the system sends an email notificatio
 - `app/templates/message_notification.html` — branded email template
 - `tests/test_messages.py` — `TestMessageNotifications` class with 5 tests
 
-### 6.28 Manual Parent-to-Teacher Linking (Phase 1) - PLANNED
+### 6.28 Manual Parent-to-Teacher Linking (Phase 1) - IMPLEMENTED
 
-Currently, parent-teacher messaging recipients are derived from the chain: Parent → Child → Course (enrolled) → Teacher. This is too restrictive — parents need to manually link their child to a teacher (by email) so they can message them directly, even before the child is enrolled in a course.
+Parents can manually link their child to a teacher by email for direct messaging, bypassing the course enrollment requirement.
 
-**Requirements:**
-1. New `student_teachers` join table: direct student-teacher relationship (student_id, teacher_id, created_by_user_id, created_at)
-2. `POST /api/parent/children/{student_id}/teachers` — parent links a teacher to their child by email
-3. `GET /api/parent/children/{student_id}/teachers` — list linked teachers for a child
-4. `DELETE /api/parent/children/{student_id}/teachers/{teacher_id}` — unlink a teacher
-5. Update `GET /api/messages/recipients` to include teachers linked via `student_teachers` (in addition to course-based chain), with deduplication
-6. Frontend: "Add Teacher" button in parent dashboard per child, with email input modal and linked teachers list
+**Implementation:**
+- `student_teachers` join table: student_id, teacher_user_id, teacher_name, teacher_email, added_by_user_id, created_at
+- `POST /api/parent/children/{student_id}/teachers` — link teacher by email
+- `GET /api/parent/children/{student_id}/teachers` — list linked teachers
+- `DELETE /api/parent/children/{student_id}/teachers/{link_id}` — unlink teacher
+- `GET /api/messages/recipients` updated to include directly-linked teachers (both parent→teacher and teacher→parent directions)
+- Frontend: "Teachers" section in My Kids page with "Add Teacher" modal
 
-**Relationship model update:**
+**Relationship model:**
 ```
 Existing: Parent → Child → Course → Teacher (inferred)
 New:      Parent → Child → Teacher (direct via student_teachers)
 ```
 
-**Sub-tasks:**
-- [ ] Backend: Create `student_teachers` join table (#220)
-- [ ] Backend: Add CRUD endpoints for teacher linking (#221)
-- [ ] Backend: Update message recipients to include direct links (#222)
-- [ ] Frontend: Add "Link Teacher" UI (#223)
-- [ ] Testing: Manual teacher linking + updated recipients (#224)
-
-**Key files (planned):**
+**Key files:**
 - `app/models/student.py` — `student_teachers` table
-- `app/api/routes/parent.py` — new endpoints
+- `app/api/routes/parent.py` — CRUD endpoints
 - `app/api/routes/messages.py` — updated `get_valid_recipients()`
-- `frontend/src/pages/ParentDashboard.tsx` or `MyKidsPage.tsx`
+- `frontend/src/pages/MyKidsPage.tsx` — Teachers section + Add Teacher modal
+
+### 6.29 Teacher Course Roster Management & Teacher Assignment (Phase 1) - PLANNED
+
+Teachers need to manage their course rosters (add/remove students), and courses should allow assigning a teacher during or after creation.
+
+**Requirements:**
+1. **Teacher adds/removes students from courses** (#225)
+   - `POST /api/courses/{course_id}/students` — add student by email
+   - `DELETE /api/courses/{course_id}/students/{student_id}` — remove student
+   - Frontend: "Add Student" button on course detail page for teachers
+2. **Assign teacher to course during creation/editing** (#226)
+   - Accept `teacher_email` in CourseCreate schema
+   - If teacher exists → assign `teacher_id`
+   - If teacher is unknown → send invite (see #227)
+   - Frontend: optional teacher field in course creation form
+3. **Teacher invite via course context** (#227)
+   - When assigning unknown teacher email → create InviteType.TEACHER with `metadata_json = {"course_id": id}`
+   - On invite acceptance → auto-assign teacher to course
+   - Frontend: "Pending invite" badge for unaccepted teacher invitations
+
+**Sub-tasks:**
+- [ ] Backend: Teacher course student management (#225)
+- [ ] Backend: Teacher assignment to course (#226)
+- [ ] Backend: Course-aware teacher invites (#227)
+- [ ] Frontend: Course roster UI for teachers
+- [ ] Frontend: Teacher field in course creation form
 
 ---
 
