@@ -397,6 +397,109 @@
   font-size: 13px;
 }
 
+/* Reply Section */
+.reply-section {
+  margin-top: 20px;
+}
+
+.reply-btn {
+  padding: 10px 20px;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.reply-btn:hover {
+  background: var(--color-accent-strong);
+}
+
+.reply-compose {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.reply-compose h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: var(--color-ink);
+}
+
+.reply-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 80px;
+  box-sizing: border-box;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.reply-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.reply-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.reply-actions .cancel-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-ink-muted);
+}
+
+.send-reply-btn {
+  padding: 8px 20px;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.send-reply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reply-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--color-ink-muted);
+  font-style: italic;
+}
+
+.reply-success {
+  background: var(--color-success-bg, rgba(34, 197, 94, 0.12));
+  color: var(--color-success, #16a34a);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
 /* Mobile back button — hidden on desktop */
 .mobile-back-btn {
   display: none;

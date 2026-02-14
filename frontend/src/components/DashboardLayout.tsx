@@ -7,6 +7,7 @@ import { NotificationBell } from './NotificationBell';
 import { GlobalSearch } from './GlobalSearch';
 import { ThemeToggle } from './ThemeToggle';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import { OnboardingTour, PARENT_TOUR_STEPS, STUDENT_TOUR_STEPS, TEACHER_TOUR_STEPS } from './OnboardingTour';
 import '../pages/Dashboard.css';
 
 interface SidebarAction {
@@ -255,6 +256,16 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
       </main>
 
       <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      {user?.role === 'parent' && (
+        <OnboardingTour steps={PARENT_TOUR_STEPS} storageKey="tour_completed_parent" />
+      )}
+      {user?.role === 'student' && (
+        <OnboardingTour steps={STUDENT_TOUR_STEPS} storageKey="tour_completed_student" />
+      )}
+      {user?.role === 'teacher' && (
+        <OnboardingTour steps={TEACHER_TOUR_STEPS} storageKey="tour_completed_teacher" />
+      )}
     </div>
   );
 }

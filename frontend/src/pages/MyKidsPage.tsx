@@ -327,6 +327,14 @@ export function MyKidsPage() {
                       <span className="mykids-teacher-name">{c.teacher_name}</span>
                       <span className="mykids-teacher-email">{c.teacher_email || c.name} (via course)</span>
                     </div>
+                    {c.teacher_id && (
+                      <button
+                        className="mykids-message-btn"
+                        onClick={() => navigate(`/messages?recipient_id=${c.teacher_id}`)}
+                      >
+                        Message
+                      </button>
+                    )}
                   </div>
                 ))}
                 {/* Directly linked teachers */}
@@ -336,6 +344,14 @@ export function MyKidsPage() {
                       <span className="mykids-teacher-name">{t.teacher_name || 'Unknown'}</span>
                       <span className="mykids-teacher-email">{t.teacher_email}</span>
                     </div>
+                    {t.teacher_user_id && (
+                      <button
+                        className="mykids-message-btn"
+                        onClick={() => navigate(`/messages?recipient_id=${t.teacher_user_id}`)}
+                      >
+                        Message
+                      </button>
+                    )}
                     <button
                       className="mykids-remove-btn"
                       onClick={async () => {

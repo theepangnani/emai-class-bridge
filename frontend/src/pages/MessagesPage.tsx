@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { messagesApi } from '../api/client';
 import type {
@@ -13,6 +13,7 @@ import './MessagesPage.css';
 
 export function MessagesPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuth();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<ConversationDetail | null>(null);
@@ -45,6 +46,16 @@ export function MessagesPage() {
     const interval = setInterval(() => loadConversations(true), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Handle recipient_id query param (from teacher "Message" button)
+  useEffect(() => {
+    const recipientId = searchParams.get('recipient_id');
+    if (recipientId && recipients.length > 0) {
+      setSelectedRecipient(Number(recipientId));
+      setShowNewModal(true);
+      setSearchParams({}, { replace: true }); // Clear param
+    }
+  }, [searchParams, recipients]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {

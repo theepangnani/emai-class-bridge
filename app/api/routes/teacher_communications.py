@@ -1,4 +1,5 @@
 import logging
+from pydantic import BaseModel as PydanticBaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, or_
@@ -15,6 +16,7 @@ from app.schemas.teacher_communication import (
 )
 from app.api.deps import get_current_user
 from app.services.google_classroom import get_email_monitoring_auth_url
+from app.services.email_service import send_email_sync
 
 logger = logging.getLogger(__name__)
 
@@ -154,3 +156,52 @@ async def trigger_sync(
     from app.jobs.teacher_comm_sync import sync_user_communications
     result = await sync_user_communications(current_user.id, db)
     return result
+
+
+class ReplyRequest(PydanticBaseModel):
+    body: str
+
+
+@router.post("/{comm_id}/reply")
+def reply_to_communication(
+    comm_id: int,
+    request: ReplyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reply to a teacher communication via ClassBridge email."""
+    comm = db.query(TeacherCommunication).filter(
+        TeacherCommunication.id == comm_id,
+        TeacherCommunication.user_id == current_user.id,
+    ).first()
+    if not comm:
+        raise HTTPException(status_code=404, detail="Communication not found")
+    if not comm.sender_email:
+        raise HTTPException(status_code=400, detail="No sender email to reply to")
+    if not request.body.strip():
+        raise HTTPException(status_code=400, detail="Reply body cannot be empty")
+
+    subject = f"Re: {comm.subject}" if comm.subject else "Reply from ClassBridge"
+    reply_html = f"""
+        <p>{request.body.replace(chr(10), '<br>')}</p>
+        <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;" />
+        <p style="color:#888;font-size:13px;">
+            Sent by <strong>{current_user.full_name}</strong> via ClassBridge
+        </p>
+        <blockquote style="border-left:3px solid #ddd;padding-left:12px;color:#666;margin-top:16px;">
+            <p style="font-size:13px;"><strong>Original message from {comm.sender_name or 'Unknown'}:</strong></p>
+            <p style="font-size:13px;">{(comm.body or '(No content)')[:500]}</p>
+        </blockquote>
+    """
+
+    try:
+        send_email_sync(
+            to_email=comm.sender_email,
+            subject=subject,
+            html_content=reply_html,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send reply to {comm.sender_email}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send reply email")
+
+    return {"status": "sent", "to": comm.sender_email}

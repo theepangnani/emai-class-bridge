@@ -790,6 +790,11 @@ export const teacherCommsApi = {
     const response = await api.get('/api/teacher-communications/auth/email-monitoring');
     return response.data as { authorization_url: string };
   },
+
+  reply: async (id: number, body: string) => {
+    const response = await api.post(`/api/teacher-communications/${id}/reply`, { body });
+    return response.data as { status: string; to: string };
+  },
 };
 
 // Parent Types

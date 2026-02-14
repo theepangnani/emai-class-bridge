@@ -17,6 +17,10 @@ export function TeacherCommsPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
+  const [replyText, setReplyText] = useState('');
+  const [replySending, setReplySending] = useState(false);
+  const [replySuccess, setReplySuccess] = useState('');
+  const [showReply, setShowReply] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [page, setPage] = useState(1);
@@ -77,8 +81,27 @@ export function TeacherCommsPage() {
     }
   };
 
+  const handleReply = async () => {
+    if (!selected || !replyText.trim() || replySending) return;
+    setReplySending(true);
+    setReplySuccess('');
+    try {
+      const result = await teacherCommsApi.reply(selected.id, replyText.trim());
+      setReplySuccess(`Reply sent to ${result.to}`);
+      setReplyText('');
+      setShowReply(false);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to send reply');
+    } finally {
+      setReplySending(false);
+    }
+  };
+
   const selectCommunication = async (comm: TeacherCommunication) => {
     setSelected(comm);
+    setShowReply(false);
+    setReplyText('');
+    setReplySuccess('');
     if (!comm.is_read) {
       try {
         await teacherCommsApi.markAsRead(comm.id);
@@ -253,6 +276,44 @@ export function TeacherCommsPage() {
                 <h3>Full Message</h3>
                 <div className="message-body">{selected.body || '(No content)'}</div>
               </div>
+
+              {/* Reply Section */}
+              {selected.sender_email && (
+                <div className="reply-section">
+                  {replySuccess && (
+                    <div className="reply-success">{replySuccess}</div>
+                  )}
+                  {!showReply ? (
+                    <button className="reply-btn" onClick={() => setShowReply(true)}>
+                      Reply to {selected.sender_name || selected.sender_email}
+                    </button>
+                  ) : (
+                    <div className="reply-compose">
+                      <h3>Reply</h3>
+                      <textarea
+                        className="reply-textarea"
+                        placeholder={`Reply to ${selected.sender_name || selected.sender_email}...`}
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        rows={4}
+                      />
+                      <div className="reply-actions">
+                        <button className="cancel-btn" onClick={() => { setShowReply(false); setReplyText(''); }}>
+                          Cancel
+                        </button>
+                        <button
+                          className="send-reply-btn"
+                          onClick={handleReply}
+                          disabled={replySending || !replyText.trim()}
+                        >
+                          {replySending ? 'Sending...' : 'Send Reply'}
+                        </button>
+                      </div>
+                      <p className="reply-note">Sent via ClassBridge email on your behalf</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="no-selection">
