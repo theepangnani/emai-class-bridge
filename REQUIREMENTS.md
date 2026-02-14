@@ -985,28 +985,44 @@ Teachers need to manage their course rosters (add/remove students), and courses 
 
 ### 6.30 Role-Based Inspirational Messages (Phase 2) - PLANNED
 
-Replace the static "Welcome back" dashboard greeting with role-specific inspirational messages that rotate on each visit. Admins can manage messages via the admin dashboard.
+Replace the static "Welcome back" dashboard greeting with role-specific inspirational messages that rotate on each visit. Messages are maintained in JSON seed files and imported into the database. Admins can manage messages via the admin dashboard.
+
+**Architecture:**
+- **File-based source:** JSON files at `data/inspiration/{role}.json` — user provides messages in files
+- **Database storage:** `inspiration_messages` table (id, role, message, author, is_active, created_at)
+- **Import service:** reads JSON files → upserts into DB (dedup by message text + role). Auto-imports on first startup if table is empty.
+- **API service:** `get_random_message(db, role)` returns a random active message
+- **Admin CRUD:** full management via admin dashboard + manual re-import trigger
 
 **Requirements:**
-1. **Inspirational messages display** (#228)
-   - New `inspiration_messages` table: id, role, message, is_active, created_at
-   - `GET /api/inspiration?role={role}` — returns a random active message
-   - Frontend: replace "Welcome back" with fetched inspirational message, fallback gracefully
-   - Seed database with 10+ messages per role
-2. **Admin management** (#229)
+1. **Model and service** (#230)
+   - `InspirationMessage` model with role, message, author (optional), is_active
+   - `app/services/inspiration_service.py` — random message retrieval + file import
+   - `GET /api/inspiration` — returns random message for current user's role
+2. **Seed data files** (#231)
+   - `data/inspiration/parent.json` — 10+ parenting/education messages
+   - `data/inspiration/teacher.json` — 10+ teaching/impact messages
+   - `data/inspiration/student.json` — 10+ education, respecting parents/teachers messages
+   - Auto-import on startup if DB table is empty
+3. **Frontend integration** (#232)
+   - Replace "Welcome back" in DashboardLayout with fetched message
+   - Show author attribution when available
+   - Graceful fallback if no messages
+4. **Admin management** (#233)
    - CRUD endpoints: `GET/POST/PATCH/DELETE /api/admin/inspiration`
+   - `POST /api/admin/inspiration/import` — re-import from seed files
    - Admin dashboard UI: table with role filter, inline active toggle, add/edit/delete
 
 **Message themes by role:**
-- **Parents:** Inspirational messages about parenting and supporting children's education
-- **Teachers:** Messages about the impact of teaching and inspiring students
-- **Students:** Messages about the importance of education, respecting parents, and respecting teachers
+- **Parents:** Supporting children's education, parenting encouragement
+- **Teachers:** Impact of teaching, inspiring students, noble profession
+- **Students:** Importance of education, respecting parents, respecting teachers, growth mindset
 
 **Sub-tasks:**
-- [ ] Backend: Inspiration model, API, seed data (#228)
-- [ ] Backend: Admin CRUD endpoints (#229)
-- [ ] Frontend: Dashboard greeting integration
-- [ ] Frontend: Admin inspiration management UI
+- [ ] Backend: Inspiration model, service, API (#230)
+- [ ] Data: Seed JSON files per role (#231)
+- [ ] Frontend: Dashboard greeting integration (#232)
+- [ ] Backend + Frontend: Admin CRUD + re-import (#233)
 
 ---
 
