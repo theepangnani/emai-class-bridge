@@ -1004,25 +1004,76 @@ Teachers can manage their course rosters (add/remove students), and courses allo
 - [x] Frontend: Teacher field in course creation form
 - [x] Tests: 17 new tests (TestTeacherAssignment, TestStudentRoster, TestInviteAcceptWithCourse)
 
-### 6.31 My Kids Page Enhancements (Phase 1) - PLANNED
+### 6.31 My Kids Page Enhancements (Phase 1) - IMPLEMENTED
 
 Improve the My Kids page visual hierarchy and parent navigation for better discoverability.
 
 **Requirements:**
-1. **Quick stats on child overview cards** (#236)
+1. **Quick stats on child overview cards** (#236) - IMPLEMENTED
    - Add `course_count` and `active_task_count` to `ChildSummary` API response
    - Display stats on each child card in the All Children grid view
-2. **Section header icons** (#237)
+2. **Section header icons** (#237) - IMPLEMENTED
    - Add inline icons to collapsible section headers in child detail view (Courses, Course Materials, Tasks, Teachers)
-3. **Parent navigation simplification** (#237)
+3. **Parent navigation simplification** (#237) - IMPLEMENTED
    - Remove Courses from parent nav (parents access courses via My Kids → child → Courses section)
    - Parent nav: Home | My Kids | Tasks | Messages
 
 **Sub-tasks:**
-- [ ] Backend: Add course_count, active_task_count to ChildSummary (#236)
-- [ ] Frontend: Child card stats display (#236)
-- [ ] Frontend: Section header icons (#237)
+- [x] Backend: Add course_count, active_task_count to ChildSummary (#236)
+- [x] Frontend: Child card stats display (#236)
+- [x] Frontend: Section header icons (#237)
 - [x] Frontend: Remove Courses from parent nav (#237)
+
+### 6.32 Manual Assignment Creation for Teachers (Phase 1) - IMPLEMENTED
+
+Teachers can create, edit, and delete assignments for their courses without Google Classroom sync (#49).
+
+**Requirements:**
+1. **Assignment CRUD** — `POST/PUT/DELETE /api/assignments/`
+   - Auth: course teacher, course creator, or admin (`_require_course_write`)
+   - Create: validates course access, creates Assignment record
+   - Update: partial update via `AssignmentUpdate` schema
+   - Delete: hard delete with auth check
+2. **Student notifications** — enrolled students receive in-app notification when new assignment posted
+3. **Assignment list ordering** — sorted by due date (ascending, nulls last), then created_at descending
+4. **Frontend: Assignments section on CourseDetailPage**
+   - Displays all assignments with title, description, due date, max points
+   - Overdue badge shown when due date has passed
+   - Google Classroom badge for synced assignments
+   - Create/Edit/Delete UI for teachers (hidden for GC-synced assignments)
+
+**Sub-tasks:**
+- [x] Backend: AssignmentUpdate schema, PUT/DELETE endpoints (#49)
+- [x] Backend: Student notification on new assignment (#49)
+- [x] Frontend: assignmentsApi CRUD methods (#49)
+- [x] Frontend: Assignments section with create/edit/delete modals (#49)
+
+### 6.33 Parent-Teacher-Course Visibility Flow (Phase 1) - IMPLEMENTED
+
+Documents the end-to-end flow for parent-teacher-course visibility.
+
+**Flow:**
+1. **Parent assigns teacher to course** — Parent creates/edits a course with `teacher_email`
+   - Teacher exists → assigned immediately (`teacher_id` set, `is_private = false`)
+   - Teacher doesn't exist → invite sent with course context; on accept → auto-assigned
+2. **Teacher manages roster** — Teacher adds student to course by email
+   - Student exists → enrolled immediately (added to `student_courses`)
+   - Student doesn't exist → invite sent with course context; on accept → auto-enrolled
+3. **Parent sees course** — Parent's dashboard, CoursesPage, and MyKidsPage query courses via `student_courses` join on their children
+   - Any course a child is enrolled in automatically appears to the parent
+   - Teacher name/email displayed on course cards
+
+**Visibility access rules (from `can_access_course`):**
+- Admin → all courses
+- Course creator → their courses
+- Public courses → visible to all
+- Assigned teacher → their courses
+- Enrolled student → their courses
+- Parent → courses their children are enrolled in
+
+**Known gaps:**
+- No parent notification when a teacher adds their child to a course (#238)
+- No real-time dashboard refresh (requires page reload)
 
 ### 6.30 Role-Based Inspirational Messages (Phase 2) - IMPLEMENTED
 
