@@ -130,6 +130,7 @@ export function ParentDashboard() {
 
   // Load dashboard data in a single API call
   const loadDashboard = async () => {
+    let childEmails: Set<string> = new Set();
     try {
       const data = await parentApi.getDashboard();
       setDashboardData(data);
@@ -142,16 +143,17 @@ export function ParentDashboard() {
       } else {
         setSelectedChild(null);
       }
+      childEmails = new Set(data.children.map(c => c.email?.toLowerCase()).filter(Boolean) as string[]);
     } catch {
       // Failed to load dashboard
     } finally {
       setLoading(false);
       setOverviewLoading(false);
     }
-    // Load pending invites in background
+    // Load pending invites in background — exclude invites for already-linked children
     try {
       const invites = await invitesApi.listSent();
-      setPendingInvites(invites.filter(i => !i.accepted_at && new Date(i.expires_at) > new Date()));
+      setPendingInvites(invites.filter(i => !i.accepted_at && new Date(i.expires_at) > new Date() && !childEmails.has(i.email.toLowerCase())));
     } catch { /* ignore */ }
   };
 

@@ -823,6 +823,7 @@ export interface ChildSummary {
   student_id: number;
   user_id: number;
   full_name: string;
+  email: string | null;
   grade_level: number | null;
   school_name: string | null;
   date_of_birth: string | null;

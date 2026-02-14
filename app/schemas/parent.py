@@ -22,6 +22,7 @@ class ChildSummary(BaseModel):
     student_id: int
     user_id: int
     full_name: str
+    email: Optional[str] = None
     grade_level: Optional[int]
     school_name: Optional[str]
     date_of_birth: Optional[date] = None
