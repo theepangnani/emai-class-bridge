@@ -3,7 +3,7 @@
 **Product Name:** ClassBridge
 **Author:** Theepan Gnanasabapathy
 **Version:** 1.0 (Based on PRD v4)
-**Last Updated:** 2026-02-11
+**Last Updated:** 2026-02-12
 
 ---
 
@@ -977,31 +977,52 @@ Enhance the "Add Teacher" flow to send emails when a parent links a teacher to t
 - [x] Email templates: `teacher_invite.html`, `teacher_linked_notification.html`
 - [x] Backfill `teacher_user_id` on invite acceptance
 
-### 6.29 Teacher Course Roster Management & Teacher Assignment (Phase 1) - PLANNED
+### 6.29 Teacher Course Roster Management & Teacher Assignment (Phase 1) - IMPLEMENTED
 
-Teachers need to manage their course rosters (add/remove students), and courses should allow assigning a teacher during or after creation.
+Teachers can manage their course rosters (add/remove students), and courses allow assigning a teacher during or after creation.
 
 **Requirements:**
-1. **Teacher adds/removes students from courses** (#225)
-   - `POST /api/courses/{course_id}/students` — add student by email
+1. **Teacher adds/removes students from courses** (#225) - IMPLEMENTED
+   - `POST /api/courses/{course_id}/students` — add student by email (existing student → enroll + notification; unknown email → send invite with course context)
    - `DELETE /api/courses/{course_id}/students/{student_id}` — remove student
-   - Frontend: "Add Student" button on course detail page for teachers
-2. **Assign teacher to course during creation/editing** (#226)
-   - Accept `teacher_email` in CourseCreate schema
-   - If teacher exists → assign `teacher_id`
-   - If teacher is unknown → send invite (see #227)
-   - Frontend: optional teacher field in course creation form
-3. **Teacher invite via course context** (#227)
-   - When assigning unknown teacher email → create InviteType.TEACHER with `metadata_json = {"course_id": id}`
-   - On invite acceptance → auto-assign teacher to course
-   - Frontend: "Pending invite" badge for unaccepted teacher invitations
+   - Auth: course teacher, admin, or course creator (`_require_course_manager`)
+   - Frontend: Student roster section on CourseDetailPage with Add/Remove buttons
+2. **Assign teacher to course during creation/editing** (#226) - IMPLEMENTED
+   - `teacher_email` field in CourseCreate and CourseUpdate schemas
+   - `_resolve_teacher_by_email()` helper: if teacher exists → assign; if unknown → create invite
+   - Frontend: optional "Teacher Email" field in course creation form (non-teacher roles) and edit modal
+3. **Teacher invite via course context** (#227) - IMPLEMENTED
+   - Unknown teacher/student email → create Invite with `metadata_json = {"course_id": id}`
+   - On invite acceptance → auto-assign teacher to course / auto-enroll student
+   - Email templates: `teacher_course_invite.html`, `student_course_invite.html`
 
 **Sub-tasks:**
-- [ ] Backend: Teacher course student management (#225)
-- [ ] Backend: Teacher assignment to course (#226)
-- [ ] Backend: Course-aware teacher invites (#227)
-- [ ] Frontend: Course roster UI for teachers
-- [ ] Frontend: Teacher field in course creation form
+- [x] Backend: Teacher course student management (#225)
+- [x] Backend: Teacher assignment to course (#226)
+- [x] Backend: Course-aware teacher invites (#227)
+- [x] Frontend: Course roster UI for teachers
+- [x] Frontend: Teacher field in course creation form
+- [x] Tests: 17 new tests (TestTeacherAssignment, TestStudentRoster, TestInviteAcceptWithCourse)
+
+### 6.31 My Kids Page Enhancements (Phase 1) - PLANNED
+
+Improve the My Kids page visual hierarchy and parent navigation for better discoverability.
+
+**Requirements:**
+1. **Quick stats on child overview cards** (#236)
+   - Add `course_count` and `active_task_count` to `ChildSummary` API response
+   - Display stats on each child card in the All Children grid view
+2. **Section header icons** (#237)
+   - Add inline icons to collapsible section headers in child detail view (Courses, Course Materials, Tasks, Teachers)
+3. **Parent navigation simplification** (#237)
+   - Remove Courses from parent nav (parents access courses via My Kids → child → Courses section)
+   - Parent nav: Home | My Kids | Tasks | Messages
+
+**Sub-tasks:**
+- [ ] Backend: Add course_count, active_task_count to ChildSummary (#236)
+- [ ] Frontend: Child card stats display (#236)
+- [ ] Frontend: Section header icons (#237)
+- [x] Frontend: Remove Courses from parent nav (#237)
 
 ### 6.30 Role-Based Inspirational Messages (Phase 2) - IMPLEMENTED
 
@@ -1066,14 +1087,16 @@ The Parent Dashboard uses a **three-panel layout**: left navigation, calendar-ce
 
 #### 2. Left Navigation
 The `DashboardLayout` sidebar includes role-specific navigation items for parents:
-- **Dashboard** — Home view (calendar)
-- **Courses** — Opens dedicated Courses management view
-- **Study Guides** — Opens dedicated Study Guides management view
+- **Home** — Dashboard view (calendar)
+- **My Kids** — Per-child view with courses, materials, tasks, teachers
+- **Tasks** — Dedicated task management view
 - **Messages** — Opens messaging view
 - **+ Add Child** — Opens Add Child modal
 - **+ Add Course** — Opens Create Course modal
 - **+ Create Study Guide** — Opens Study Tools modal
 - **+ Add Task** — Opens Add Task modal
+
+> **Note:** Courses was removed from parent nav (#237) since parents access courses through My Kids → child → Courses section.
 
 #### 3. Child Filter Tabs (Toggle Behavior)
 - Each child appears as a clickable tab button above the calendar
@@ -1273,8 +1296,8 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 #### Data Integrity & Performance (Tier 0)
 - [ ] **Missing database indexes** — Add indexes on StudyGuide(assignment_id), StudyGuide(user_id, created_at), Task(created_by_user_id, created_at), Invite(email, expires_at), Message(conversation_id) (#73)
 - [ ] **N+1 query patterns** — `_task_to_response()` does 3-4 extra queries per task; `list_children()` iterates students; assignment reminder job loads all users individually (#144)
-- [ ] **CASCADE delete rules** — Task, StudyGuide, Assignment FKs lack ON DELETE CASCADE/SET NULL; orphaned records possible (#145)
-- [ ] **Unique constraint on parent_students** — No unique constraint on (parent_id, student_id); duplicate links possible (#146)
+- [x] **CASCADE delete rules** — ~~Task, StudyGuide, Assignment FKs lack ON DELETE CASCADE/SET NULL; orphaned records possible (#145)~~ ✅ Fixed in #187
+- [x] **Unique constraint on parent_students** — ~~No unique constraint on (parent_id, student_id); duplicate links possible (#146)~~ ✅ Fixed in #187
 
 #### Frontend UX Gaps (Tier 1)
 - [x] **Global error boundary** — React ErrorBoundary wraps all routes; catches render errors with Try Again / Reload Page (#147) ✅
@@ -1634,7 +1657,17 @@ Current feature issues are tracked in GitHub:
 - Issue #164: ~~Frontend: Course Material tabbed detail view (Original / Study Guide / Quiz / Flashcards)~~ (CLOSED)
 - Issue #165: ~~Frontend: Refactor Study Guides page to list course materials with child/course filters~~ (CLOSED)
 
+### Phase 1 - Implemented (Teacher & Parent Enhancements)
+- ~~Issue #187: Add cascading deletes and unique constraints~~ ✅
+- ~~Issue #225: Teacher adds/removes students from courses~~ ✅
+- ~~Issue #226: Assign teacher to course during creation/editing~~ ✅
+- ~~Issue #227: Teacher invite via course context~~ ✅
+- ~~Issue #234: Teacher linking: send email notification to new teacher~~ ✅
+- ~~Issue #235: Teacher linking: send email notification to existing teacher~~ ✅
+
 ### Phase 1 - Open
+- Issue #236: MyKids: Add quick stats (course count, active tasks) to child overview cards
+- Issue #237: MyKids: Add icons to section headers and remove Courses from parent nav
 - Issue #41: Multi-Google account support for teachers
 - Issue #42: Manual course creation for teachers
 - Issue #49: Manual assignment creation for teachers
@@ -1706,8 +1739,8 @@ Current feature issues are tracked in GitHub:
 - Issue #142: Add input validation and field length limits across all endpoints
 - Issue #143: Add password reset flow (Forgot Password)
 - Issue #144: Fix N+1 query patterns in task list, child list, and reminder job
-- Issue #145: Add CASCADE delete rules to FK relationships
-- Issue #146: Add unique constraint on parent_students (parent_id, student_id)
+- ~~Issue #145: Add CASCADE delete rules to FK relationships~~ ✅ (fixed in #187)
+- ~~Issue #146: Add unique constraint on parent_students (parent_id, student_id)~~ ✅ (fixed in #187)
 - ~~Issue #147: Add React ErrorBoundary for graceful error handling~~ ✅
 - ~~Issue #148: Add global toast notification system for user feedback~~ ✅
 - Issue #149: Implement JWT token refresh mechanism
@@ -1730,7 +1763,7 @@ Current feature issues are tracked in GitHub:
 - Issue #184: MEDIUM: Fix LIKE pattern injection in search and study guide routes
 - Issue #185: MEDIUM: Add database migration tooling (Alembic)
 - Issue #186: MEDIUM: Fix N+1 queries in messages, tasks, and parent routes
-- Issue #187: MEDIUM: Add cascading deletes and unique constraints
+- ~~Issue #187: MEDIUM: Add cascading deletes and unique constraints~~ ✅
 - Issue #188: LOW: Replace deprecated dependencies (python-jose, PyPDF2, datetime.utcnow)
 - Issue #189: LOW: Add deployment pipeline tests and database backup strategy
 - Issue #190: LOW: Improve health check endpoint to verify database connectivity

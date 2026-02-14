@@ -137,6 +137,11 @@ export function MyKidsPage() {
                 {child.grade_level != null && <span className="grade-badge">Grade {child.grade_level}</span>}
               </div>
               {child.school_name && <div className="mykids-child-card-school">{child.school_name}</div>}
+              <div className="mykids-child-card-stats">
+                <span className="mykids-stat">{child.course_count} {child.course_count === 1 ? 'course' : 'courses'}</span>
+                <span className="mykids-stat-sep">&middot;</span>
+                <span className="mykids-stat">{child.active_task_count} active {child.active_task_count === 1 ? 'task' : 'tasks'}</span>
+              </div>
               <div className="mykids-child-card-action">View details &rarr;</div>
             </div>
           ))}
@@ -149,7 +154,7 @@ export function MyKidsPage() {
           <div className="mykids-section">
             <button className="mykids-section-header" onClick={() => setShowCourses(p => !p)}>
               <span className={`section-chevron${showCourses ? ' expanded' : ''}`}>&#9654;</span>
-              Courses ({overview?.courses.length ?? 0})
+              <span className="section-icon">&#128218;</span> Courses ({overview?.courses.length ?? 0})
             </button>
             {showCourses && overview && (
               <div className="mykids-card-grid">
@@ -170,7 +175,7 @@ export function MyKidsPage() {
           <div className="mykids-section">
             <button className="mykids-section-header" onClick={() => setShowMaterials(p => !p)}>
               <span className={`section-chevron${showMaterials ? ' expanded' : ''}`}>&#9654;</span>
-              Course Materials ({materials.length})
+              <span className="section-icon">&#128196;</span> Course Materials ({materials.length})
             </button>
             {showMaterials && (
               <div className="mykids-card-grid">
@@ -193,7 +198,7 @@ export function MyKidsPage() {
           <div className="mykids-section">
             <button className="mykids-section-header" onClick={() => setShowTasks(p => !p)}>
               <span className={`section-chevron${showTasks ? ' expanded' : ''}`}>&#9654;</span>
-              Tasks ({activeTasks.length} active{completedTasks.length > 0 ? `, ${completedTasks.length} done` : ''})
+              <span className="section-icon">&#9989;</span> Tasks ({activeTasks.length} active{completedTasks.length > 0 ? `, ${completedTasks.length} done` : ''})
             </button>
             {showTasks && (
               <div className="mykids-task-list">
@@ -228,7 +233,7 @@ export function MyKidsPage() {
             <div className="mykids-section-header-row">
               <button className="mykids-section-toggle" onClick={() => setShowTeachers(p => !p)}>
                 <span className={`section-chevron${showTeachers ? ' expanded' : ''}`}>&#9654;</span>
-                Teachers ({(overview?.courses.filter(c => c.teacher_name).length ?? 0) + linkedTeachers.length})
+                <span className="section-icon">&#128105;&#8205;&#127979;</span> Teachers ({(overview?.courses.filter(c => c.teacher_name).length ?? 0) + linkedTeachers.length})
               </button>
               <button
                 className="mykids-add-teacher-btn"

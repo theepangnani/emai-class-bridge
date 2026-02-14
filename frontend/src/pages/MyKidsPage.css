@@ -52,11 +52,28 @@
   color: var(--color-ink-muted);
   margin-top: 4px;
 }
+.mykids-child-card-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--color-ink-muted);
+}
+.mykids-stat-sep {
+  color: var(--color-border);
+}
 .mykids-child-card-action {
-  margin-top: 12px;
+  margin-top: 8px;
   font-size: 13px;
   color: var(--color-accent);
   font-weight: 500;
+}
+
+/* Section icons */
+.section-icon {
+  font-size: 15px;
+  line-height: 1;
 }
 
 /* Sections */

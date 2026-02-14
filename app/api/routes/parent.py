@@ -50,6 +50,34 @@ def list_children(
         .all()
     )
 
+    # Batch-fetch course counts and active task counts for all children
+    student_ids = [s.id for s, _ in rows]
+    user_ids = [s.user_id for s, _ in rows]
+
+    course_counts: dict[int, int] = {}
+    task_counts: dict[int, int] = {}
+
+    if student_ids:
+        cc_rows = (
+            db.query(student_courses.c.student_id, sa_func.count())
+            .filter(student_courses.c.student_id.in_(student_ids))
+            .group_by(student_courses.c.student_id)
+            .all()
+        )
+        course_counts = {sid: cnt for sid, cnt in cc_rows}
+
+        tc_rows = (
+            db.query(Task.assigned_to_user_id, sa_func.count())
+            .filter(
+                Task.assigned_to_user_id.in_(user_ids),
+                Task.is_completed == False,  # noqa: E712
+                Task.archived_at.is_(None),
+            )
+            .group_by(Task.assigned_to_user_id)
+            .all()
+        )
+        task_counts = {uid: cnt for uid, cnt in tc_rows}
+
     result = []
     for student, rel_type in rows:
         user = student.user
@@ -60,6 +88,8 @@ def list_children(
             grade_level=student.grade_level,
             school_name=student.school_name,
             relationship_type=rel_type.value if rel_type else None,
+            course_count=course_counts.get(student.id, 0),
+            active_task_count=task_counts.get(student.user_id, 0),
         ))
 
     log_action(db, user_id=current_user.id, action="read", resource_type="children", details={"count": len(result)})
@@ -92,16 +122,24 @@ def get_parent_dashboard(
     all_assignments = []
     all_course_ids = set()
 
+    # Pre-fetch active task counts per child user_id
+    _child_user_ids = [s.user_id for s, _ in child_rows]
+    _task_count_map: dict[int, int] = {}
+    if _child_user_ids:
+        _tc = (
+            db.query(Task.assigned_to_user_id, sa_func.count())
+            .filter(
+                Task.assigned_to_user_id.in_(_child_user_ids),
+                Task.is_completed == False,  # noqa: E712
+                Task.archived_at.is_(None),
+            )
+            .group_by(Task.assigned_to_user_id)
+            .all()
+        )
+        _task_count_map = {uid: cnt for uid, cnt in _tc}
+
     for student, rel_type in child_rows:
         user = student.user
-        children.append(ChildSummary(
-            student_id=student.id,
-            user_id=student.user_id,
-            full_name=user.full_name if user else "Unknown",
-            grade_level=student.grade_level,
-            school_name=student.school_name,
-            relationship_type=rel_type.value if rel_type else None,
-        ))
 
         # Get child's courses
         courses = (
@@ -112,6 +150,17 @@ def get_parent_dashboard(
         )
         course_ids = [c.id for c in courses]
         all_course_ids.update(course_ids)
+
+        children.append(ChildSummary(
+            student_id=student.id,
+            user_id=student.user_id,
+            full_name=user.full_name if user else "Unknown",
+            grade_level=student.grade_level,
+            school_name=student.school_name,
+            relationship_type=rel_type.value if rel_type else None,
+            course_count=len(courses),
+            active_task_count=_task_count_map.get(student.user_id, 0),
+        ))
 
         # Build courses with teacher info
         courses_with_teachers = []

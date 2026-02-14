@@ -751,6 +751,8 @@ export interface ChildSummary {
   school_name: string | null;
   relationship_type: string | null;
   invite_link: string | null;
+  course_count: number;
+  active_task_count: number;
 }
 
 export interface ChildOverview {

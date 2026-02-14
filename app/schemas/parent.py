@@ -26,6 +26,8 @@ class ChildSummary(BaseModel):
     school_name: Optional[str]
     relationship_type: str | None = None
     invite_link: str | None = None
+    course_count: int = 0
+    active_task_count: int = 0
 
     class Config:
         from_attributes = True
