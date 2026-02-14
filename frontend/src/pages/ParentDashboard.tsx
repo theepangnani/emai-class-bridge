@@ -921,7 +921,9 @@ export function ParentDashboard() {
           {/* Per-Child Enhanced Cards */}
           {dashboardData && dashboardData.child_highlights.length > 0 && (
             <div className="child-highlights">
-              {dashboardData.child_highlights.map((h, index) => {
+              {dashboardData.child_highlights
+                .filter(h => !selectedChild || h.student_id === selectedChild)
+                .map((h, index) => {
                 const childSummary = children.find(c => c.student_id === h.student_id);
                 const stats = childTaskStats.find(s => s.studentId === h.student_id);
                 return (
