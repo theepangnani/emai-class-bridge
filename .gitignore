@@ -25,9 +25,12 @@ htmlcov/
 # Database
 *.db
 *.sqlite3
+*.db.bak
+*.db.bak*
 
 # Logs
 *.log
+logs/
 
 # OS
 .DS_Store
@@ -38,5 +41,15 @@ NUL
 node_modules/
 frontend/.vite/
 frontend/dist/
+frontend/test-results/
 *.local
 !.claude/**/*.local*
+
+# Sensitive files
+*deploy-key*.json
+*credentials*.json
+
+# Temp files
+ERROR
+WARNING
+=*
