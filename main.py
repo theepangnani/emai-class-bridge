@@ -485,6 +485,21 @@ def health_check():
     return {"status": "healthy"}
 
 
+@app.post("/api/errors/log")
+async def log_frontend_error(request: Request):
+    """Receive frontend error reports so they appear in Cloud Run logs."""
+    try:
+        body = await request.json()
+        logger.error("FRONTEND ERROR at %s: %s\nStack: %s\nComponent: %s",
+                     body.get("url", "?"),
+                     body.get("message", "?"),
+                     body.get("stack", ""),
+                     body.get("componentStack", ""))
+    except Exception:
+        pass
+    return {"ok": True}
+
+
 # Serve frontend static files in production
 FRONTEND_DIR = Path(__file__).parent / "frontend" / "dist"
 if FRONTEND_DIR.exists():

@@ -20,6 +20,21 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('ErrorBoundary caught:', error, info.componentStack);
+    // Report frontend errors to backend for production visibility
+    try {
+      fetch('/api/errors/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: error.message,
+          stack: error.stack?.slice(0, 2000),
+          componentStack: info.componentStack?.slice(0, 2000),
+          url: window.location.href,
+        }),
+      }).catch(() => {});
+    } catch {
+      // best-effort
+    }
   }
 
   handleReset = () => {
@@ -38,7 +53,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="error-boundary-icon">!</div>
             <h2>Something went wrong</h2>
             <p>An unexpected error occurred. You can try going back or reloading the page.</p>
-            {import.meta.env.DEV && this.state.error && (
+            {this.state.error && (
               <pre className="error-boundary-details">{this.state.error.message}</pre>
             )}
             <div className="error-boundary-actions">

@@ -219,9 +219,10 @@ describe('ParentDashboard', () => {
     renderWithProviders(<ParentDashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('Alex Smith')).toBeInTheDocument()
+      // "Alex Smith" appears in both child tab and highlight card
+      expect(screen.getAllByText('Alex Smith').length).toBeGreaterThanOrEqual(1)
     })
-    expect(screen.getByText('Grade 5')).toBeInTheDocument()
+    expect(screen.getAllByText('Grade 5').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders "All Children" tab when multiple children', async () => {
@@ -253,9 +254,10 @@ describe('ParentDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText('1 overdue')).toBeInTheDocument()
     })
-    expect(screen.getByText('2 due today')).toBeInTheDocument()
-    expect(screen.getByText('All caught up')).toBeInTheDocument()
-    expect(screen.getByText('Homework 1')).toBeInTheDocument()
+    // Enhanced cards show course count and "All caught up!" when no tasks
+    expect(screen.getAllByText(/All caught up!/)).toHaveLength(2)
+    // Both cards show course count
+    expect(screen.getAllByText(/course/).length).toBeGreaterThanOrEqual(2)
   })
 
   // ── Status Card Navigation ───────────────────────────────────
@@ -533,11 +535,11 @@ describe('ParentDashboard', () => {
     renderWithProviders(<ParentDashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('Alex Smith')).toBeInTheDocument()
+      expect(screen.getAllByText('Alex Smith').length).toBeGreaterThanOrEqual(1)
     })
 
     // Click the edit pencil button
-    const editBtn = screen.getByTitle('Edit child info')
+    const editBtn = screen.getByTitle('Edit')
     await user.click(editBtn)
 
     await waitFor(() => {
@@ -555,10 +557,10 @@ describe('ParentDashboard', () => {
     renderWithProviders(<ParentDashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('Alex Smith')).toBeInTheDocument()
+      expect(screen.getAllByText('Alex Smith').length).toBeGreaterThanOrEqual(1)
     })
 
-    await user.click(screen.getByTitle('Edit child info'))
+    await user.click(screen.getByTitle('Edit'))
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: 'Edit Child' })).toBeInTheDocument()

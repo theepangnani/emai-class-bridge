@@ -52,8 +52,8 @@ describe('DashboardLayout', () => {
 
   it('shows parent nav items for parent role', () => {
     renderLayout('parent')
-    expect(screen.getByText('Home')).toBeInTheDocument()
-    expect(screen.getByText('My Kids')).toBeInTheDocument()
+    expect(screen.getByText('Overview')).toBeInTheDocument()
+    expect(screen.getByText('Child Profiles')).toBeInTheDocument()
     expect(screen.queryByText('Courses')).not.toBeInTheDocument()
   })
 
