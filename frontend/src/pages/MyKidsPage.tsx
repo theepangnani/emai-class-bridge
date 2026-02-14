@@ -115,14 +115,13 @@ export function MyKidsPage() {
     );
   }
 
-  const activeTasks = tasks.filter(t => !t.is_completed);
-  const completedTasks = tasks.filter(t => t.is_completed);
-
   // Per-child task stats for the selected child
   const selectedTaskStats = useMemo(() => {
     if (!selectedChild || tasks.length === 0) return null;
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const activeTasks = tasks.filter(t => !t.is_completed);
+    const completedTasks = tasks.filter(t => t.is_completed);
     const totalTasks = tasks.length;
     const completed = completedTasks.length;
     const completionPct = totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0;
@@ -142,7 +141,10 @@ export function MyKidsPage() {
       nextDeadline = { title: next.title, label };
     }
     return { totalTasks, completed, completionPct, nextDeadline };
-  }, [selectedChild, tasks, activeTasks, completedTasks]);
+  }, [selectedChild, tasks]);
+
+  const activeTasks = tasks.filter(t => !t.is_completed);
+  const completedTasks = tasks.filter(t => t.is_completed);
 
   return (
     <DashboardLayout welcomeSubtitle="Detailed child profiles, courses, and teacher management">
