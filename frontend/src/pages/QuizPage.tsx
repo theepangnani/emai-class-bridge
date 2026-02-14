@@ -112,6 +112,18 @@ export function QuizPage() {
         <div className="progress">
           Question {currentQuestion + 1} of {questions.length}
         </div>
+        <div className="progress-bar">
+          {questions.map((_, i) => (
+            <div
+              key={i}
+              className={`progress-segment${
+                i < currentQuestion ? ` answered ${answers[i] === questions[i].correct_answer ? 'correct' : 'incorrect'}` :
+                i === currentQuestion && showResult ? ` answered ${selectedAnswer === questions[i].correct_answer ? 'correct' : 'incorrect'}` :
+                i === currentQuestion ? ' current' : ''
+              }`}
+            />
+          ))}
+        </div>
       </div>
 
       {!isQuizComplete ? (

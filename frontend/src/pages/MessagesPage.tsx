@@ -259,7 +259,7 @@ export function MessagesPage() {
         </div>
       )}
 
-      <div className="messages-container">
+      <div className={`messages-container${selectedConversation ? ' has-selection' : ''}`}>
         {/* Conversation List */}
         <aside className="conversation-list">
           <div className="list-header">
@@ -324,6 +324,7 @@ export function MessagesPage() {
           ) : selectedConversation ? (
             <>
               <div className="thread-header">
+                <button className="mobile-back-btn" onClick={() => setSelectedConversation(null)}>&larr; Back</button>
                 <h2>{getOtherParticipantName(selectedConversation)}</h2>
                 {selectedConversation.student_name && (
                   <span className="thread-student">

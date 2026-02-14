@@ -7,6 +7,7 @@ import { studyApi } from '../api/client';
 import type { StudyGuide } from '../api/client';
 import { CourseAssignSelect } from '../components/CourseAssignSelect';
 import { CreateTaskModal } from '../components/CreateTaskModal';
+import { useConfirm } from '../components/ConfirmModal';
 import './StudyGuidePage.css';
 
 function normalizeGuideContent(content: string) {
@@ -66,6 +67,7 @@ export function StudyGuidePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const { confirm, confirmModal } = useConfirm();
 
   useEffect(() => {
     const fetchGuide = async () => {
@@ -84,7 +86,9 @@ export function StudyGuidePage() {
   }, [id]);
 
   const handleDelete = async () => {
-    if (!guide || !confirm('Are you sure you want to delete this study guide?')) return;
+    if (!guide) return;
+    const ok = await confirm({ title: 'Delete Study Guide', message: 'Are you sure you want to delete this study guide? This cannot be undone.', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     try {
       await studyApi.deleteGuide(guide.id);
       navigate('/dashboard');
@@ -161,6 +165,7 @@ export function StudyGuidePage() {
         courseId={guide.course_id ?? undefined}
         linkedEntityLabel={`Study Guide: ${guide.title}`}
       />
+      {confirmModal}
     </div>
   );
 }

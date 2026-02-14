@@ -18,6 +18,32 @@
   font-size: 0.9rem;
 }
 
+.progress-bar {
+  display: flex;
+  gap: 4px;
+  margin-top: 0.5rem;
+}
+
+.progress-segment {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border);
+  transition: background 0.3s ease;
+}
+
+.progress-segment.current {
+  background: var(--color-accent);
+}
+
+.progress-segment.answered.correct {
+  background: var(--color-success);
+}
+
+.progress-segment.answered.incorrect {
+  background: var(--color-danger);
+}
+
 .quiz-content {
   animation: fadeIn 0.3s ease;
 }

@@ -589,7 +589,24 @@
   border-color: var(--color-ink-muted);
 }
 
-/* Responsive */
+/* Mobile back button — hidden on desktop */
+.mobile-back-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+
+.mobile-back-btn:hover {
+  color: var(--color-accent-strong);
+}
+
+/* Responsive — tablet */
 @media (max-width: 900px) {
   .messages-container {
     flex-direction: column;
@@ -598,7 +615,6 @@
 
   .conversation-list {
     width: 100%;
-    max-height: 300px;
   }
 
   .message-thread {
@@ -610,6 +626,7 @@
   }
 }
 
+/* Responsive — mobile: list/detail toggle */
 @media (max-width: 600px) {
   .messages-header {
     padding: 12px 16px;
@@ -628,5 +645,52 @@
 
   .user-name {
     display: none;
+  }
+
+  .mobile-back-btn {
+    display: block;
+  }
+
+  /* When a conversation is selected, hide list and show thread full-width */
+  .messages-container.has-selection .conversation-list {
+    display: none;
+  }
+
+  .messages-container.has-selection .message-thread {
+    min-height: calc(100vh - 160px);
+  }
+
+  /* When no conversation is selected, hide thread placeholder */
+  .messages-container:not(.has-selection) .message-thread {
+    display: none;
+  }
+
+  .messages-container {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .conversation-list {
+    max-height: none;
+    border-radius: 12px;
+  }
+
+  .message-thread {
+    border-radius: 12px;
+  }
+
+  .message-input {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .message-input textarea {
+    min-height: 40px;
+    font-size: 14px;
+  }
+
+  .send-button {
+    padding: 10px 16px;
+    font-size: 14px;
   }
 }

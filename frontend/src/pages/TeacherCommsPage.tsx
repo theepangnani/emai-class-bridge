@@ -179,7 +179,7 @@ export function TeacherCommsPage() {
         </div>
       )}
 
-      <div className="comms-container">
+      <div className={`comms-container${selected ? ' has-selection' : ''}`}>
         <aside className="comms-list">
           {loading ? (
             <ListSkeleton rows={4} />
@@ -223,6 +223,7 @@ export function TeacherCommsPage() {
           {selected ? (
             <div className="detail-content">
               <div className="detail-header">
+                <button className="mobile-back-btn" onClick={() => setSelected(null)}>&larr; Back to list</button>
                 <h2>{selected.subject || '(No Subject)'}</h2>
                 <div className="detail-meta">
                   <span className="detail-sender">

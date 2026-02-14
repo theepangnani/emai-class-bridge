@@ -392,17 +392,71 @@
   font-size: 13px;
 }
 
-@media (max-width: 768px) {
-  .comms-list {
-    width: 100%;
-    min-width: unset;
-  }
+/* Mobile back button — hidden on desktop */
+.mobile-back-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 8px;
+}
 
+.mobile-back-btn:hover {
+  color: var(--color-accent-strong);
+}
+
+@media (max-width: 768px) {
   .comms-container {
     flex-direction: column;
   }
 
+  .comms-list {
+    width: 100%;
+    min-width: unset;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
   .comms-toolbar {
     flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+
+  .comms-header {
+    padding: 12px 16px;
+  }
+
+  .comms-header .page-title {
+    font-size: 17px;
+  }
+
+  .mobile-back-btn {
+    display: block;
+  }
+
+  /* When a communication is selected, hide list and show detail full-width */
+  .comms-container.has-selection .comms-list {
+    display: none;
+  }
+
+  .comms-container.has-selection .comms-detail {
+    min-height: calc(100vh - 200px);
+  }
+
+  /* When no communication is selected, hide detail placeholder */
+  .comms-container:not(.has-selection) .comms-detail {
+    display: none;
+  }
+
+  .detail-content {
+    padding: 16px;
+  }
+
+  .detail-header h2 {
+    font-size: 18px;
   }
 }

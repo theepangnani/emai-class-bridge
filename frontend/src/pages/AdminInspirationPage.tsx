@@ -3,6 +3,7 @@ import { inspirationApi } from '../api/client';
 import type { InspirationMessageFull } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { ListSkeleton } from '../components/Skeleton';
+import { useConfirm } from '../components/ConfirmModal';
 import './AdminInspirationPage.css';
 
 const ROLES = ['parent', 'teacher', 'student'] as const;
@@ -13,6 +14,8 @@ export function AdminInspirationPage() {
   const [roleFilter, setRoleFilter] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+
+  const { confirm, confirmModal } = useConfirm();
 
   // Form state
   const [formRole, setFormRole] = useState('parent');
@@ -88,7 +91,8 @@ export function AdminInspirationPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this message permanently?')) return;
+    const ok = await confirm({ title: 'Delete Message', message: 'Delete this message permanently? This cannot be undone.', confirmLabel: 'Delete', variant: 'danger' });
+    if (!ok) return;
     try {
       await inspirationApi.delete(id);
       setMessages(prev => prev.filter(m => m.id !== id));
@@ -205,6 +209,7 @@ export function AdminInspirationPage() {
       <div className="admin-insp-footer">
         <span className="admin-insp-count">{messages.length} total messages</span>
       </div>
+      {confirmModal}
     </DashboardLayout>
   );
 }

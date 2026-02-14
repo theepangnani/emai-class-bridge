@@ -200,4 +200,67 @@
   }
 }
 
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .study-guide-page {
+    max-width: 100%;
+    padding: 1rem;
+  }
 
+  .study-guide-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    width: 100%;
+  }
+
+  .header-actions .print-btn,
+  .header-actions .delete-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .header-actions .print-btn:first-of-type {
+    /* Hide print button on mobile — not useful */
+    display: none;
+  }
+
+  .study-guide-content {
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  .study-guide-content h1 {
+    font-size: 1.25rem;
+  }
+
+  .guide-body h1 {
+    font-size: 1.2rem;
+  }
+
+  .guide-body h2 {
+    font-size: 1.1rem;
+  }
+
+  .guide-body h3 {
+    font-size: 1rem;
+  }
+
+  .guide-body table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 0.85rem;
+  }
+
+  .guide-body pre {
+    padding: 0.65rem;
+    font-size: 0.85em;
+  }
+}
