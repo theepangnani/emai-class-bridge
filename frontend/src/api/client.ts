@@ -657,8 +657,8 @@ export interface NotificationPreferences {
 
 // Notifications API
 export const notificationsApi = {
-  list: async (skip = 0, limit = 20) => {
-    const response = await api.get('/api/notifications/', { params: { skip, limit } });
+  list: async (skip = 0, limit = 20, unreadOnly = false) => {
+    const response = await api.get('/api/notifications/', { params: { skip, limit, unread_only: unreadOnly } });
     return response.data as NotificationResponse[];
   },
 
@@ -946,10 +946,9 @@ export const invitesApi = {
     return response.data as InviteResponse;
   },
 
-  inviteParent: async (parentEmail: string, studentId: number) => {
+  inviteParent: async (parentEmail: string) => {
     const response = await api.post('/api/invites/invite-parent', {
       parent_email: parentEmail,
-      student_id: studentId,
     });
     return response.data as InviteResponse;
   },

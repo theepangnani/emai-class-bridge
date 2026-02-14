@@ -22,18 +22,15 @@ router = APIRouter(prefix="/notifications", tags=["Notifications"])
 def list_notifications(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    unread_only: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """List notifications for the current user, newest first."""
-    notifications = (
-        db.query(Notification)
-        .filter(Notification.user_id == current_user.id)
-        .order_by(desc(Notification.created_at))
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    q = db.query(Notification).filter(Notification.user_id == current_user.id)
+    if unread_only:
+        q = q.filter(Notification.read == False)
+    notifications = q.order_by(desc(Notification.created_at)).offset(skip).limit(limit).all()
     return notifications
 
 

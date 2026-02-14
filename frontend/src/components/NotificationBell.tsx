@@ -47,7 +47,7 @@ export function NotificationBell() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      const data = await notificationsApi.list(0, 10);
+      const data = await notificationsApi.list(0, 10, true);
       setNotifications(data);
     } catch {
       // Silently fail

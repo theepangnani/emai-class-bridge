@@ -151,7 +151,6 @@ def list_sent_invites(
 
 class _InviteParentRequest(PydanticBaseModel):
     parent_email: str
-    student_id: int
 
 
 @router.post("/invite-parent", response_model=InviteResponse)
@@ -160,23 +159,13 @@ def invite_parent(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.TEACHER, UserRole.ADMIN)),
 ):
-    """Teacher invites a parent to ClassBridge, linked to a specific student."""
-    from app.models.student import Student
-
-    # Verify student exists
-    student = db.query(Student).filter(Student.id == data.student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-
-    student_user = db.query(User).filter(User.id == student.user_id).first()
-    student_name = student_user.full_name if student_user else "your child"
-
+    """Teacher invites a parent to ClassBridge."""
     # Check if parent email already registered
     existing_user = db.query(User).filter(User.email == data.parent_email).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user with this email already exists. They can log in and link this child from their dashboard.",
+            detail="A user with this email already exists. They can log in directly.",
         )
 
     # Check for existing pending parent invite
@@ -203,10 +192,6 @@ def invite_parent(
         token=token,
         expires_at=datetime.utcnow() + timedelta(days=30),
         invited_by_user_id=current_user.id,
-        metadata_json={
-            "student_id": data.student_id,
-            "student_name": student_name,
-        },
     )
     db.add(invite)
     db.commit()
@@ -220,7 +205,6 @@ def invite_parent(
             html = f.read()
         html = (html
             .replace("{{teacher_name}}", current_user.full_name)
-            .replace("{{student_name}}", student_name)
             .replace("{{invite_link}}", invite_link))
         send_email_sync(
             to_email=data.parent_email,

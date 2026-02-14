@@ -31,11 +31,9 @@ export function TeacherDashboard() {
   // Invite parent modal state
   const [showInviteParentModal, setShowInviteParentModal] = useState(false);
   const [inviteParentEmail, setInviteParentEmail] = useState('');
-  const [inviteStudentId, setInviteStudentId] = useState<number | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
-  const [students, setStudents] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
     loadData();
@@ -55,22 +53,6 @@ export function TeacherDashboard() {
       }
       if (googleStatus.status === 'fulfilled') {
         setGoogleConnected(googleStatus.value.connected);
-      }
-
-      // Load unique students across all courses for invite-parent feature
-      if (loadedCourses.length > 0) {
-        const allStudents = new Map<number, string>();
-        const studentResults = await Promise.allSettled(
-          loadedCourses.map(c => coursesApi.listStudents(c.id))
-        );
-        for (const r of studentResults) {
-          if (r.status === 'fulfilled') {
-            for (const s of r.value) {
-              allStudents.set(s.student_id, s.full_name || s.email || `Student #${s.student_id}`);
-            }
-          }
-        }
-        setStudents(Array.from(allStudents.entries()).map(([id, name]) => ({ id, name })));
       }
     } finally {
       setLoading(false);
@@ -131,21 +113,19 @@ export function TeacherDashboard() {
   const closeInviteParentModal = () => {
     setShowInviteParentModal(false);
     setInviteParentEmail('');
-    setInviteStudentId(null);
     setInviteError('');
     setInviteSuccess('');
   };
 
   const handleInviteParent = async () => {
-    if (!inviteParentEmail.trim() || !inviteStudentId) return;
+    if (!inviteParentEmail.trim()) return;
     setInviteLoading(true);
     setInviteError('');
     setInviteSuccess('');
     try {
-      await invitesApi.inviteParent(inviteParentEmail.trim(), inviteStudentId);
+      await invitesApi.inviteParent(inviteParentEmail.trim());
       setInviteSuccess(`Invitation sent to ${inviteParentEmail.trim()}`);
       setInviteParentEmail('');
-      setInviteStudentId(null);
     } catch (err: any) {
       setInviteError(err.response?.data?.detail || 'Failed to send invitation');
     } finally {
@@ -312,8 +292,8 @@ export function TeacherDashboard() {
         <div className="modal-overlay" onClick={closeInviteParentModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Invite Parent</h2>
-            <p style={{ color: 'var(--color-ink-muted)', fontSize: '14px', margin: '0 0 16px' }}>
-              Send an email invitation to a parent to join ClassBridge and link with their child.
+            <p className="modal-desc">
+              Send an email invitation to a parent to join ClassBridge.
             </p>
             <div className="modal-form">
               <label>
@@ -324,20 +304,8 @@ export function TeacherDashboard() {
                   onChange={(e) => { setInviteParentEmail(e.target.value); setInviteError(''); setInviteSuccess(''); }}
                   placeholder="parent@example.com"
                   disabled={inviteLoading}
+                  onKeyDown={(e) => e.key === 'Enter' && handleInviteParent()}
                 />
-              </label>
-              <label>
-                Student *
-                <select
-                  value={inviteStudentId ?? ''}
-                  onChange={(e) => setInviteStudentId(e.target.value ? Number(e.target.value) : null)}
-                  disabled={inviteLoading}
-                >
-                  <option value="">Select a student...</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
               </label>
               {inviteError && <p className="link-error">{inviteError}</p>}
               {inviteSuccess && <p className="link-success">{inviteSuccess}</p>}
@@ -349,7 +317,7 @@ export function TeacherDashboard() {
               <button
                 className="generate-btn"
                 onClick={handleInviteParent}
-                disabled={inviteLoading || !inviteParentEmail.trim() || !inviteStudentId}
+                disabled={inviteLoading || !inviteParentEmail.trim()}
               >
                 {inviteLoading ? 'Sending...' : 'Send Invitation'}
               </button>
