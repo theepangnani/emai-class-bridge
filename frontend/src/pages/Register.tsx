@@ -10,7 +10,7 @@ export function Register() {
     password: '',
     confirmPassword: '',
     full_name: '',
-    role: 'student',
+    role: 'parent',
     teacher_type: '',
   });
   const [googleData, setGoogleData] = useState<{
@@ -87,7 +87,7 @@ export function Register() {
         <img src="/classbridge-logo.png" alt="ClassBridge" className="auth-logo" />
         <h1 className="auth-title">Join ClassBridge</h1>
         <p className="auth-subtitle">
-          {isGoogleSignup ? 'Complete your Google account setup' : 'Create your account'}
+          {isGoogleSignup ? 'Complete your Google account setup' : 'Stay connected with your child\'s education'}
         </p>
 
         {error && <div className="auth-error">{error}</div>}
@@ -123,8 +123,8 @@ export function Register() {
           <div className="form-group">
             <label htmlFor="role">I am a</label>
             <select id="role" name="role" value={formData.role} onChange={handleChange}>
+              <option value="parent">Parent / Guardian</option>
               <option value="student">Student</option>
-              <option value="parent">Parent</option>
               <option value="teacher">Teacher</option>
             </select>
           </div>

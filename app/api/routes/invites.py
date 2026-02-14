@@ -1,25 +1,30 @@
 import logging
+import os
 import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.user import User, UserRole
 from app.models.invite import Invite, InviteType
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_role
 from app.schemas.invite import InviteCreate, InviteResponse
 from app.services.email_service import send_email_sync
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+_TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates")
+
 router = APIRouter(prefix="/invites", tags=["Invites"])
 
 EXPIRY_DAYS = {
     InviteType.STUDENT: 7,
     InviteType.TEACHER: 30,
+    InviteType.PARENT: 30,
 }
 
 
@@ -42,6 +47,11 @@ def create_invite(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only teachers and admins can invite teachers",
+        )
+    if invite_type == InviteType.PARENT and not (current_user.has_role(UserRole.TEACHER) or current_user.has_role(UserRole.ADMIN)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only teachers and admins can invite parents",
         )
 
     # Check if email already registered
@@ -137,3 +147,88 @@ def list_sent_invites(
         .all()
     )
     return invites
+
+
+class _InviteParentRequest(PydanticBaseModel):
+    parent_email: str
+    student_id: int
+
+
+@router.post("/invite-parent", response_model=InviteResponse)
+def invite_parent(
+    data: _InviteParentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    """Teacher invites a parent to ClassBridge, linked to a specific student."""
+    from app.models.student import Student
+
+    # Verify student exists
+    student = db.query(Student).filter(Student.id == data.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    student_user = db.query(User).filter(User.id == student.user_id).first()
+    student_name = student_user.full_name if student_user else "your child"
+
+    # Check if parent email already registered
+    existing_user = db.query(User).filter(User.email == data.parent_email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A user with this email already exists. They can log in and link this child from their dashboard.",
+        )
+
+    # Check for existing pending parent invite
+    existing_invite = (
+        db.query(Invite)
+        .filter(
+            Invite.email == data.parent_email,
+            Invite.invite_type == InviteType.PARENT,
+            Invite.accepted_at.is_(None),
+            Invite.expires_at > datetime.utcnow(),
+        )
+        .first()
+    )
+    if existing_invite:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A pending invite already exists for this email",
+        )
+
+    token = secrets.token_urlsafe(32)
+    invite = Invite(
+        email=data.parent_email,
+        invite_type=InviteType.PARENT,
+        token=token,
+        expires_at=datetime.utcnow() + timedelta(days=30),
+        invited_by_user_id=current_user.id,
+        metadata_json={
+            "student_id": data.student_id,
+            "student_name": student_name,
+        },
+    )
+    db.add(invite)
+    db.commit()
+    db.refresh(invite)
+
+    # Send email
+    invite_link = f"{settings.frontend_url}/accept-invite?token={token}"
+    try:
+        tpl_path = os.path.join(_TEMPLATE_DIR, "parent_invite.html")
+        with open(tpl_path, "r") as f:
+            html = f.read()
+        html = (html
+            .replace("{{teacher_name}}", current_user.full_name)
+            .replace("{{student_name}}", student_name)
+            .replace("{{invite_link}}", invite_link))
+        send_email_sync(
+            to_email=data.parent_email,
+            subject=f"{current_user.full_name} invited you to ClassBridge",
+            html_content=html,
+        )
+        logger.info(f"Parent invite email sent to {data.parent_email}")
+    except Exception as e:
+        logger.warning(f"Failed to send parent invite email: {e}")
+
+    return invite

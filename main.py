@@ -34,6 +34,7 @@ logger.info("Starting EMAI application...")
 # Create database tables
 from app.models import User, Student, Teacher, Course, Assignment, StudyGuide, Conversation, Message, Notification, TeacherCommunication, Invite, Task, CourseContent, AuditLog, InspirationMessage
 from app.models.student import parent_students, student_teachers  # noqa: F401 — ensure join tables are created
+from app.models.token_blacklist import TokenBlacklist  # noqa: F401 — ensure table is created
 Base.metadata.create_all(bind=engine)
 logger.info("Database tables created/verified")
 
@@ -298,6 +299,11 @@ with engine.connect() as conn:
                 logger.info("Added TASK_DUE to notificationtype enum")
             except Exception:
                 pass  # Value may already exist
+            try:
+                conn.execute(text("ALTER TYPE invitetype ADD VALUE IF NOT EXISTS 'PARENT'"))
+                logger.info("Added PARENT to invitetype enum")
+            except Exception:
+                pass  # Value may already exist
 
         # ── student_teachers: make teacher_user_id nullable ──────────
         if "student_teachers" in inspector.get_table_names():
@@ -486,6 +492,29 @@ async def startup_event():
         id="task_reminders",
         replace_existing=True,
     )
+
+    # Cleanup expired token blacklist entries daily at 3 AM
+    def cleanup_token_blacklist():
+        from datetime import datetime
+        _db = SessionLocal()
+        try:
+            deleted = _db.query(TokenBlacklist).filter(TokenBlacklist.expires_at < datetime.utcnow()).delete()
+            _db.commit()
+            if deleted:
+                logger.info(f"Cleaned up {deleted} expired token blacklist entries")
+        except Exception as e:
+            _db.rollback()
+            logger.warning(f"Token blacklist cleanup failed: {e}")
+        finally:
+            _db.close()
+
+    scheduler.add_job(
+        cleanup_token_blacklist,
+        CronTrigger(hour=3, minute=0),
+        id="token_blacklist_cleanup",
+        replace_existing=True,
+    )
+
     # Teacher comm sync disabled — all syncs are manual/on-demand per parent-first platform design
     # from apscheduler.triggers.interval import IntervalTrigger
     # from app.jobs.teacher_comm_sync import check_teacher_communications

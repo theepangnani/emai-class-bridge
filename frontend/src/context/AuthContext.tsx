@@ -69,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Best-effort server-side token revocation
+    authApi.logout().catch(() => {});
     localStorage.removeItem('token');
     localStorage.removeItem('refresh_token');
     setToken(null);

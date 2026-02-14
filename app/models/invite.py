@@ -10,6 +10,7 @@ from app.db.database import Base
 class InviteType(str, enum.Enum):
     STUDENT = "student"
     TEACHER = "teacher"
+    PARENT = "parent"
 
 
 class Invite(Base):

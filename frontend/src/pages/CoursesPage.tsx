@@ -28,6 +28,14 @@ export function CoursesPage() {
   const { user } = useAuth();
   const { confirm, confirmModal } = useConfirm();
   const isParent = user?.role === 'parent';
+  const isStudent = user?.role === 'student';
+
+  // Student self-enrollment state
+  const [enrolledCourses, setEnrolledCourses] = useState<CourseItem[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<CourseItem[]>([]);
+  const [studentTab, setStudentTab] = useState<'enrolled' | 'browse'>('enrolled');
+  const [enrollingId, setEnrollingId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Parent-specific state
   const [children, setChildren] = useState<ChildSummary[]>([]);
@@ -80,8 +88,17 @@ export function CoursesPage() {
           const status = await googleApi.getStatus();
           setGoogleConnected(status.connected);
         } catch { /* ignore */ }
+      } else if (isStudent) {
+        // Student: load enrolled courses and all visible courses for browsing
+        const [enrolled, allVisible] = await Promise.all([
+          coursesApi.enrolledByMe(),
+          coursesApi.list(),
+        ]);
+        setEnrolledCourses(enrolled);
+        const enrolledIds = new Set(enrolled.map((c: CourseItem) => c.id));
+        setAvailableCourses(allVisible.filter((c: CourseItem) => !enrolledIds.has(c.id) && !c.is_private));
       } else {
-        // Non-parent: show all visible courses
+        // Teacher/Admin: show all visible courses
         const courses = await coursesApi.list();
         setMyCourses(courses);
       }
@@ -192,6 +209,48 @@ export function CoursesPage() {
     } catch { /* ignore */ }
   };
 
+  const handleEnroll = async (courseId: number) => {
+    setEnrollingId(courseId);
+    try {
+      await coursesApi.enroll(courseId);
+      // Move course from available to enrolled
+      const course = availableCourses.find(c => c.id === courseId);
+      if (course) {
+        setEnrolledCourses(prev => [...prev, course]);
+        setAvailableCourses(prev => prev.filter(c => c.id !== courseId));
+      }
+    } catch { /* ignore */ } finally {
+      setEnrollingId(null);
+    }
+  };
+
+  const handleUnenroll = async (courseId: number, courseName: string) => {
+    const ok = await confirm({
+      title: 'Unenroll from Course',
+      message: `Are you sure you want to unenroll from "${courseName}"?`,
+      confirmLabel: 'Unenroll',
+    });
+    if (!ok) return;
+    setEnrollingId(courseId);
+    try {
+      await coursesApi.unenroll(courseId);
+      // Move course from enrolled to available
+      const course = enrolledCourses.find(c => c.id === courseId);
+      if (course) {
+        setAvailableCourses(prev => [...prev, course]);
+        setEnrolledCourses(prev => prev.filter(c => c.id !== courseId));
+      }
+    } catch { /* ignore */ } finally {
+      setEnrollingId(null);
+    }
+  };
+
+  const filteredAvailable = availableCourses.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.subject && c.subject.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (c.teacher_name && c.teacher_name.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   const childName = childOverview?.full_name || children.find(c => c.student_id === selectedChild)?.full_name || '';
   const courseIds = (childOverview?.courses || []).map(c => c.id);
 
@@ -293,7 +352,114 @@ export function CoursesPage() {
           </div>
         )}
 
-        {/* Parent: Created courses / Non-parent: All courses */}
+        {/* Student: Enrollment tabs */}
+        {isStudent && (
+          <>
+            <div className="courses-tabs">
+              <button
+                className={`courses-tab ${studentTab === 'enrolled' ? 'active' : ''}`}
+                onClick={() => setStudentTab('enrolled')}
+              >
+                My Courses ({enrolledCourses.length})
+              </button>
+              <button
+                className={`courses-tab ${studentTab === 'browse' ? 'active' : ''}`}
+                onClick={() => setStudentTab('browse')}
+              >
+                Browse Courses ({availableCourses.length})
+              </button>
+            </div>
+
+            {studentTab === 'enrolled' && (
+              <div className="courses-section">
+                {enrolledCourses.length > 0 ? (
+                  <div className="courses-grid">
+                    {enrolledCourses.map((course) => (
+                      <div key={course.id} className="course-card-wrapper">
+                        <div
+                          className="course-card"
+                          onClick={() => navigate(`/courses/${course.id}`)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="course-card-color" style={{ background: getCourseColor(course.id, enrolledCourses.map(c => c.id)) }} />
+                          <div className="course-card-body">
+                            <h4>{course.name}</h4>
+                            {course.subject && <span className="course-card-subject">{course.subject}</span>}
+                            {course.teacher_name && <span className="course-card-teacher">{course.teacher_name}</span>}
+                          </div>
+                          <div className="course-card-actions">
+                            <button
+                              className="course-card-action-btn unassign"
+                              title="Unenroll"
+                              onClick={(e) => { e.stopPropagation(); handleUnenroll(course.id, course.name); }}
+                              disabled={enrollingId === course.id}
+                            >
+                              &#10005;
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="courses-empty">
+                    <p>Not enrolled in any courses yet.</p>
+                    <button className="courses-btn primary" style={{ marginTop: 12 }} onClick={() => setStudentTab('browse')}>
+                      Browse Courses
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {studentTab === 'browse' && (
+              <div className="courses-section">
+                <div className="courses-search">
+                  <input
+                    type="text"
+                    placeholder="Search courses by name, subject, or teacher..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="courses-search-input"
+                  />
+                </div>
+                {filteredAvailable.length > 0 ? (
+                  <div className="courses-grid">
+                    {filteredAvailable.map((course) => (
+                      <div key={course.id} className="course-card-wrapper">
+                        <div className="course-card">
+                          <div className="course-card-color" style={{ background: 'var(--color-accent)' }} />
+                          <div className="course-card-body">
+                            <h4>{course.name}</h4>
+                            {course.subject && <span className="course-card-subject">{course.subject}</span>}
+                            {course.teacher_name && <span className="course-card-teacher">{course.teacher_name}</span>}
+                            {course.description && <p className="course-card-desc">{course.description}</p>}
+                          </div>
+                          <div style={{ padding: '12px', display: 'flex', alignItems: 'center' }}>
+                            <button
+                              className="courses-btn primary"
+                              onClick={() => handleEnroll(course.id)}
+                              disabled={enrollingId === course.id}
+                            >
+                              {enrollingId === course.id ? 'Enrolling...' : 'Enroll'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="courses-empty">
+                    <p>{searchTerm ? 'No courses match your search.' : 'No available courses to browse.'}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Parent: Created courses / Non-parent (non-student): All courses */}
+        {!isStudent && (
         <div className="courses-section">
           <div className="courses-section-header">
             <h3>{isParent ? 'My Created Courses' : 'Courses'}</h3>
@@ -351,6 +517,7 @@ export function CoursesPage() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Create Course Modal */}

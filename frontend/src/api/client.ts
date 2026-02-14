@@ -128,6 +128,11 @@ export const authApi = {
     return response.data as { message: string };
   },
 
+  logout: async () => {
+    const response = await api.post('/api/auth/logout');
+    return response.data;
+  },
+
   resetPassword: async (token: string, new_password: string) => {
     const response = await api.post('/api/auth/reset-password', { token, new_password });
     return response.data as { message: string };
@@ -183,6 +188,21 @@ export const coursesApi = {
 
   removeStudent: async (courseId: number, studentId: number) => {
     const response = await api.delete(`/api/courses/${courseId}/students/${studentId}`);
+    return response.data;
+  },
+
+  enrolledByMe: async () => {
+    const response = await api.get('/api/courses/enrolled/me');
+    return response.data;
+  },
+
+  enroll: async (courseId: number) => {
+    const response = await api.post(`/api/courses/${courseId}/enroll`);
+    return response.data;
+  },
+
+  unenroll: async (courseId: number) => {
+    const response = await api.delete(`/api/courses/${courseId}/enroll`);
     return response.data;
   },
 };
@@ -923,6 +943,14 @@ export interface InviteResponse {
 export const invitesApi = {
   create: async (data: { email: string; invite_type: string; metadata?: Record<string, any> }) => {
     const response = await api.post('/api/invites/', data);
+    return response.data as InviteResponse;
+  },
+
+  inviteParent: async (parentEmail: string, studentId: number) => {
+    const response = await api.post('/api/invites/invite-parent', {
+      parent_email: parentEmail,
+      student_id: studentId,
+    });
     return response.data as InviteResponse;
   },
 

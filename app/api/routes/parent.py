@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, date, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import insert, or_, and_, func as sa_func
 
 from app.db.database import get_db
@@ -45,6 +45,7 @@ def list_children(
     """List all children linked to the current parent."""
     rows = (
         db.query(Student, parent_students.c.relationship_type)
+        .options(selectinload(Student.user))
         .join(parent_students, parent_students.c.student_id == Student.id)
         .filter(parent_students.c.parent_id == current_user.id)
         .all()
@@ -109,9 +110,10 @@ def get_parent_dashboard(
     today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
     today_end = today_start + timedelta(days=1)
 
-    # 1. Load children
+    # 1. Load children (eager-load user relationship)
     child_rows = (
         db.query(Student, parent_students.c.relationship_type)
+        .options(selectinload(Student.user))
         .join(parent_students, parent_students.c.student_id == Student.id)
         .filter(parent_students.c.parent_id == current_user.id)
         .all()
@@ -138,18 +140,50 @@ def get_parent_dashboard(
         )
         _task_count_map = {uid: cnt for uid, cnt in _tc}
 
-    for student, rel_type in child_rows:
-        user = student.user
-
-        # Get child's courses
-        courses = (
-            db.query(Course)
-            .join(student_courses, student_courses.c.course_id == Course.id)
-            .filter(student_courses.c.student_id == student.id)
+    # Batch-fetch all courses for all children in one query
+    _all_student_ids = [s.id for s, _ in child_rows]
+    _all_courses: list[tuple[int, Course]] = []
+    if _all_student_ids:
+        _all_courses = (
+            db.query(student_courses.c.student_id, Course)
+            .join(Course, Course.id == student_courses.c.course_id)
+            .filter(student_courses.c.student_id.in_(_all_student_ids))
             .all()
         )
+    _courses_by_student: dict[int, list[Course]] = {}
+    for sid, course in _all_courses:
+        _courses_by_student.setdefault(sid, []).append(course)
+        all_course_ids.add(course.id)
+
+    # Batch-fetch all teachers referenced by courses
+    _teacher_ids = {c.teacher_id for _, c in _all_courses if c.teacher_id}
+    _teacher_map: dict[int, TeacherModel] = {}
+    if _teacher_ids:
+        _teachers = (
+            db.query(TeacherModel)
+            .options(selectinload(TeacherModel.user))
+            .filter(TeacherModel.id.in_(_teacher_ids))
+            .all()
+        )
+        _teacher_map = {t.id: t for t in _teachers}
+
+    # Batch-fetch all assignments for all course_ids
+    _all_assignments: list[Assignment] = []
+    if all_course_ids:
+        _all_assignments = (
+            db.query(Assignment)
+            .filter(Assignment.course_id.in_(all_course_ids))
+            .order_by(Assignment.due_date.desc())
+            .all()
+        )
+    _assignments_by_course: dict[int, list[Assignment]] = {}
+    for a in _all_assignments:
+        _assignments_by_course.setdefault(a.course_id, []).append(a)
+
+    for student, rel_type in child_rows:
+        user = student.user
+        courses = _courses_by_student.get(student.id, [])
         course_ids = [c.id for c in courses]
-        all_course_ids.update(course_ids)
 
         children.append(ChildSummary(
             student_id=student.id,
@@ -162,13 +196,13 @@ def get_parent_dashboard(
             active_task_count=_task_count_map.get(student.user_id, 0),
         ))
 
-        # Build courses with teacher info
+        # Build courses with teacher info (using batch-fetched teacher map)
         courses_with_teachers = []
         for course in courses:
             teacher_name = None
             teacher_email = None
             if course.teacher_id:
-                teacher = db.query(TeacherModel).filter(TeacherModel.id == course.teacher_id).first()
+                teacher = _teacher_map.get(course.teacher_id)
                 if teacher:
                     if teacher.is_shadow:
                         teacher_name = teacher.full_name
@@ -184,16 +218,11 @@ def get_parent_dashboard(
                 "teacher_name": teacher_name, "teacher_email": teacher_email,
             })
 
-        # Get assignments for this child's courses
+        # Get assignments for this child's courses (from batch-fetched data)
         child_assignments = []
-        if course_ids:
-            child_assignments = (
-                db.query(Assignment)
-                .filter(Assignment.course_id.in_(course_ids))
-                .order_by(Assignment.due_date.desc())
-                .all()
-            )
-            all_assignments.extend(child_assignments)
+        for cid in course_ids:
+            child_assignments.extend(_assignments_by_course.get(cid, []))
+        all_assignments.extend(child_assignments)
 
         # Count overdue/due-today assignments
         overdue_items = []
@@ -246,11 +275,21 @@ def get_parent_dashboard(
         elif t.due_date and today_start <= t.due_date < today_end:
             total_due_today += 1
 
-    # Build task response dicts (reuse _task_to_response pattern)
+    # Build task response dicts — batch-fetch all user IDs referenced by tasks
+    _task_user_ids = set()
+    for t in tasks:
+        _task_user_ids.add(t.created_by_user_id)
+        if t.assigned_to_user_id:
+            _task_user_ids.add(t.assigned_to_user_id)
+    _task_user_map: dict[int, User] = {}
+    if _task_user_ids:
+        for u in db.query(User).filter(User.id.in_(_task_user_ids)).all():
+            _task_user_map[u.id] = u
+
     task_dicts = []
     for t in tasks:
-        creator = db.query(User).filter(User.id == t.created_by_user_id).first()
-        assignee = db.query(User).filter(User.id == t.assigned_to_user_id).first() if t.assigned_to_user_id else None
+        creator = _task_user_map.get(t.created_by_user_id)
+        assignee = _task_user_map.get(t.assigned_to_user_id) if t.assigned_to_user_id else None
         raw_priority = t.priority
         if hasattr(raw_priority, "value"):
             raw_priority = raw_priority.value
@@ -740,14 +779,20 @@ def get_child_overview(
         .count()
     )
 
-    # Build courses with teacher info
+    # Batch-fetch teachers for all courses
     from app.models.teacher import Teacher as TeacherModel
+    _t_ids = {c.teacher_id for c in courses if c.teacher_id}
+    _t_map: dict[int, TeacherModel] = {}
+    if _t_ids:
+        for t in db.query(TeacherModel).options(selectinload(TeacherModel.user)).filter(TeacherModel.id.in_(_t_ids)).all():
+            _t_map[t.id] = t
+
     courses_with_teachers = []
     for course in courses:
         teacher_name = None
         teacher_email = None
         if course.teacher_id:
-            teacher = db.query(TeacherModel).filter(TeacherModel.id == course.teacher_id).first()
+            teacher = _t_map.get(course.teacher_id)
             if teacher:
                 if teacher.is_shadow:
                     teacher_name = teacher.full_name

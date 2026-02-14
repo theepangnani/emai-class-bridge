@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.database import get_db
 from app.models.user import User, UserRole
@@ -93,38 +93,28 @@ def _verify_assignment_relationship(db: Session, creator: User, assigned_to_user
         raise HTTPException(status_code=403, detail="You can only create personal tasks")
 
 
-def _task_to_response(task: Task, db: Session) -> dict:
-    """Convert a Task ORM object to a response dict with creator/assignee names."""
-    creator = db.query(User).filter(User.id == task.created_by_user_id).first()
-    assignee = None
-    if task.assigned_to_user_id:
-        assignee = db.query(User).filter(User.id == task.assigned_to_user_id).first()
+def _task_eager_options():
+    """SQLAlchemy options to eager-load Task relationships (avoids N+1)."""
+    return [
+        selectinload(Task.creator),
+        selectinload(Task.assignee),
+        selectinload(Task.course),
+        selectinload(Task.course_content),
+        selectinload(Task.study_guide),
+    ]
 
+
+def _task_to_response(task: Task) -> dict:
+    """Convert a Task ORM object to a response dict with creator/assignee names.
+
+    Expects relationships to be eager-loaded via _task_eager_options().
+    """
     raw_priority = task.priority
     if hasattr(raw_priority, "value"):  # Backwards compat if ORM returns enum-like values
         raw_priority = raw_priority.value
     normalized_priority = str(raw_priority).lower() if raw_priority else "medium"
     if normalized_priority not in VALID_PRIORITIES:
         normalized_priority = "medium"
-
-    # Resolve linked entity names
-    course_name = None
-    if task.course_id:
-        c = db.query(Course).filter(Course.id == task.course_id).first()
-        if c:
-            course_name = c.name
-    course_content_title = None
-    if task.course_content_id:
-        cc = db.query(CourseContent).filter(CourseContent.id == task.course_content_id).first()
-        if cc:
-            course_content_title = cc.title
-    study_guide_title = None
-    study_guide_type = None
-    if task.study_guide_id:
-        sg = db.query(StudyGuide).filter(StudyGuide.id == task.study_guide_id).first()
-        if sg:
-            study_guide_title = sg.title
-            study_guide_type = sg.guide_type
 
     return {
         "id": task.id,
@@ -138,15 +128,15 @@ def _task_to_response(task: Task, db: Session) -> dict:
         "archived_at": task.archived_at,
         "priority": normalized_priority,
         "category": task.category,
-        "creator_name": creator.full_name if creator else "Unknown",
-        "assignee_name": assignee.full_name if assignee else None,
+        "creator_name": task.creator.full_name if task.creator else "Unknown",
+        "assignee_name": task.assignee.full_name if task.assignee else None,
         "course_id": task.course_id,
         "course_content_id": task.course_content_id,
         "study_guide_id": task.study_guide_id,
-        "course_name": course_name,
-        "course_content_title": course_content_title,
-        "study_guide_title": study_guide_title,
-        "study_guide_type": study_guide_type,
+        "course_name": task.course.name if task.course else None,
+        "course_content_title": task.course_content.title if task.course_content else None,
+        "study_guide_title": task.study_guide.title if task.study_guide else None,
+        "study_guide_type": task.study_guide.guide_type if task.study_guide else None,
         "created_at": task.created_at,
         "updated_at": task.updated_at,
     }
@@ -213,7 +203,7 @@ def list_tasks(
     current_user: User = Depends(get_current_user),
 ):
     """List tasks where the current user is creator OR assignee."""
-    query = db.query(Task).filter(
+    query = db.query(Task).options(*_task_eager_options()).filter(
         or_(
             Task.created_by_user_id == current_user.id,
             Task.assigned_to_user_id == current_user.id,
@@ -239,7 +229,7 @@ def list_tasks(
         Task.due_date.asc(),
         Task.created_at.desc(),
     ).all()
-    return [_task_to_response(t, db) for t in tasks]
+    return [_task_to_response(t) for t in tasks]
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
@@ -265,7 +255,7 @@ def get_task(
                 raise HTTPException(status_code=403, detail="Not authorized to view this task")
         else:
             raise HTTPException(status_code=403, detail="Not authorized to view this task")
-    return _task_to_response(task, db)
+    return _task_to_response(task)
 
 
 @router.post("/", response_model=TaskResponse, status_code=201)
@@ -305,7 +295,7 @@ def create_task(
                details={"title": request.title, "assigned_to": request.assigned_to_user_id})
     db.commit()
     db.refresh(task)
-    return _task_to_response(task, db)
+    return _task_to_response(task)
 
 
 @router.patch("/{task_id}", response_model=TaskResponse)
@@ -334,7 +324,7 @@ def update_task(
             task.archived_at = datetime.utcnow() if request.is_completed else None
             db.commit()
             db.refresh(task)
-            return _task_to_response(task, db)
+            return _task_to_response(task)
         else:
             raise HTTPException(status_code=403, detail="Only the task creator can edit task details")
 
@@ -371,7 +361,7 @@ def update_task(
 
     db.commit()
     db.refresh(task)
-    return _task_to_response(task, db)
+    return _task_to_response(task)
 
 
 @router.delete("/{task_id}", status_code=204)
@@ -415,7 +405,7 @@ def restore_task(
     task.completed_at = None
     db.commit()
     db.refresh(task)
-    return _task_to_response(task, db)
+    return _task_to_response(task)
 
 
 @router.delete("/{task_id}/permanent", status_code=204)

@@ -2,8 +2,8 @@ import logging
 import os
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_, desc
+from sqlalchemy.orm import Session, selectinload, joinedload
+from sqlalchemy import or_, and_, desc, func as sa_func
 
 from app.db.database import get_db
 from app.models.user import User, UserRole
@@ -195,9 +195,15 @@ def _get_other_participant(conv: Conversation, current_user_id: int) -> int:
     return conv.participant_1_id
 
 
-def _build_message_response(msg: Message, db: Session) -> MessageResponse:
-    """Build a MessageResponse from a Message model."""
-    sender = db.query(User).filter(User.id == msg.sender_id).first()
+def _build_message_response(msg: Message, sender_lookup: dict[int, User] | None = None) -> MessageResponse:
+    """Build a MessageResponse from a Message model.
+
+    Uses msg.sender relationship or an optional pre-fetched sender_lookup dict.
+    """
+    if sender_lookup and msg.sender_id in sender_lookup:
+        sender = sender_lookup[msg.sender_id]
+    else:
+        sender = msg.sender
     return MessageResponse(
         id=msg.id,
         conversation_id=msg.conversation_id,
@@ -217,38 +223,41 @@ def _build_conversation_detail(
     message_offset: int = 0,
     message_limit: int = 50,
 ) -> ConversationDetail:
-    """Build a ConversationDetail response."""
-    participant_1 = db.query(User).filter(User.id == conv.participant_1_id).first()
-    participant_2 = db.query(User).filter(User.id == conv.participant_2_id).first()
+    """Build a ConversationDetail response.
+
+    Uses conversation relationships (participant_1, participant_2, student)
+    and batch-loads message senders to avoid N+1.
+    """
+    p1 = conv.participant_1
+    p2 = conv.participant_2
 
     student_name = None
-    if conv.student_id:
-        student = db.query(Student).filter(Student.id == conv.student_id).first()
-        if student:
-            student_user = db.query(User).filter(User.id == student.user_id).first()
-            student_name = student_user.full_name if student_user else None
+    if conv.student_id and conv.student:
+        student_user = conv.student.user
+        student_name = student_user.full_name if student_user else None
 
     total_messages = (
-        db.query(Message)
+        db.query(sa_func.count(Message.id))
         .filter(Message.conversation_id == conv.id)
-        .count()
+        .scalar()
     )
     message_rows = (
         db.query(Message)
+        .options(selectinload(Message.sender))
         .filter(Message.conversation_id == conv.id)
         .order_by(desc(Message.created_at))
         .offset(message_offset)
         .limit(message_limit)
         .all()
     )
-    messages = [_build_message_response(msg, db) for msg in reversed(message_rows)]
+    messages = [_build_message_response(msg) for msg in reversed(message_rows)]
 
     return ConversationDetail(
         id=conv.id,
         participant_1_id=conv.participant_1_id,
-        participant_1_name=participant_1.full_name if participant_1 else "Unknown",
+        participant_1_name=p1.full_name if p1 else "Unknown",
         participant_2_id=conv.participant_2_id,
-        participant_2_name=participant_2.full_name if participant_2 else "Unknown",
+        participant_2_name=p2.full_name if p2 else "Unknown",
         student_id=conv.student_id,
         student_name=student_name,
         subject=conv.subject,
@@ -279,6 +288,7 @@ def get_valid_recipients(
         # Parent can message teachers of their children's courses
         children = (
             db.query(Student)
+            .options(selectinload(Student.user))
             .join(parent_students, parent_students.c.student_id == Student.id)
             .filter(parent_students.c.parent_id == current_user.id)
             .all()
@@ -286,38 +296,30 @@ def get_valid_recipients(
 
         if children:
             child_ids = [child.id for child in children]
+            # Build child name lookup (using pre-loaded user relationship)
+            child_name_map = {child.id: (child.user.full_name if child.user else "Unknown") for child in children}
 
-            # Get teachers of courses these children are enrolled in
-            teacher_query = (
-                db.query(User, Teacher)
+            # Batch-fetch teacher-student-course relationships
+            teacher_student_rows = (
+                db.query(User, Teacher.id, student_courses.c.student_id)
                 .join(Teacher, Teacher.user_id == User.id)
                 .join(Course, Course.teacher_id == Teacher.id)
                 .join(student_courses, student_courses.c.course_id == Course.id)
                 .filter(student_courses.c.student_id.in_(child_ids))
-                .distinct()
+                .all()
             )
 
-            teachers = teacher_query.all()
+            # Group: teacher_user -> list of child names they teach
+            teacher_children_map: dict[int, tuple[User, list[str]]] = {}
+            for user, _teacher_id, student_id in teacher_student_rows:
+                if user.id not in teacher_children_map:
+                    teacher_children_map[user.id] = (user, [])
+                child_name = child_name_map.get(student_id, "Unknown")
+                if child_name not in teacher_children_map[user.id][1]:
+                    teacher_children_map[user.id][1].append(child_name)
 
-            for user, teacher in teachers:
-                # Find which children this teacher teaches
-                taught_children = []
-                for child in children:
-                    child_courses = (
-                        db.query(Course)
-                        .join(student_courses, student_courses.c.course_id == Course.id)
-                        .filter(student_courses.c.student_id == child.id)
-                        .filter(Course.teacher_id == teacher.id)
-                        .first()
-                    )
-                    if child_courses:
-                        child_user = (
-                            db.query(User).filter(User.id == child.user_id).first()
-                        )
-                        if child_user:
-                            taught_children.append(child_user.full_name)
-
-                seen_user_ids.add(user.id)
+            for uid, (user, taught_children) in teacher_children_map.items():
+                seen_user_ids.add(uid)
                 result.append(
                     RecipientOption(
                         user_id=user.id,
@@ -333,16 +335,18 @@ def get_valid_recipients(
                 .filter(student_teachers.c.student_id.in_(child_ids))
                 .all()
             )
+            # Batch-fetch all teacher users for direct links
+            direct_teacher_uids = {link.teacher_user_id for link in direct_links if link.teacher_user_id and link.teacher_user_id not in seen_user_ids}
+            direct_teacher_users = {}
+            if direct_teacher_uids:
+                for u in db.query(User).filter(User.id.in_(direct_teacher_uids)).all():
+                    direct_teacher_users[u.id] = u
+
             for link in direct_links:
                 if link.teacher_user_id and link.teacher_user_id not in seen_user_ids:
-                    teacher_user = db.query(User).filter(User.id == link.teacher_user_id).first()
+                    teacher_user = direct_teacher_users.get(link.teacher_user_id)
                     if teacher_user:
-                        child = next((c for c in children if c.id == link.student_id), None)
-                        child_name = None
-                        if child:
-                            child_user = db.query(User).filter(User.id == child.user_id).first()
-                            child_name = child_user.full_name if child_user else None
-
+                        child_name = child_name_map.get(link.student_id)
                         seen_user_ids.add(teacher_user.id)
                         result.append(
                             RecipientOption(
@@ -362,6 +366,7 @@ def get_valid_recipients(
         if teacher:
             students_in_courses = (
                 db.query(Student)
+                .options(selectinload(Student.user))
                 .join(student_courses, student_courses.c.student_id == Student.id)
                 .join(Course, Course.id == student_courses.c.course_id)
                 .filter(Course.teacher_id == teacher.id)
@@ -369,22 +374,24 @@ def get_valid_recipients(
                 .all()
             )
 
-            parent_student_map: dict[int, list[str]] = {}
-            for student in students_in_courses:
-                student_user = db.query(User).filter(User.id == student.user_id).first()
-                student_name = student_user.full_name if student_user else "Unknown"
+            # Build student name lookup from pre-loaded relationships
+            student_name_map = {s.id: (s.user.full_name if s.user else "Unknown") for s in students_in_courses}
+            student_ids = [s.id for s in students_in_courses]
 
-                links = (
-                    db.query(parent_students.c.parent_id)
-                    .filter(parent_students.c.student_id == student.id)
+            # Batch-fetch all parent links for these students
+            parent_student_map: dict[int, list[str]] = {}
+            if student_ids:
+                parent_links = (
+                    db.query(parent_students.c.parent_id, parent_students.c.student_id)
+                    .filter(parent_students.c.student_id.in_(student_ids))
                     .all()
                 )
-                for (pid,) in links:
+                for pid, sid in parent_links:
                     if pid not in parent_student_map:
                         parent_student_map[pid] = []
-                    parent_student_map[pid].append(student_name)
+                    parent_student_map[pid].append(student_name_map.get(sid, "Unknown"))
 
-            parents = db.query(User).filter(User.id.in_(parent_student_map.keys())).all()
+            parents = db.query(User).filter(User.id.in_(parent_student_map.keys())).all() if parent_student_map else []
 
             for p in parents:
                 if p.id not in seen_user_ids:
@@ -404,30 +411,38 @@ def get_valid_recipients(
                 .filter(student_teachers.c.teacher_user_id == current_user.id)
                 .all()
             )
-            for link in direct_links:
-                student = db.query(Student).filter(Student.id == link.student_id).first()
-                if not student:
-                    continue
-                student_user = db.query(User).filter(User.id == student.user_id).first()
-                student_name = student_user.full_name if student_user else "Unknown"
+            if direct_links:
+                # Batch-fetch all students and parent users referenced by direct links
+                dl_student_ids = {link.student_id for link in direct_links}
+                dl_parent_ids = {link.added_by_user_id for link in direct_links if link.added_by_user_id}
+                all_user_ids = dl_parent_ids | set()
 
-                parent_id = link.added_by_user_id
-                if parent_id not in seen_user_ids:
-                    parent_user = db.query(User).filter(User.id == parent_id).first()
-                    if parent_user:
-                        seen_user_ids.add(parent_id)
-                        result.append(
-                            RecipientOption(
-                                user_id=parent_user.id,
-                                full_name=parent_user.full_name,
-                                role=parent_user.role.value,
-                                student_names=[student_name],
+                dl_students = {s.id: s for s in db.query(Student).options(selectinload(Student.user)).filter(Student.id.in_(dl_student_ids)).all()} if dl_student_ids else {}
+                dl_users = {u.id: u for u in db.query(User).filter(User.id.in_(all_user_ids)).all()} if all_user_ids else {}
+
+                for link in direct_links:
+                    student = dl_students.get(link.student_id)
+                    if not student:
+                        continue
+                    student_name = student.user.full_name if student.user else "Unknown"
+
+                    parent_id = link.added_by_user_id
+                    if parent_id not in seen_user_ids:
+                        parent_user = dl_users.get(parent_id)
+                        if parent_user:
+                            seen_user_ids.add(parent_id)
+                            result.append(
+                                RecipientOption(
+                                    user_id=parent_user.id,
+                                    full_name=parent_user.full_name,
+                                    role=parent_user.role.value,
+                                    student_names=[student_name],
+                                )
                             )
-                        )
-                else:
-                    for r in result:
-                        if r.user_id == parent_id and student_name not in r.student_names:
-                            r.student_names.append(student_name)
+                    else:
+                        for r in result:
+                            if r.user_id == parent_id and student_name not in r.student_names:
+                                r.student_names.append(student_name)
 
     # ── Always include admin users as valid recipients for everyone ──
     admin_users = (
@@ -573,6 +588,11 @@ def list_conversations(
     """List all conversations for the current user with unread counts."""
     conversations = (
         db.query(Conversation)
+        .options(
+            selectinload(Conversation.participant_1),
+            selectinload(Conversation.participant_2),
+            selectinload(Conversation.student).selectinload(Student.user),
+        )
         .filter(
             or_(
                 Conversation.participant_1_id == current_user.id,
@@ -582,38 +602,51 @@ def list_conversations(
         .all()
     )
 
+    if not conversations:
+        return []
+
+    conv_ids = [c.id for c in conversations]
+
+    # Batch-fetch last message per conversation using a subquery
+    last_msg_subq = (
+        db.query(
+            Message.conversation_id,
+            sa_func.max(Message.id).label("max_id"),
+        )
+        .filter(Message.conversation_id.in_(conv_ids))
+        .group_by(Message.conversation_id)
+        .subquery()
+    )
+    last_messages = (
+        db.query(Message)
+        .join(last_msg_subq, Message.id == last_msg_subq.c.max_id)
+        .all()
+    )
+    last_msg_map = {m.conversation_id: m for m in last_messages}
+
+    # Batch-fetch unread counts per conversation
+    unread_rows = (
+        db.query(Message.conversation_id, sa_func.count(Message.id))
+        .filter(
+            Message.conversation_id.in_(conv_ids),
+            Message.sender_id != current_user.id,
+            Message.is_read == False,  # noqa: E712
+        )
+        .group_by(Message.conversation_id)
+        .all()
+    )
+    unread_map = {cid: cnt for cid, cnt in unread_rows}
+
     result = []
     for conv in conversations:
         other_id = _get_other_participant(conv, current_user.id)
-        other_user = db.query(User).filter(User.id == other_id).first()
+        other_user = conv.participant_1 if conv.participant_2_id == current_user.id else conv.participant_2
 
-        # Get last message
-        last_msg = (
-            db.query(Message)
-            .filter(Message.conversation_id == conv.id)
-            .order_by(desc(Message.created_at))
-            .first()
-        )
-
-        # Count unread messages (from other person, not read)
-        unread_count = (
-            db.query(Message)
-            .filter(
-                Message.conversation_id == conv.id,
-                Message.sender_id != current_user.id,
-                Message.is_read == False,
-            )
-            .count()
-        )
-
-        # Get student name if set
         student_name = None
-        if conv.student_id:
-            student = db.query(Student).filter(Student.id == conv.student_id).first()
-            if student:
-                student_user = db.query(User).filter(User.id == student.user_id).first()
-                student_name = student_user.full_name if student_user else None
+        if conv.student_id and conv.student and conv.student.user:
+            student_name = conv.student.user.full_name
 
+        last_msg = last_msg_map.get(conv.id)
         result.append(
             ConversationSummary(
                 id=conv.id,
@@ -625,7 +658,7 @@ def list_conversations(
                 subject=conv.subject,
                 last_message_preview=last_msg.content[:100] if last_msg else None,
                 last_message_at=last_msg.created_at if last_msg else None,
-                unread_count=unread_count,
+                unread_count=unread_map.get(conv.id, 0),
                 created_at=conv.created_at,
             )
         )
@@ -644,7 +677,16 @@ def get_conversation(
     current_user: User = Depends(get_current_user),
 ):
     """Get a conversation with all its messages."""
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    conv = (
+        db.query(Conversation)
+        .options(
+            selectinload(Conversation.participant_1),
+            selectinload(Conversation.participant_2),
+            selectinload(Conversation.student).selectinload(Student.user),
+        )
+        .filter(Conversation.id == conversation_id)
+        .first()
+    )
 
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -717,7 +759,7 @@ def send_message(
         f"Message sent in conversation {conversation_id} by user {current_user.id}"
     )
 
-    return _build_message_response(message, db)
+    return _build_message_response(message)
 
 
 @router.patch("/conversations/{conversation_id}/read")

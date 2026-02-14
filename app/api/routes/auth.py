@@ -13,6 +13,7 @@ from app.models.invite import Invite, InviteType
 from app.schemas.user import UserCreate, UserResponse, Token, ForgotPasswordRequest, ResetPasswordRequest
 from app.schemas.invite import AcceptInviteRequest
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_refresh_token, validate_password_strength, create_password_reset_token, decode_password_reset_token, UNUSABLE_PASSWORD_HASH
+from app.api.deps import get_current_user, oauth2_scheme
 from app.services.audit_service import log_action
 from app.services.email_service import send_email_sync
 from app.core.config import settings
@@ -127,6 +128,39 @@ def login(
     return Token(access_token=access_token, refresh_token=refresh_token)
 
 
+@router.post("/logout")
+def logout(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Revoke the current access token so it can no longer be used."""
+    from jose import jwt as _jwt
+    from app.models.token_blacklist import TokenBlacklist
+
+    try:
+        payload = _jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti and exp:
+            expires_at = datetime.utcfromtimestamp(exp)
+            blacklist_entry = TokenBlacklist(
+                jti=jti,
+                user_id=current_user.id,
+                expires_at=expires_at,
+                reason="logout",
+            )
+            db.add(blacklist_entry)
+            log_action(db, user_id=current_user.id, action="logout", resource_type="user",
+                       resource_id=current_user.id, ip_address=request.client.host if request.client else None)
+            db.commit()
+    except Exception:
+        pass  # Best-effort; token is short-lived anyway
+
+    return {"message": "Logged out successfully"}
+
+
 @router.post("/accept-invite", response_model=Token)
 def accept_invite(data: AcceptInviteRequest, request: Request, db: Session = Depends(get_db)):
     """Accept an invite and create a new user account."""
@@ -154,6 +188,8 @@ def accept_invite(data: AcceptInviteRequest, request: Request, db: Session = Dep
     # Determine role from invite type
     if invite.invite_type == InviteType.STUDENT:
         role = UserRole.STUDENT
+    elif invite.invite_type == InviteType.PARENT:
+        role = UserRole.PARENT
     else:
         role = UserRole.TEACHER
 
@@ -208,6 +244,21 @@ def accept_invite(data: AcceptInviteRequest, request: Request, db: Session = Dep
                     relationship_type=rel_type,
                 )
             )
+
+    elif role == UserRole.PARENT:
+        # Auto-link parent to student if student_id is in metadata
+        metadata = invite.metadata_json or {}
+        student_id = metadata.get("student_id")
+        if student_id:
+            student = db.query(Student).filter(Student.id == student_id).first()
+            if student:
+                db.execute(
+                    insert(parent_students).values(
+                        parent_id=user.id,
+                        student_id=student.id,
+                        relationship_type=RelationshipType.GUARDIAN,
+                    )
+                )
 
     # Auto-enroll/assign based on course_id in invite metadata
     metadata = invite.metadata_json or {}

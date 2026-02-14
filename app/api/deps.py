@@ -28,6 +28,14 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
+    # Check token blacklist (revoked tokens)
+    jti = payload.get("jti")
+    if jti:
+        from app.models.token_blacklist import TokenBlacklist
+        revoked = db.query(TokenBlacklist.id).filter(TokenBlacklist.jti == jti).first()
+        if revoked:
+            raise credentials_exception
+
     user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
         raise credentials_exception

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { coursesApi, googleApi } from '../api/client';
+import { coursesApi, googleApi, invitesApi } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { PageSkeleton } from '../components/Skeleton';
 import './TeacherDashboard.css';
@@ -28,6 +28,15 @@ export function TeacherDashboard() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState('');
 
+  // Invite parent modal state
+  const [showInviteParentModal, setShowInviteParentModal] = useState(false);
+  const [inviteParentEmail, setInviteParentEmail] = useState('');
+  const [inviteStudentId, setInviteStudentId] = useState<number | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+  const [students, setStudents] = useState<{ id: number; name: string }[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -39,11 +48,29 @@ export function TeacherDashboard() {
         googleApi.getStatus(),
       ]);
 
+      let loadedCourses: Course[] = [];
       if (coursesData.status === 'fulfilled') {
-        setCourses(coursesData.value);
+        loadedCourses = coursesData.value;
+        setCourses(loadedCourses);
       }
       if (googleStatus.status === 'fulfilled') {
         setGoogleConnected(googleStatus.value.connected);
+      }
+
+      // Load unique students across all courses for invite-parent feature
+      if (loadedCourses.length > 0) {
+        const allStudents = new Map<number, string>();
+        const studentResults = await Promise.allSettled(
+          loadedCourses.map(c => coursesApi.listStudents(c.id))
+        );
+        for (const r of studentResults) {
+          if (r.status === 'fulfilled') {
+            for (const s of r.value) {
+              allStudents.set(s.student_id, s.full_name || s.email || `Student #${s.student_id}`);
+            }
+          }
+        }
+        setStudents(Array.from(allStudents.entries()).map(([id, name]) => ({ id, name })));
       }
     } finally {
       setLoading(false);
@@ -101,6 +128,31 @@ export function TeacherDashboard() {
     }
   };
 
+  const closeInviteParentModal = () => {
+    setShowInviteParentModal(false);
+    setInviteParentEmail('');
+    setInviteStudentId(null);
+    setInviteError('');
+    setInviteSuccess('');
+  };
+
+  const handleInviteParent = async () => {
+    if (!inviteParentEmail.trim() || !inviteStudentId) return;
+    setInviteLoading(true);
+    setInviteError('');
+    setInviteSuccess('');
+    try {
+      await invitesApi.inviteParent(inviteParentEmail.trim(), inviteStudentId);
+      setInviteSuccess(`Invitation sent to ${inviteParentEmail.trim()}`);
+      setInviteParentEmail('');
+      setInviteStudentId(null);
+    } catch (err: any) {
+      setInviteError(err.response?.data?.detail || 'Failed to send invitation');
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout welcomeSubtitle="Your classroom overview">
@@ -131,6 +183,13 @@ export function TeacherDashboard() {
           <h3>Communications</h3>
           <p className="card-value">View</p>
           <p className="card-label">Email monitoring</p>
+        </div>
+
+        <div className="dashboard-card clickable" onClick={() => setShowInviteParentModal(true)}>
+          <div className="card-icon">👨‍👩‍👧</div>
+          <h3>Invite Parent</h3>
+          <p className="card-value">Invite</p>
+          <p className="card-label">Connect families</p>
         </div>
 
         <div className="dashboard-card">
@@ -243,6 +302,56 @@ export function TeacherDashboard() {
                 disabled={createLoading || !courseName.trim()}
               >
                 {createLoading ? 'Creating...' : 'Create Course'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Invite Parent Modal */}
+      {showInviteParentModal && (
+        <div className="modal-overlay" onClick={closeInviteParentModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Invite Parent</h2>
+            <p style={{ color: 'var(--color-ink-muted)', fontSize: '14px', margin: '0 0 16px' }}>
+              Send an email invitation to a parent to join ClassBridge and link with their child.
+            </p>
+            <div className="modal-form">
+              <label>
+                Parent Email *
+                <input
+                  type="email"
+                  value={inviteParentEmail}
+                  onChange={(e) => { setInviteParentEmail(e.target.value); setInviteError(''); setInviteSuccess(''); }}
+                  placeholder="parent@example.com"
+                  disabled={inviteLoading}
+                />
+              </label>
+              <label>
+                Student *
+                <select
+                  value={inviteStudentId ?? ''}
+                  onChange={(e) => setInviteStudentId(e.target.value ? Number(e.target.value) : null)}
+                  disabled={inviteLoading}
+                >
+                  <option value="">Select a student...</option>
+                  {students.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </label>
+              {inviteError && <p className="link-error">{inviteError}</p>}
+              {inviteSuccess && <p className="link-success">{inviteSuccess}</p>}
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={closeInviteParentModal} disabled={inviteLoading}>
+                {inviteSuccess ? 'Close' : 'Cancel'}
+              </button>
+              <button
+                className="generate-btn"
+                onClick={handleInviteParent}
+                disabled={inviteLoading || !inviteParentEmail.trim() || !inviteStudentId}
+              >
+                {inviteLoading ? 'Sending...' : 'Send Invitation'}
               </button>
             </div>
           </div>

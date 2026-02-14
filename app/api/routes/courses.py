@@ -302,6 +302,12 @@ def enroll_in_course(
             detail="Course not found",
         )
 
+    if course.is_private:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This course is private and does not allow self-enrollment",
+        )
+
     student = db.query(Student).filter(Student.user_id == current_user.id).first()
     if not student:
         raise HTTPException(
