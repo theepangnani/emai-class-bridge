@@ -49,6 +49,7 @@ export function CoursesPage() {
   // Shared state
   const [myCourses, setMyCourses] = useState<CourseItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState('');
 
   // Create course modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -165,7 +166,9 @@ export function CoursesPage() {
       setShowAssignModal(false);
       setSelectedCoursesForAssign(new Set());
       loadChildOverview(selectedChild);
-    } catch { /* ignore */ } finally {
+    } catch (err: any) {
+      setActionError(err.response?.data?.detail || 'Failed to assign courses');
+    } finally {
       setAssignLoading(false);
     }
   };
@@ -198,7 +201,9 @@ export function CoursesPage() {
     try {
       await parentApi.unassignCourseFromChild(selectedChild, courseId);
       loadChildOverview(selectedChild);
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      setActionError(err.response?.data?.detail || 'Failed to unassign course');
+    }
   };
 
   const handleQuickAssign = async (courseId: number) => {
@@ -206,7 +211,9 @@ export function CoursesPage() {
     try {
       await parentApi.assignCoursesToChild(selectedChild, [courseId]);
       loadChildOverview(selectedChild);
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      setActionError(err.response?.data?.detail || 'Failed to assign course');
+    }
   };
 
   const handleEnroll = async (courseId: number) => {
@@ -219,7 +226,9 @@ export function CoursesPage() {
         setEnrolledCourses(prev => [...prev, course]);
         setAvailableCourses(prev => prev.filter(c => c.id !== courseId));
       }
-    } catch { /* ignore */ } finally {
+    } catch (err: any) {
+      setActionError(err.response?.data?.detail || 'Failed to enroll');
+    } finally {
       setEnrollingId(null);
     }
   };
@@ -240,7 +249,9 @@ export function CoursesPage() {
         setAvailableCourses(prev => [...prev, course]);
         setEnrolledCourses(prev => prev.filter(c => c.id !== courseId));
       }
-    } catch { /* ignore */ } finally {
+    } catch (err: any) {
+      setActionError(err.response?.data?.detail || 'Failed to unenroll');
+    } finally {
       setEnrollingId(null);
     }
   };
@@ -270,6 +281,12 @@ export function CoursesPage() {
       ]}
     >
       <div className="courses-page">
+        {actionError && (
+          <div className="error-banner" style={{ background: '#fef2f2', color: '#991b1b', padding: '8px 16px', borderRadius: '8px', marginBottom: 12 }}>
+            {actionError}
+            <button onClick={() => setActionError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b' }}>&times;</button>
+          </div>
+        )}
         {/* Parent: Child selector */}
         {isParent && children.length > 1 && (
           <div className="child-selector" style={{ marginBottom: 20 }}>

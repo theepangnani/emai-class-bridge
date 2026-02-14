@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { coursesApi, googleApi, invitesApi } from '../api/client';
-import type { GoogleAccount } from '../api/client';
+import type { GoogleAccount, InviteResponse } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { PageSkeleton } from '../components/Skeleton';
 import './TeacherDashboard.css';
@@ -40,16 +40,21 @@ export function TeacherDashboard() {
   const [googleAccounts, setGoogleAccounts] = useState<GoogleAccount[]>([]);
   const [removingAccountId, setRemovingAccountId] = useState<number | null>(null);
 
+  // Pending invites state
+  const [pendingInvites, setPendingInvites] = useState<InviteResponse[]>([]);
+  const [resendingId, setResendingId] = useState<number | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
-      const [coursesData, googleStatus, accountsData] = await Promise.allSettled([
+      const [coursesData, googleStatus, accountsData, invitesData] = await Promise.allSettled([
         coursesApi.teachingList(),
         googleApi.getStatus(),
         googleApi.getTeacherAccounts(),
+        invitesApi.listSent(),
       ]);
 
       if (coursesData.status === 'fulfilled') {
@@ -60,6 +65,9 @@ export function TeacherDashboard() {
       }
       if (accountsData.status === 'fulfilled') {
         setGoogleAccounts(accountsData.value);
+      }
+      if (invitesData.status === 'fulfilled') {
+        setPendingInvites(invitesData.value.filter(i => !i.accepted_at && new Date(i.expires_at) > new Date()));
       }
     } finally {
       setLoading(false);
@@ -145,6 +153,15 @@ export function TeacherDashboard() {
     } catch {
       // Failed to set primary
     }
+  };
+
+  const handleResendInvite = async (inviteId: number) => {
+    setResendingId(inviteId);
+    try {
+      const updated = await invitesApi.resend(inviteId);
+      setPendingInvites(prev => prev.map(i => i.id === inviteId ? updated : i));
+    } catch { /* ignore */ }
+    setResendingId(null);
   };
 
   const closeInviteParentModal = () => {
@@ -273,6 +290,30 @@ export function TeacherDashboard() {
             </div>
           )}
         </section>
+
+        {/* Pending Invites Section */}
+        {pendingInvites.length > 0 && (
+          <section className="section">
+            <div className="section-header">
+              <h3>Pending Invites</h3>
+            </div>
+            <div className="pending-invites-list">
+              {pendingInvites.map(inv => (
+                <div key={inv.id} className="pending-invite-row">
+                  <span className="pending-invite-email">{inv.email}</span>
+                  <span className="pending-invite-type">{inv.invite_type}</span>
+                  <button
+                    className="text-btn"
+                    disabled={resendingId === inv.id}
+                    onClick={() => handleResendInvite(inv.id)}
+                  >
+                    {resendingId === inv.id ? 'Sending...' : 'Resend'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Google Accounts Section */}
         {googleConnected && (

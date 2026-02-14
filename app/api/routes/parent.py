@@ -18,7 +18,7 @@ from app.models.message import Conversation, Message
 from app.models.invite import Invite, InviteType
 from app.api.deps import require_role
 from app.services.audit_service import log_action
-from app.services.email_service import send_email_sync
+from app.services.email_service import send_email_sync, add_inspiration_to_email
 from app.core.config import settings
 from app.core.security import UNUSABLE_PASSWORD_HASH
 from app.schemas.parent import (
@@ -392,16 +392,18 @@ def create_child(
 
         # Send invite email to the child
         try:
-            send_email_sync(
-                to_email=request.email,
-                subject=f"{current_user.full_name} invited you to ClassBridge",
-                html_content=f"""
+            invite_html = f"""
                 <h2>You've been invited to ClassBridge</h2>
                 <p><strong>{current_user.full_name}</strong> has added you as a student on ClassBridge.</p>
                 <p>Click the link below to set your password and get started:</p>
                 <p><a href="{invite_link}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">Create My Account</a></p>
                 <p style="color:#666;font-size:14px;">This invite expires in 30 days.</p>
-                """,
+                """
+            invite_html = add_inspiration_to_email(invite_html, db, "student")
+            send_email_sync(
+                to_email=request.email,
+                subject=f"{current_user.full_name} invited you to ClassBridge",
+                html_content=invite_html,
             )
         except Exception as e:
             logger.warning(f"Failed to send invite email to {request.email}: {e}")
@@ -482,16 +484,18 @@ def link_child(
 
         # Send invite email to the child
         try:
-            send_email_sync(
-                to_email=request.student_email,
-                subject=f"{current_user.full_name} invited you to ClassBridge",
-                html_content=f"""
+            invite_html = f"""
                 <h2>You've been invited to ClassBridge</h2>
                 <p><strong>{current_user.full_name}</strong> has added you as a student on ClassBridge.</p>
                 <p>Click the link below to set your password and get started:</p>
                 <p><a href="{invite_link}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">Create My Account</a></p>
                 <p style="color:#666;font-size:14px;">This invite expires in 30 days.</p>
-                """,
+                """
+            invite_html = add_inspiration_to_email(invite_html, db, "student")
+            send_email_sync(
+                to_email=request.student_email,
+                subject=f"{current_user.full_name} invited you to ClassBridge",
+                html_content=invite_html,
             )
         except Exception as e:
             logger.warning(f"Failed to send invite email to {request.student_email}: {e}")
@@ -1109,6 +1113,7 @@ def link_teacher_to_child(
                 .replace("{{parent_name}}", current_user.full_name)
                 .replace("{{child_name}}", child_name)
                 .replace("{{app_url}}", settings.frontend_url))
+            html = add_inspiration_to_email(html, db, "teacher")
             send_email_sync(
                 to_email=teacher_user.email,
                 subject=f"{current_user.full_name} connected with you on ClassBridge",
@@ -1168,6 +1173,7 @@ def link_teacher_to_child(
                 .replace("{{parent_name}}", current_user.full_name)
                 .replace("{{child_name}}", child_name)
                 .replace("{{invite_link}}", invite_link))
+            html = add_inspiration_to_email(html, db, "teacher")
             send_email_sync(
                 to_email=request.teacher_email,
                 subject=f"{current_user.full_name} invited you to ClassBridge",

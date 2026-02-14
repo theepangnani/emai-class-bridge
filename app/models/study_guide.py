@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Index
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 
@@ -35,3 +35,8 @@ class StudyGuide(Base):
     course = relationship("Course", backref="study_guides")
     course_content = relationship("CourseContent", backref="study_guides")
     parent_guide = relationship("StudyGuide", remote_side=[id], backref="child_versions", passive_deletes=True)
+
+    __table_args__ = (
+        Index("ix_study_guides_user", "user_id"),
+        Index("ix_study_guides_course_content", "course_content_id"),
+    )

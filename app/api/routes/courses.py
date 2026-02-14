@@ -11,13 +11,13 @@ from app.db.database import get_db
 from app.models.course import Course, student_courses
 from app.models.user import User, UserRole
 from app.models.teacher import Teacher
-from app.models.student import Student
+from app.models.student import Student, parent_students
 from app.models.invite import Invite, InviteType
 from app.models.notification import Notification, NotificationType
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse, AddStudentRequest
 from app.api.deps import get_current_user, require_role, can_access_course
 from app.services.audit_service import log_action
-from app.services.email_service import send_email_sync
+from app.services.email_service import send_email_sync, add_inspiration_to_email
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -86,6 +86,7 @@ def _resolve_teacher_by_email(db: Session, email: str, inviter: User, course: Co
                 .replace("{{inviter_name}}", inviter.full_name)
                 .replace("{{course_name}}", course.name)
                 .replace("{{invite_link}}", invite_link))
+            html = add_inspiration_to_email(html, db, "teacher")
             send_email_sync(
                 to_email=email,
                 subject=f"{inviter.full_name} invited you to teach on ClassBridge",
@@ -433,15 +434,55 @@ def add_student_to_course(
 
         db.execute(insert(student_courses).values(student_id=student.id, course_id=course.id))
 
-        # Send in-app notification
-        notif = Notification(
+        # Send in-app notification to student
+        db.add(Notification(
             user_id=user.id,
             type=NotificationType.SYSTEM,
             title=f"Enrolled in {course.name}",
             content=f"{current_user.full_name} added you to {course.name}",
             link=f"/courses/{course.id}",
-        )
-        db.add(notif)
+        ))
+
+        # Email notification to student (#254)
+        if user.email and getattr(user, 'email_notifications', True):
+            try:
+                student_html = f"""
+                <h2>You've been enrolled in {course.name}</h2>
+                <p><strong>{current_user.full_name}</strong> added you to <strong>{course.name}</strong> on ClassBridge.</p>
+                <p><a href="{settings.frontend_url}/courses/{course.id}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">View Course</a></p>
+                """
+                student_html = add_inspiration_to_email(student_html, db, "student")
+                send_email_sync(user.email, f"Enrolled in {course.name} — ClassBridge", student_html)
+            except Exception as e:
+                logger.warning(f"Failed to send enrollment email to student {user.email}: {e}")
+
+        # Notify parents (#238)
+        parent_rows = db.execute(
+            parent_students.select().where(parent_students.c.student_id == student.id)
+        ).fetchall()
+        for row in parent_rows:
+            parent_user = db.query(User).filter(User.id == row.parent_id).first()
+            if not parent_user:
+                continue
+            db.add(Notification(
+                user_id=parent_user.id,
+                type=NotificationType.SYSTEM,
+                title=f"{user.full_name} enrolled in {course.name}",
+                content=f"{current_user.full_name} added {user.full_name} to {course.name}",
+                link=f"/courses/{course.id}",
+            ))
+            if parent_user.email and getattr(parent_user, 'email_notifications', True):
+                try:
+                    parent_html = f"""
+                    <h2>{user.full_name} was enrolled in a new course</h2>
+                    <p><strong>{current_user.full_name}</strong> added <strong>{user.full_name}</strong> to <strong>{course.name}</strong> on ClassBridge.</p>
+                    <p><a href="{settings.frontend_url}/courses/{course.id}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">View Course</a></p>
+                    """
+                    parent_html = add_inspiration_to_email(parent_html, db, "parent")
+                    send_email_sync(parent_user.email, f"{user.full_name} enrolled in {course.name} — ClassBridge", parent_html)
+                except Exception as e:
+                    logger.warning(f"Failed to send enrollment email to parent {parent_user.email}: {e}")
+
         db.commit()
 
         return {
@@ -479,6 +520,7 @@ def add_student_to_course(
                 .replace("{{inviter_name}}", current_user.full_name)
                 .replace("{{course_name}}", course.name)
                 .replace("{{invite_link}}", invite_link))
+            html = add_inspiration_to_email(html, db, "student")
             send_email_sync(
                 to_email=email,
                 subject=f"{current_user.full_name} invited you to join {course.name} on ClassBridge",

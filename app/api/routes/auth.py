@@ -15,7 +15,7 @@ from app.schemas.invite import AcceptInviteRequest
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_refresh_token, validate_password_strength, create_password_reset_token, decode_password_reset_token, UNUSABLE_PASSWORD_HASH
 from app.api.deps import get_current_user, oauth2_scheme
 from app.services.audit_service import log_action
-from app.services.email_service import send_email_sync
+from app.services.email_service import send_email_sync, add_inspiration_to_email
 from app.core.config import settings
 from app.core.rate_limit import limiter
 
@@ -360,6 +360,7 @@ def forgot_password(body: ForgotPasswordRequest, request: Request, db: Session =
             html = _render(template, user_name=user.full_name or "there", reset_url=reset_url)
         else:
             html = f'<p>Click <a href="{reset_url}">here</a> to reset your password. This link expires in 1 hour.</p>'
+        html = add_inspiration_to_email(html, db, user.role)
         send_email_sync(to_email=user.email, subject="ClassBridge — Reset Your Password", html_content=html)
         try:
             log_action(db, user_id=user.id, action="pwd_reset_req", resource_type="user",

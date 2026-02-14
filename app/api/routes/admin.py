@@ -29,7 +29,7 @@ from app.schemas.admin import (
 from app.schemas.audit import AuditLogResponse, AuditLogList
 from app.schemas.user import UserResponse
 from app.services.audit_service import log_action
-from app.services.email_service import send_email_sync, send_emails_batch
+from app.services.email_service import send_email_sync, send_emails_batch, add_inspiration_to_email
 
 logger = logging.getLogger(__name__)
 
@@ -425,6 +425,7 @@ def send_admin_message(
     if user.email:
         try:
             html = _render_broadcast_email(data.subject, data.body, user.full_name)
+            html = add_inspiration_to_email(html, db, user.role)
             email_sent = send_email_sync(user.email, f"ClassBridge: {data.subject}", html)
         except Exception:
             logger.warning("Failed to send admin message email to user %s", user.id)

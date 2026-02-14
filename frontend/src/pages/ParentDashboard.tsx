@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { parentApi, googleApi, invitesApi, studyApi, tasksApi } from '../api/client';
 import { queueStudyGeneration } from './StudyGuidesPage';
-import type { ChildSummary, ChildOverview, ParentDashboardData, DiscoveredChild, SupportedFormats, DuplicateCheckResponse, TaskItem } from '../api/client';
+import type { ChildSummary, ChildOverview, ParentDashboardData, DiscoveredChild, SupportedFormats, DuplicateCheckResponse, TaskItem, InviteResponse } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { PageSkeleton } from '../components/Skeleton';
 import { CalendarView } from '../components/calendar/CalendarView';
@@ -113,6 +113,10 @@ export function ParentDashboard() {
   const [createChildError, setCreateChildError] = useState('');
   const [createChildInviteLink, setCreateChildInviteLink] = useState('');
 
+  // Pending invites state
+  const [pendingInvites, setPendingInvites] = useState<InviteResponse[]>([]);
+  const [resendingId, setResendingId] = useState<number | null>(null);
+
   // ============================================
   // Data Loading
   // ============================================
@@ -137,6 +141,11 @@ export function ParentDashboard() {
       setLoading(false);
       setOverviewLoading(false);
     }
+    // Load pending invites in background
+    try {
+      const invites = await invitesApi.listSent();
+      setPendingInvites(invites.filter(i => !i.accepted_at && new Date(i.expires_at) > new Date()));
+    } catch { /* ignore */ }
   };
 
   useEffect(() => {
@@ -267,6 +276,15 @@ export function ParentDashboard() {
     setInviteRelationship('guardian');
     setInviteError('');
     setInviteSuccess('');
+  };
+
+  const handleResendInvite = async (inviteId: number) => {
+    setResendingId(inviteId);
+    try {
+      const updated = await invitesApi.resend(inviteId);
+      setPendingInvites(prev => prev.map(i => i.id === inviteId ? updated : i));
+    } catch { /* ignore */ }
+    setResendingId(null);
   };
 
   const handleConnectGoogle = async () => {
@@ -545,8 +563,8 @@ export function ParentDashboard() {
       setDayTasks(prev => [...prev, task]);
       setAllTasks(prev => [...prev, task]);
       setNewTaskTitle('');
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to create task');
     } finally {
       setNewTaskCreating(false);
     }
@@ -557,8 +575,8 @@ export function ParentDashboard() {
       const updated = await tasksApi.update(task.id, { is_completed: !task.is_completed });
       setDayTasks(prev => prev.map(t => t.id === task.id ? updated : t));
       setAllTasks(prev => prev.map(t => t.id === task.id ? updated : t));
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to update task');
     }
   };
 
@@ -567,8 +585,8 @@ export function ParentDashboard() {
       await tasksApi.delete(taskId);
       setDayTasks(prev => prev.filter(t => t.id !== taskId));
       setAllTasks(prev => prev.filter(t => t.id !== taskId));
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to delete task');
     }
   };
 
@@ -850,6 +868,26 @@ export function ParentDashboard() {
                       )}
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pending Invites */}
+          {pendingInvites.length > 0 && (
+            <div className="pending-invites-section">
+              <h3>Pending Invites</h3>
+              {pendingInvites.map(inv => (
+                <div key={inv.id} className="pending-invite-row">
+                  <span className="pending-invite-email">{inv.email}</span>
+                  <span className="pending-invite-type">{inv.invite_type}</span>
+                  <button
+                    className="btn-sm"
+                    disabled={resendingId === inv.id}
+                    onClick={() => handleResendInvite(inv.id)}
+                  >
+                    {resendingId === inv.id ? 'Sending...' : 'Resend'}
+                  </button>
                 </div>
               ))}
             </div>

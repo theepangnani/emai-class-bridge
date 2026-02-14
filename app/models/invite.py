@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, JSON, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -27,3 +27,7 @@ class Invite(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     invited_by = relationship("User", foreign_keys=[invited_by_user_id])
+
+    __table_args__ = (
+        Index("ix_invites_invited_by", "invited_by_user_id"),
+    )

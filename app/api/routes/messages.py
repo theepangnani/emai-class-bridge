@@ -23,7 +23,7 @@ from app.schemas.message import (
 )
 from app.api.deps import get_current_user
 from app.services.audit_service import log_action
-from app.services.email_service import send_email_sync, send_emails_batch
+from app.services.email_service import send_email_sync, send_emails_batch, add_inspiration_to_email
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -104,6 +104,7 @@ def _notify_message_recipient(
                 message_preview=preview,
                 app_url=settings.frontend_url,
             )
+            html = add_inspiration_to_email(html, db, recipient.role)
             sent = send_email_sync(
                 to_email=recipient.email,
                 subject=f"New message from {sender.full_name} — ClassBridge",

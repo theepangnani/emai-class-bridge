@@ -106,8 +106,8 @@ export function TasksPage() {
       setNewAssignee('');
       setShowCreate(false);
       loadTasks();
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to create task');
     } finally {
       setCreating(false);
     }
@@ -117,8 +117,8 @@ export function TasksPage() {
     try {
       await tasksApi.update(task.id, { is_completed: !task.is_completed });
       loadTasks();
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update task');
     }
   };
 
@@ -126,8 +126,8 @@ export function TasksPage() {
     try {
       await tasksApi.delete(taskId);
       loadTasks();
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to delete task');
     }
   };
 
@@ -135,8 +135,8 @@ export function TasksPage() {
     try {
       await tasksApi.restore(taskId);
       loadTasks();
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to restore task');
     }
   };
 
@@ -151,8 +151,8 @@ export function TasksPage() {
     try {
       await tasksApi.permanentDelete(taskId);
       loadTasks();
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to permanently delete task');
     }
   };
 
@@ -178,8 +178,8 @@ export function TasksPage() {
       });
       setEditTask(null);
       loadTasks();
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to save task');
     } finally {
       setSaving(false);
     }

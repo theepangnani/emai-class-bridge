@@ -15,7 +15,7 @@ from app.models.message import Conversation, Message
 from app.models.notification import Notification, NotificationType
 from app.api.deps import get_current_user, require_role
 from app.schemas.invite import InviteCreate, InviteResponse
-from app.services.email_service import send_email_sync
+from app.services.email_service import send_email_sync, add_inspiration_to_email
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -98,6 +98,7 @@ def _send_message_to_existing_user(
                 .replace("{{sender_name}}", sender.full_name)
                 .replace("{{message_preview}}", preview)
                 .replace("{{app_url}}", settings.frontend_url))
+            html = add_inspiration_to_email(html, db, recipient.role)
             send_email_sync(
                 to_email=recipient.email,
                 subject=f"New message from {sender.full_name} — ClassBridge",
@@ -214,6 +215,7 @@ def create_invite(
 
     # Send invite email (sync call — SendGrid SDK is synchronous)
     try:
+        html_content = add_inspiration_to_email(html_content, db, invite_type.value)
         send_email_sync(
             to_email=data.email,
             subject=f"{current_user.full_name} invited you to EMAI",
@@ -239,6 +241,52 @@ def list_sent_invites(
         .all()
     )
     return invites
+
+
+@router.post("/{invite_id}/resend", response_model=InviteResponse)
+def resend_invite(
+    invite_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Resend a pending invite: refresh token + expiry, re-send email."""
+    invite = db.query(Invite).filter(Invite.id == invite_id).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    if invite.invited_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your invite")
+    if invite.accepted_at:
+        raise HTTPException(status_code=400, detail="Invite already accepted")
+
+    # Refresh token and expiry
+    invite.token = secrets.token_urlsafe(32)
+    expiry_days = EXPIRY_DAYS.get(invite.invite_type, 30)
+    invite.expires_at = datetime.utcnow() + timedelta(days=expiry_days)
+    db.commit()
+    db.refresh(invite)
+
+    # Re-send email
+    invite_link = f"{settings.frontend_url}/accept-invite?token={invite.token}"
+    role_label = invite.invite_type.value if hasattr(invite.invite_type, 'value') else str(invite.invite_type)
+    try:
+        html = f"""
+        <h2>Reminder: You've been invited to ClassBridge</h2>
+        <p><strong>{current_user.full_name}</strong> invited you to join ClassBridge as a {role_label}.</p>
+        <p>Click the link below to create your account:</p>
+        <p><a href="{invite_link}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:6px;">Create My Account</a></p>
+        <p style="color:#666;font-size:14px;">This invite expires in {expiry_days} days.</p>
+        """
+        html = add_inspiration_to_email(html, db, role_label)
+        send_email_sync(
+            to_email=invite.email,
+            subject=f"Reminder: {current_user.full_name} invited you to ClassBridge",
+            html_content=html,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to resend invite email to {invite.email}: {e}")
+
+    logger.info(f"Invite {invite.id} resent to {invite.email} by user {current_user.id}")
+    return invite
 
 
 class _InviteParentRequest(PydanticBaseModel):
@@ -308,6 +356,7 @@ def invite_parent(
         html = (html
             .replace("{{teacher_name}}", current_user.full_name)
             .replace("{{invite_link}}", invite_link))
+        html = add_inspiration_to_email(html, db, "parent")
         send_email_sync(
             to_email=data.parent_email,
             subject=f"{current_user.full_name} invited you to ClassBridge",

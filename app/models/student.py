@@ -23,6 +23,8 @@ parent_students = Table(
     Column("relationship_type", Enum(RelationshipType), default=RelationshipType.GUARDIAN),
     Column("created_at", DateTime(timezone=True), server_default=func.now()),
     UniqueConstraint("parent_id", "student_id", name="uq_parent_students_pair"),
+    Index("ix_parent_students_parent", "parent_id"),
+    Index("ix_parent_students_student", "student_id"),
 )
 
 
@@ -37,6 +39,8 @@ student_teachers = Table(
     Column("added_by_user_id", Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
     Column("created_at", DateTime(timezone=True), server_default=func.now()),
     UniqueConstraint("student_id", "teacher_email", name="uq_student_teachers_pair"),
+    Index("ix_student_teachers_student", "student_id"),
+    Index("ix_student_teachers_teacher_user", "teacher_user_id"),
 )
 
 

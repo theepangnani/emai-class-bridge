@@ -16,6 +16,7 @@ export function TeacherCommsPage() {
   const [status, setStatus] = useState<EmailMonitoringStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [page, setPage] = useState(1);
@@ -49,8 +50,8 @@ export function TeacherCommsPage() {
       const data = await teacherCommsApi.list(params as Parameters<typeof teacherCommsApi.list>[0]);
       setCommunications(data.items);
       setTotal(data.total);
-    } catch {
-      // Silently fail
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load communications');
     } finally {
       setLoading(false);
     }
@@ -69,8 +70,8 @@ export function TeacherCommsPage() {
         loadCommunications();
         loadStatus();
       }
-    } catch {
-      // Silently fail
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to sync communications');
     } finally {
       setSyncing(false);
     }
@@ -161,6 +162,13 @@ export function TeacherCommsPage() {
           {syncing ? 'Syncing...' : 'Sync Now'}
         </button>
       </div>
+
+      {error && (
+        <div className="error-banner" style={{ background: '#fef2f2', color: '#991b1b', padding: '8px 16px', borderRadius: '8px', margin: '0 16px 8px' }}>
+          {error}
+          <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b' }}>&times;</button>
+        </div>
+      )}
 
       {status && !status.gmail_enabled && (
         <div className="connect-banner">

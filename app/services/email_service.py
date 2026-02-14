@@ -127,3 +127,27 @@ def send_email_sync(to_email: str, subject: str, html_content: str) -> bool:
 async def send_email(to_email: str, subject: str, html_content: str) -> bool:
     """Async wrapper for send_email_sync."""
     return send_email_sync(to_email, subject, html_content)
+
+
+def add_inspiration_to_email(html_content: str, db, role: str) -> str:
+    """Append a random inspirational message footer to email HTML.
+
+    If no message is found or an error occurs, returns the original HTML unchanged.
+    """
+    try:
+        from app.services.inspiration_service import get_random_message
+
+        msg = get_random_message(db, role)
+        if not msg:
+            return html_content
+
+        author_line = f' — {msg["author"]}' if msg.get("author") else ""
+        footer = (
+            '<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;'
+            'text-align:center;color:#6b7280;font-size:13px;">'
+            f'<em>"{msg["text"]}"</em>{author_line}'
+            '</div>'
+        )
+        return html_content + footer
+    except Exception:
+        return html_content

@@ -986,6 +986,11 @@ export const invitesApi = {
     const response = await api.get('/api/invites/sent');
     return response.data as InviteResponse[];
   },
+
+  resend: async (inviteId: number) => {
+    const response = await api.post(`/api/invites/${inviteId}/resend`);
+    return response.data as InviteResponse;
+  },
 };
 
 // Admin Types

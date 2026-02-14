@@ -11,6 +11,8 @@ student_courses = Table(
     Base.metadata,
     Column("student_id", Integer, ForeignKey("students.id", ondelete="CASCADE"), primary_key=True),
     Column("course_id", Integer, ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True),
+    Index("ix_student_courses_student", "student_id"),
+    Index("ix_student_courses_course", "course_id"),
 )
 
 
