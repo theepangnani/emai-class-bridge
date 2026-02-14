@@ -335,7 +335,7 @@ describe('ParentDashboard', () => {
     })
 
     await user.click(screen.getByRole('button', { name: /View Course Materials/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/course-materials')
+    expect(mockNavigate).toHaveBeenCalledWith('/course-materials', { state: { selectedChild: 100 } })
   })
 
   // ── Add Child Modal — Create New Tab ─────────────────────────
