@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, desc
@@ -10,6 +11,7 @@ from app.models.student import Student, parent_students
 from app.models.teacher import Teacher
 from app.models.course import Course, student_courses
 from app.models.message import Conversation, Message
+from app.models.notification import Notification, NotificationType
 from app.schemas.message import (
     ConversationCreate,
     ConversationSummary,
@@ -21,8 +23,96 @@ from app.schemas.message import (
 )
 from app.api.deps import get_current_user
 from app.services.audit_service import log_action
+from app.services.email_service import send_email_sync
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates")
+
+
+def _load_template(name: str) -> str:
+    path = os.path.join(TEMPLATE_DIR, name)
+    try:
+        with open(path, "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        logger.error(f"Email template not found: {path}")
+        return ""
+
+
+def _render_template(template: str, **kwargs) -> str:
+    for key, value in kwargs.items():
+        template = template.replace("{{" + key + "}}", str(value))
+    return template
+
+
+def _notify_message_recipient(
+    db: Session,
+    recipient: User,
+    sender: User,
+    message_content: str,
+    conversation_id: int,
+):
+    """Create in-app notification and send email for a new message.
+
+    Dedup: skips if there's already an unread MESSAGE notification for this
+    conversation created within the last 5 minutes (avoids spam on rapid messages).
+    """
+    # Dedup check: recent unread notification for this conversation
+    cutoff = datetime.utcnow() - timedelta(minutes=5)
+    existing = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == recipient.id,
+            Notification.type == NotificationType.MESSAGE,
+            Notification.read == False,
+            Notification.link == "/messages",
+            Notification.title.contains(sender.full_name),
+            Notification.created_at >= cutoff,
+        )
+        .first()
+    )
+    if existing:
+        logger.debug(
+            f"Skipping duplicate message notification for user {recipient.id} "
+            f"(existing notification {existing.id} within 5-min window)"
+        )
+        return
+
+    # Truncate preview
+    preview = message_content[:100] + ("..." if len(message_content) > 100 else "")
+
+    # Create in-app notification
+    notification = Notification(
+        user_id=recipient.id,
+        type=NotificationType.MESSAGE,
+        title=f"New message from {sender.full_name}",
+        content=preview,
+        link="/messages",
+    )
+    db.add(notification)
+
+    # Send email if recipient has email notifications enabled
+    if recipient.email_notifications:
+        template = _load_template("message_notification.html")
+        if template:
+            html = _render_template(
+                template,
+                recipient_name=recipient.full_name,
+                sender_name=sender.full_name,
+                message_preview=preview,
+                app_url=settings.frontend_url,
+            )
+            sent = send_email_sync(
+                to_email=recipient.email,
+                subject=f"New message from {sender.full_name} — ClassBridge",
+                html_content=html,
+            )
+            if sent:
+                logger.info(f"Message notification email sent to {recipient.email}")
+        else:
+            logger.warning("Message notification email template not found, skipping email")
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 
@@ -287,6 +377,7 @@ def create_conversation(
             content=data.initial_message,
         )
         db.add(message)
+        _notify_message_recipient(db, recipient, current_user, data.initial_message, existing.id)
         db.commit()
         db.refresh(existing)
         return _build_conversation_detail(db, existing, current_user)
@@ -308,6 +399,7 @@ def create_conversation(
         content=data.initial_message,
     )
     db.add(message)
+    _notify_message_recipient(db, recipient, current_user, data.initial_message, conversation.id)
     db.commit()
     db.refresh(conversation)
 
@@ -446,6 +538,13 @@ def send_message(
     db.add(message)
     db.flush()
     log_action(db, user_id=current_user.id, action="create", resource_type="message", resource_id=message.id)
+
+    # Notify the other participant
+    recipient_id = _get_other_participant(conv, current_user.id)
+    recipient = db.query(User).filter(User.id == recipient_id).first()
+    if recipient:
+        _notify_message_recipient(db, recipient, current_user, data.content, conversation_id)
+
     db.commit()
     db.refresh(message)
 

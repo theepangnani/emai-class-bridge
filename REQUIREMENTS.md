@@ -910,28 +910,28 @@ Users can reset forgotten passwords via email-based JWT token flow.
 - `app/templates/password_reset.html` — email template
 - `frontend/src/pages/ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`
 
-### 6.27 Message Email Notifications (Phase 1) - PLANNED
+### 6.27 Message Email Notifications (Phase 1) - IMPLEMENTED
 
-When a user receives a new in-app message, the system should also send an email notification to the recipient (if they have `email_notifications` enabled). This ensures users don't miss important parent-teacher communications.
+When a user receives a new in-app message, the system sends an email notification to the recipient (if they have `email_notifications` enabled). This ensures users don't miss important parent-teacher communications.
 
-**Requirements:**
-1. When a new message is sent (via `POST /api/messages/conversations/{id}/messages` or new conversation creation), send an email to the recipient
-2. Respect the recipient's `email_notifications` preference (opt-out)
-3. Create an in-app notification (type: `MESSAGE`) for the recipient
-4. Email includes sender name, message preview (truncated), and a link to the conversation
-5. Rate-limit: don't send duplicate emails for rapid-fire messages in the same conversation (batch within 5-minute window or send only for the first unread message)
+**Implementation:**
+1. When a new message is sent (via `POST /api/messages/conversations/{id}/messages` or new conversation creation), an email is sent to the recipient
+2. Respects the recipient's `email_notifications` preference (opt-out)
+3. Creates an in-app notification (type: `MESSAGE`) for the recipient with sender name and message preview
+4. Email includes sender name, message preview (truncated to 100 chars), and a link to the messages page
+5. Dedup: skips duplicate notifications within a 5-minute window for the same sender (avoids spam on rapid-fire messages)
 6. Email template matches ClassBridge branding (consistent with password_reset and task_reminder templates)
 
 **Sub-tasks:**
-- [ ] Backend: Add email + notification dispatch to message send endpoints
-- [ ] Backend: Create message notification email template
-- [ ] Backend: Add dedup/batching logic to avoid email spam
-- [ ] Testing: Add tests for message email notifications
+- [x] Backend: Add email + notification dispatch to message send endpoints
+- [x] Backend: Create message notification email template
+- [x] Backend: Add dedup/batching logic to avoid email spam
+- [x] Testing: Add tests for message email notifications (5 tests)
 
-**Key files (planned):**
-- `app/api/routes/messages.py` — add notification + email on send
-- `app/templates/message_notification.html` — new email template
-- `tests/test_messages.py` — new tests
+**Key files:**
+- `app/api/routes/messages.py` — `_notify_message_recipient()` helper called from send/create endpoints
+- `app/templates/message_notification.html` — branded email template
+- `tests/test_messages.py` — `TestMessageNotifications` class with 5 tests
 
 ---
 
