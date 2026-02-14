@@ -27,6 +27,7 @@ RUN echo "Build date: $BUILD_DATE" && cd frontend && npm run build
 
 # Copy backend application
 COPY app/ ./app/
+COPY data/ ./data/
 COPY main.py .
 COPY alembic.ini .
 COPY alembic/ ./alembic/

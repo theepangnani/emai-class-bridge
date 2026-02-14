@@ -49,19 +49,18 @@ def seed_messages(db: Session) -> int:
 
 
 def get_random_message(db: Session, role: str) -> dict | None:
-    """Return a random active inspiration message for the given role."""
-    role = role.lower()
-    if role not in VALID_ROLES:
-        return None
+    """Return a random active inspiration message for the given role.
 
-    messages = (
-        db.query(InspirationMessage)
-        .filter(
-            InspirationMessage.role == role,
-            InspirationMessage.is_active == True,
-        )
-        .all()
-    )
+    Admin users get a random message from any role.
+    """
+    role = role.lower()
+
+    query = db.query(InspirationMessage).filter(InspirationMessage.is_active == True)
+    if role in VALID_ROLES:
+        query = query.filter(InspirationMessage.role == role)
+    # else: admin or unknown role gets messages from all roles
+
+    messages = query.all()
 
     if not messages:
         return None
