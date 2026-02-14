@@ -591,6 +591,11 @@ export function ParentDashboard() {
     return { taskOverdueCount: overdue, taskDueTodayCount: dueToday };
   }, [filteredTasks]);
 
+  // Compute total tasks count from filtered tasks (respects child filter)
+  const totalTasksCount = useMemo(() => {
+    return filteredTasks.filter(t => !t.archived_at).length;
+  }, [filteredTasks]);
+
   // Per-child task stats for enhanced cards
   const childTaskStats = useMemo(() => {
     const now = new Date();
@@ -907,7 +912,7 @@ export function ParentDashboard() {
                 <span className="status-card-label">{'\u{1F4AC}'} Messages</span>
               </div>
               <div className="status-card" onClick={() => navigate('/tasks')}>
-                <span className="status-card-count">{dashboardData.total_tasks}</span>
+                <span className="status-card-count">{totalTasksCount}</span>
                 <span className="status-card-label">{'\u{1F4CB}'} Total Tasks</span>
               </div>
             </div>
