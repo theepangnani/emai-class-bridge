@@ -2,6 +2,7 @@ import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formataddr
 
 from app.core.config import settings
 
@@ -28,8 +29,8 @@ def _send_via_sendgrid(to_email: str, subject: str, html_content: str) -> bool:
 def _send_via_smtp(to_email: str, subject: str, html_content: str) -> bool:
     """Send via Gmail SMTP."""
     msg = MIMEMultipart("alternative")
-    msg["From"] = f"ClassBridge <{settings.smtp_user}>"
-    msg["To"] = to_email
+    msg["From"] = formataddr(("ClassBridge", settings.smtp_user.strip()))
+    msg["To"] = to_email.strip()
     msg["Subject"] = subject
     msg.attach(MIMEText(html_content, "html"))
 
@@ -40,6 +41,60 @@ def _send_via_smtp(to_email: str, subject: str, html_content: str) -> bool:
 
     logger.info(f"Email sent via SMTP to {to_email} | subject={subject}")
     return True
+
+
+def send_emails_batch(emails: list[tuple[str, str, str]]) -> int:
+    """Send multiple emails reusing a single SMTP connection.
+
+    Args:
+        emails: list of (to_email, subject, html_content) tuples.
+
+    Returns:
+        Number of successfully sent emails.
+    """
+    if not emails:
+        return 0
+
+    # Try SendGrid first (each call is an HTTP request, no connection reuse needed)
+    if _has_valid_sendgrid_key():
+        count = 0
+        for to_email, subject, html_content in emails:
+            try:
+                _send_via_sendgrid(to_email, subject, html_content)
+                count += 1
+            except Exception as e:
+                logger.warning(f"SendGrid failed for {to_email} | error={e}")
+        if count > 0:
+            return count
+        logger.warning("SendGrid failed for all emails, falling back to SMTP")
+
+    # SMTP batch: single connection for all emails
+    if not (settings.smtp_user and settings.smtp_password):
+        logger.warning("No email provider configured for batch send")
+        return 0
+
+    count = 0
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+            server.starttls()
+            server.login(settings.smtp_user, settings.smtp_password)
+
+            for to_email, subject, html_content in emails:
+                try:
+                    msg = MIMEMultipart("alternative")
+                    msg["From"] = formataddr(("ClassBridge", settings.smtp_user.strip()))
+                    msg["To"] = to_email.strip()
+                    msg["Subject"] = subject
+                    msg.attach(MIMEText(html_content, "html"))
+                    server.send_message(msg)
+                    count += 1
+                    logger.info(f"Batch email sent to {to_email}")
+                except Exception as e:
+                    logger.warning(f"Failed to send batch email to {to_email} | error={e}")
+    except Exception as e:
+        logger.error(f"SMTP connection failed for batch send | error={e}")
+
+    return count
 
 
 def _has_valid_sendgrid_key() -> bool:

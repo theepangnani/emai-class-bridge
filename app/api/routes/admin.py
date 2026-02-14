@@ -28,7 +28,7 @@ from app.schemas.admin import (
 from app.schemas.audit import AuditLogResponse, AuditLogList
 from app.schemas.user import UserResponse
 from app.services.audit_service import log_action
-from app.services.email_service import send_email_sync
+from app.services.email_service import send_email_sync, send_emails_batch
 
 logger = logging.getLogger(__name__)
 
@@ -291,18 +291,25 @@ def send_broadcast(
         ip_address=request.client.host if request.client else None,
     )
 
+    # Extract email data BEFORE commit (avoids N+1 lazy loads after expire_on_commit)
+    email_recipients = [
+        (user.email, user.full_name)
+        for user in active_users
+        if user.email
+    ]
+
     db.commit()
 
-    # Send emails synchronously (Cloud Run kills daemon threads after response)
-    email_count = 0
-    for user in active_users:
-        if user.email:
-            try:
-                html = _render_broadcast_email(data.subject, data.body, user.full_name)
-                if send_email_sync(user.email, f"ClassBridge: {data.subject}", html):
-                    email_count += 1
-            except Exception:
-                logger.warning("Failed to send broadcast email to user %s", user.id)
+    # Build email batch and send via single SMTP connection
+    email_batch = []
+    for email, name in email_recipients:
+        try:
+            html = _render_broadcast_email(data.subject, data.body, name)
+            email_batch.append((email, f"ClassBridge: {data.subject}", html))
+        except Exception:
+            logger.warning("Failed to render broadcast email for %s", email)
+
+    email_count = send_emails_batch(email_batch)
 
     broadcast.email_count = email_count
     db.commit()
