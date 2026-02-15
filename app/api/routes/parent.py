@@ -118,6 +118,10 @@ def get_parent_dashboard(
     today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
     today_end = today_start + timedelta(days=1)
 
+    def _aware(dt: datetime) -> datetime:
+        """Ensure a datetime is timezone-aware (SQLite may return naive)."""
+        return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
     # 1. Load children (eager-load user relationship)
     child_rows = (
         db.query(Student, parent_students.c.relationship_type)
@@ -248,9 +252,10 @@ def get_parent_dashboard(
                 continue
             course = next((c for c in courses if c.id == a.course_id), None)
             item = {"title": a.title, "type": "assignment", "course_name": course.name if course else "", "due_date": str(a.due_date)}
-            if a.due_date < today_start:
+            dd = _aware(a.due_date)
+            if dd < today_start:
                 overdue_items.append(item)
-            elif today_start <= a.due_date < today_end:
+            elif today_start <= dd < today_end:
                 due_today_items.append(item)
 
         child_highlights.append(ChildHighlight(
@@ -286,9 +291,9 @@ def get_parent_dashboard(
     for t in tasks:
         if t.is_completed:
             continue
-        if t.due_date and t.due_date < today_start:
+        if t.due_date and _aware(t.due_date) < today_start:
             total_overdue += 1
-        elif t.due_date and today_start <= t.due_date < today_end:
+        elif t.due_date and today_start <= _aware(t.due_date) < today_end:
             total_due_today += 1
 
     # Build task response dicts — batch-fetch all user IDs referenced by tasks
