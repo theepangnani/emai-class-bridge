@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { parentApi, googleApi, invitesApi, studyApi, tasksApi } from '../api/client';
 import { queueStudyGeneration } from './StudyGuidesPage';
+import { isValidEmail } from '../utils/validation';
 import type { ChildSummary, ChildOverview, ParentDashboardData, DiscoveredChild, SupportedFormats, DuplicateCheckResponse, TaskItem, InviteResponse } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { PageSkeleton } from '../components/Skeleton';
@@ -231,6 +232,10 @@ export function ParentDashboard() {
     if (!createChildName.trim()) return;
     setCreateChildError('');
     setCreateChildInviteLink('');
+    if (createChildEmail.trim() && !isValidEmail(createChildEmail.trim())) {
+      setCreateChildError('Please enter a valid email address');
+      return;
+    }
     setCreateChildLoading(true);
     try {
       const result = await parentApi.createChild(
@@ -255,6 +260,10 @@ export function ParentDashboard() {
     if (!linkEmail.trim()) return;
     setLinkError('');
     setLinkInviteLink('');
+    if (!isValidEmail(linkEmail.trim())) {
+      setLinkError('Please enter a valid email address');
+      return;
+    }
     setLinkLoading(true);
     try {
       const result = await parentApi.linkChild(linkEmail.trim(), linkRelationship, linkName.trim() || undefined);
@@ -273,6 +282,10 @@ export function ParentDashboard() {
 
   const handleInviteStudent = async () => {
     if (!inviteEmail.trim()) return;
+    if (!isValidEmail(inviteEmail.trim())) {
+      setInviteError('Please enter a valid email address');
+      return;
+    }
     setInviteError('');
     setInviteSuccess('');
     setInviteLoading(true);
@@ -431,6 +444,10 @@ export function ParentDashboard() {
 
   const handleEditChild = async () => {
     if (!editChild || !editChildName.trim()) return;
+    if (editChildEmail.trim() && !isValidEmail(editChildEmail.trim())) {
+      setEditChildError('Please enter a valid email address');
+      return;
+    }
     setEditChildLoading(true);
     setEditChildError('');
     try {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isValidEmail } from '../utils/validation';
 import './Auth.css';
 
 export function Register() {
@@ -65,6 +66,11 @@ export function Register() {
 
     if (formData.roles.length === 0) {
       setError('Please select at least one role');
+      return;
+    }
+
+    if (!isValidEmail(formData.email)) {
+      setError('Please enter a valid email address');
       return;
     }
 

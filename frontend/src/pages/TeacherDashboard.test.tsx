@@ -401,7 +401,7 @@ describe('TeacherDashboard', () => {
     await user.click(screen.getByRole('button', { name: 'Send Invitation' }))
 
     await waitFor(() => {
-      expect(screen.getByText('Invalid email')).toBeInTheDocument()
+      expect(screen.getByText('Please enter a valid email address')).toBeInTheDocument()
     })
   })
 

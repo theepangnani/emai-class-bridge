@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import date, datetime
 from typing import Optional
 
@@ -8,12 +8,12 @@ from app.schemas.assignment import AssignmentResponse
 
 class CreateChildRequest(BaseModel):
     full_name: str
-    email: str | None = None
+    email: EmailStr | None = None
     relationship_type: str = "guardian"
 
 
 class LinkChildRequest(BaseModel):
-    student_email: str
+    student_email: EmailStr
     full_name: str | None = None
     relationship_type: str = "guardian"
 
@@ -67,7 +67,7 @@ class CourseWithTeacher(CourseResponse):
 
 class ChildUpdateRequest(BaseModel):
     full_name: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     grade_level: Optional[int] = None
     school_name: Optional[str] = None
     date_of_birth: Optional[date] = None
@@ -106,7 +106,7 @@ class ChildHighlight(BaseModel):
 
 
 class LinkTeacherRequest(BaseModel):
-    teacher_email: str
+    teacher_email: EmailStr
     teacher_name: str | None = None
 
 

@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel as PydanticBaseModel
+from pydantic import BaseModel as PydanticBaseModel, EmailStr
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 
@@ -290,7 +290,7 @@ def resend_invite(
 
 
 class _InviteParentRequest(PydanticBaseModel):
-    parent_email: str
+    parent_email: EmailStr
 
 
 @router.post("/invite-parent")

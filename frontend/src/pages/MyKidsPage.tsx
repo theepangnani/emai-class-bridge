@@ -5,6 +5,7 @@ import type { ChildSummary, ChildOverview, CourseContentItem, TaskItem, LinkedTe
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useConfirm } from '../components/ConfirmModal';
 import { PageSkeleton } from '../components/Skeleton';
+import { isValidEmail } from '../utils/validation';
 import './MyKidsPage.css';
 
 const CHILD_COLORS = [
@@ -416,6 +417,10 @@ export function MyKidsPage() {
                 className="mykids-modal-submit generate-btn"
                 disabled={addTeacherLoading || !teacherEmail.trim()}
                 onClick={async () => {
+                  if (!isValidEmail(teacherEmail.trim())) {
+                    setAddTeacherError('Please enter a valid email address');
+                    return;
+                  }
                   setAddTeacherLoading(true);
                   setAddTeacherError('');
                   try {

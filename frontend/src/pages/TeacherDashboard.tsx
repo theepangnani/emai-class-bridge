@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { coursesApi, googleApi, invitesApi } from '../api/client';
 import type { GoogleAccount, InviteResponse } from '../api/client';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { isValidEmail } from '../utils/validation';
 import { PageSkeleton } from '../components/Skeleton';
 import './TeacherDashboard.css';
 
@@ -185,6 +186,10 @@ export function TeacherDashboard() {
 
   const handleInviteParent = async () => {
     if (!inviteParentEmail.trim()) return;
+    if (!isValidEmail(inviteParentEmail.trim())) {
+      setInviteError('Please enter a valid email address');
+      return;
+    }
     setInviteLoading(true);
     setInviteError('');
     setInviteSuccess('');
