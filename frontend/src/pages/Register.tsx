@@ -71,8 +71,7 @@ export function Register() {
       navigate('/onboarding');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      const showDetails = import.meta.env.VITE_SHOW_ERROR_DETAILS !== 'false';
-      if (detail && showDetails) {
+      if (detail) {
         setError(detail);
       } else {
         setError('Registration failed. Please try again.');

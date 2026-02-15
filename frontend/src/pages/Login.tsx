@@ -45,8 +45,7 @@ export function Login() {
       navigate('/dashboard');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
-      const showDetails = import.meta.env.VITE_SHOW_ERROR_DETAILS !== 'false';
-      if (detail && showDetails) {
+      if (detail) {
         setError(detail);
       } else {
         setError('Login failed. Please check your credentials.');
