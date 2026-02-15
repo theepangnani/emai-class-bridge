@@ -11,8 +11,6 @@ export function Register() {
     password: '',
     confirmPassword: '',
     full_name: '',
-    roles: [] as string[],
-    teacher_type: '',
   });
   const [googleData, setGoogleData] = useState<{
     google_id: string;
@@ -42,32 +40,13 @@ export function Register() {
 
   const isGoogleSignup = googleData !== null;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleRoleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const role = e.target.name;
-    const isChecked = e.target.checked;
-
-    setFormData(prev => ({
-      ...prev,
-      roles: isChecked
-        ? [...prev.roles, role]
-        : prev.roles.filter(r => r !== role),
-      // Clear teacher_type if teacher unchecked
-      teacher_type: (!isChecked && role === 'teacher') ? '' : prev.teacher_type,
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (formData.roles.length === 0) {
-      setError('Please select at least one role');
-      return;
-    }
 
     if (!isValidEmail(formData.email)) {
       setError('Please enter a valid email address');
@@ -79,11 +58,6 @@ export function Register() {
       return;
     }
 
-    if (formData.roles.includes('teacher') && !formData.teacher_type) {
-      setError('Please select a teacher type');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -91,13 +65,10 @@ export function Register() {
         email: formData.email,
         password: formData.password,
         full_name: formData.full_name,
-        roles: formData.roles,
-        ...(formData.roles.includes('teacher') && formData.teacher_type
-          ? { teacher_type: formData.teacher_type }
-          : {}),
+        roles: [],
         ...(googleData || {}),
       });
-      navigate('/dashboard');
+      navigate('/onboarding');
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       const showDetails = import.meta.env.VITE_SHOW_ERROR_DETAILS !== 'false';
@@ -149,56 +120,6 @@ export function Register() {
               disabled={isGoogleSignup}
             />
           </div>
-
-          <div className="form-group">
-            <label>Select Role(s) *</label>
-            <div className="checkbox-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="parent"
-                  checked={formData.roles.includes('parent')}
-                  onChange={handleRoleChange}
-                />
-                Parent / Guardian
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="student"
-                  checked={formData.roles.includes('student')}
-                  onChange={handleRoleChange}
-                />
-                Student
-              </label>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  name="teacher"
-                  checked={formData.roles.includes('teacher')}
-                  onChange={handleRoleChange}
-                />
-                Teacher
-              </label>
-            </div>
-          </div>
-
-          {formData.roles.includes('teacher') && (
-            <div className="form-group">
-              <label htmlFor="teacher_type">Teacher Type *</label>
-              <select
-                id="teacher_type"
-                name="teacher_type"
-                value={formData.teacher_type}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select type...</option>
-                <option value="school_teacher">School Teacher</option>
-                <option value="private_tutor">Private Tutor</option>
-              </select>
-            </div>
-          )}
 
           <div className="form-group">
             <label htmlFor="password">Password</label>

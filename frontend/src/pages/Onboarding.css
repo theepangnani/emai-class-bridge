@@ -1,0 +1,153 @@
+.onboarding-card {
+  max-width: 480px;
+}
+
+.onboarding-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.role-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px 20px;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  font-family: inherit;
+  color: var(--color-ink);
+}
+
+.role-card:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface-alt);
+}
+
+.role-card--selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light, rgba(13, 101, 179, 0.08));
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.role-card--parent {
+  /* Slightly larger to emphasize parent-first */
+  padding: 20px;
+}
+
+.role-card__icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.role-card__label {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.role-card__desc {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+}
+
+.role-card__badge {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-accent-strong);
+  background: var(--color-accent-light, rgba(13, 101, 179, 0.1));
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Teacher type sub-selection */
+.onboarding-teacher-type {
+  margin-bottom: 20px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.onboarding-teacher-type__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink);
+  margin: 0 0 10px 0;
+}
+
+.teacher-type-options {
+  display: flex;
+  gap: 12px;
+}
+
+.teacher-type-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  font-family: inherit;
+  color: var(--color-ink);
+}
+
+.teacher-type-btn:hover {
+  border-color: var(--color-accent);
+}
+
+.teacher-type-btn--selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light, rgba(13, 101, 179, 0.08));
+}
+
+.teacher-type-btn__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.teacher-type-btn__desc {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .onboarding-card {
+    max-width: 100%;
+  }
+
+  .role-card {
+    padding: 14px 16px;
+  }
+
+  .role-card--parent {
+    padding: 16px;
+  }
+
+  .teacher-type-options {
+    flex-direction: column;
+  }
+}

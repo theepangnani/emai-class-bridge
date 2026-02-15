@@ -10,7 +10,7 @@ from app.models.user import User, UserRole
 from app.models.teacher import Teacher, TeacherType
 from app.models.student import Student, parent_students, RelationshipType
 from app.models.invite import Invite, InviteType
-from app.schemas.user import UserCreate, UserResponse, Token, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.user import UserCreate, UserResponse, Token, ForgotPasswordRequest, ResetPasswordRequest, OnboardingRequest
 from app.schemas.invite import AcceptInviteRequest
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_refresh_token, validate_password_strength, create_password_reset_token, decode_password_reset_token, UNUSABLE_PASSWORD_HASH
 from app.api.deps import get_current_user, oauth2_scheme
@@ -28,8 +28,8 @@ _ALLOWED_REGISTRATION_ROLES = {UserRole.PARENT, UserRole.STUDENT, UserRole.TEACH
 @router.post("/register", response_model=UserResponse)
 @limiter.limit("3/minute")
 def register(user_data: UserCreate, request: Request, db: Session = Depends(get_db)):
-    # Block admin self-registration
-    if user_data.role not in _ALLOWED_REGISTRATION_ROLES:
+    # Block admin self-registration (only when roles are provided)
+    if user_data.role and user_data.role not in _ALLOWED_REGISTRATION_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This role cannot be self-registered",
@@ -59,13 +59,17 @@ def register(user_data: UserCreate, request: Request, db: Session = Depends(get_
             google_access_token = pending["access_token"]
             google_refresh_token = pending.get("refresh_token")
 
+    # Determine if this is a roleless registration (onboarding deferred)
+    has_roles = bool(user_data.roles)
+
     # Create new user
     user = User(
         email=user_data.email,
         hashed_password=get_password_hash(user_data.password),
         full_name=user_data.full_name,
-        role=user_data.role,
-        roles=",".join(r.value for r in user_data.roles),
+        role=user_data.role if has_roles else None,
+        roles=",".join(r.value for r in user_data.roles) if has_roles else "",
+        needs_onboarding=not has_roles,
         google_id=user_data.google_id,
         google_access_token=google_access_token,
         google_refresh_token=google_refresh_token,
@@ -73,18 +77,19 @@ def register(user_data: UserCreate, request: Request, db: Session = Depends(get_
     db.add(user)
     db.flush()
 
-    # Create all profile records for selected roles
-    from app.services.user_service import ensure_profile_records
-    ensure_profile_records(db, user)
+    # Create profile records only when roles are provided
+    if has_roles:
+        from app.services.user_service import ensure_profile_records
+        ensure_profile_records(db, user)
 
-    # Set teacher_type if teacher role and type provided
-    if UserRole.TEACHER in user_data.roles and user_data.teacher_type:
-        teacher = db.query(Teacher).filter(Teacher.user_id == user.id).first()
-        if teacher:
-            teacher.teacher_type = TeacherType(user_data.teacher_type)
+        # Set teacher_type if teacher role and type provided
+        if UserRole.TEACHER in user_data.roles and user_data.teacher_type:
+            teacher = db.query(Teacher).filter(Teacher.user_id == user.id).first()
+            if teacher:
+                teacher.teacher_type = TeacherType(user_data.teacher_type)
 
     log_action(db, user_id=user.id, action="create", resource_type="user", resource_id=user.id,
-               details={"role": user_data.role, "email": user_data.email},
+               details={"role": user_data.role, "email": user_data.email, "needs_onboarding": not has_roles},
                ip_address=request.client.host if request.client else None)
     db.commit()
     db.refresh(user)
@@ -96,6 +101,7 @@ def register(user_data: UserCreate, request: Request, db: Session = Depends(get_
         roles=[r.value for r in user.get_roles_list()],
         is_active=user.is_active,
         google_connected=bool(user.google_access_token),
+        needs_onboarding=user.needs_onboarding or False,
         created_at=user.created_at,
     )
 
@@ -394,3 +400,85 @@ def reset_password(body: ResetPasswordRequest, request: Request, db: Session = D
     db.commit()
 
     return {"message": "Password reset successfully. You can now sign in."}
+
+
+@router.post("/onboarding", response_model=UserResponse)
+def complete_onboarding(
+    body: OnboardingRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Complete user onboarding by setting role(s) after registration."""
+    # User must need onboarding
+    if not current_user.needs_onboarding:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Onboarding already completed",
+        )
+
+    # Validate at least one role
+    if not body.roles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one role is required",
+        )
+
+    # Parse and validate roles
+    valid_role_values = {r.value for r in _ALLOWED_REGISTRATION_ROLES}
+    for r in body.roles:
+        if r not in valid_role_values:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid or disallowed role: {r}",
+            )
+
+    roles = [UserRole(r) for r in body.roles]
+
+    # If teacher role, teacher_type is required
+    if UserRole.TEACHER in roles:
+        if not body.teacher_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Teacher type is required when selecting the teacher role",
+            )
+        if body.teacher_type not in ("school_teacher", "private_tutor"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid teacher type",
+            )
+
+    # Set roles on user
+    current_user.role = roles[0]
+    current_user.set_roles(roles)
+    current_user.needs_onboarding = False
+    db.flush()
+
+    # Create profile records
+    from app.services.user_service import ensure_profile_records
+    ensure_profile_records(db, current_user)
+
+    # Set teacher_type if applicable
+    if UserRole.TEACHER in roles and body.teacher_type:
+        teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
+        if teacher:
+            teacher.teacher_type = TeacherType(body.teacher_type)
+
+    log_action(db, user_id=current_user.id, action="onboarding_complete", resource_type="user",
+               resource_id=current_user.id,
+               details={"roles": body.roles, "teacher_type": body.teacher_type},
+               ip_address=request.client.host if request.client else None)
+    db.commit()
+    db.refresh(current_user)
+
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email or "",
+        full_name=current_user.full_name,
+        role=current_user.role,
+        roles=[r.value for r in current_user.get_roles_list()],
+        is_active=current_user.is_active,
+        google_connected=bool(current_user.google_access_token),
+        needs_onboarding=False,
+        created_at=current_user.created_at,
+    )
