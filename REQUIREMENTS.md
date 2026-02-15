@@ -1675,10 +1675,10 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Loading skeletons** — Reusable Skeleton components (Page, Card, List, Detail) replace Loading... text across 12 pages (#150) ✅
 - [x] **Accessibility (A11Y)** — ARIA labels on icon buttons, keyboard navigation for interactive elements, skip-to-content link, focus indicators (#151, #247) ✅ (IMPLEMENTED - Feb 2026, commit 120e065)
 - [ ] **Mobile responsiveness** — Calendar not optimized for mobile; tables don't scroll; modals overflow on small screens; no touch drag-drop (#152)
-- [ ] **FlashcardsPage stale closure bug** — `handleKeyDown` event listener captures stale state; arrow keys stop working after card flip (#153)
+- [x] **FlashcardsPage stale closure bug** — Fixed with useRef-based stable keyboard event handler (#153) ✅
 
 #### Testing Gaps (Tier 1)
-- [ ] **Frontend unit tests** — Zero frontend unit tests; no vitest/jest configured (#154)
+- [x] **Frontend unit tests** — 258 tests across 18 files (vitest) (#154) ✅
 - [ ] **Missing route tests** — No tests for: google_classroom, study, messages, notifications, teacher_communications, admin, invites, course_contents routes (#155)
 - [ ] **PostgreSQL test coverage** — Tests run on SQLite only; misses NOT NULL, Enum, and type divergences (e.g., users.email bug) (#156)
 
@@ -2438,6 +2438,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #361: Web: Monitoring and alerting setup for production~~ ✅
 - ~~Issue #362: Web: Pilot onboarding prep (welcome email, quick-start guide)~~ ✅
 - Issue #363: Web: Deploy freeze and dress rehearsal
+- ~~Issue #385: Create privacy policy and terms of service pages~~ ✅
 - Issue #265: Go live: Production deployment with custom domains
 - Issue #375: Mobile MVP: Device testing (iOS + Android via Expo Go) — code quality prep done, physical testing pending
 - Issue #376: March 6 Pilot Launch: Go-Live Checklist
@@ -2530,9 +2531,9 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #186: MEDIUM: Fix N+1 queries in messages, tasks, and parent routes~~ ✅ (fixed in #241)
 - ~~Issue #187: MEDIUM: Add cascading deletes and unique constraints~~ ✅
 - Issue #188: LOW: Replace deprecated dependencies (python-jose, PyPDF2, datetime.utcnow)
-- Issue #189: LOW: Add deployment pipeline tests and database backup strategy (backup strategy done in #353)
+- ~~Issue #189: LOW: Add deployment pipeline tests and database backup strategy~~ ✅ (backup strategy in #354, CI test gating verified)
 - Issue #190: LOW: Improve health check endpoint to verify database connectivity
-- Issue #191: LOW: Fix audit log silent failure and invite token reuse
+- ~~Issue #191: LOW: Fix audit log silent failure and invite token reuse~~ ✅ (audit SAVEPOINT in #392, invite with_for_update in #392)
 
 ### Architecture & DDD Migration
 - Issue #127: Split api/client.ts into domain-specific API modules
