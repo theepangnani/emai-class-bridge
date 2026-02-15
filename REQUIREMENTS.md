@@ -2352,6 +2352,11 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #256: Auto-create profiles on registration~~ ✅
 - ~~Issue #257: Multi-role registration with checkbox UI~~ ✅
 
+### Phase 1 - Implemented (Feb 15: Bug Fixes, Test Expansion & Backup Infrastructure)
+- ~~Issue #153: Fix FlashcardsPage stale closure bug in keyboard handler~~ ✅ (useRef pattern for stable keyboard event handler)
+- ~~Issue #154: Add frontend unit tests (vitest)~~ ✅ (75 new tests: FlashcardsPage 27, QuizPage 15, StudyGuidePage 13, TasksPage 20; total 258 frontend tests)
+- ~~Issue #353: Infrastructure: Database Backup & Disaster Recovery for Production~~ ✅ (daily backups 02:00 UTC, PITR 7-day, log-based metric + alert policy, 4 scripts + runbook)
+
 ### Phase 1 - Open
 - Issue #41: Multi-Google account support for teachers
 - Issue #42: Manual course creation for teachers
@@ -2425,8 +2430,9 @@ Current feature issues are tracked in GitHub:
 
 ### March 6 Pilot — Web Production Readiness (In Progress)
 - ~~Issue #354: Infrastructure: Database Backup & Disaster Recovery for Production~~ ✅
+- ~~Issue #353: Infrastructure: Database Backup & Disaster Recovery for Production~~ ✅ (duplicate of #354)
 - Issue #355: API Versioning Strategy: Options & Decision
-- Issue #358: Web: End-to-end testing on production
+- Issue #358: Web: End-to-end testing on production — smoke test script created (`scripts/smoke-test.py`), needs credentials for full run
 - Issue #359: Web: Performance validation with 50+ simulated users
 - ~~Issue #360: Web: Create pilot user accounts and demo data~~ ✅
 - ~~Issue #361: Web: Monitoring and alerting setup for production~~ ✅
@@ -2435,6 +2441,15 @@ Current feature issues are tracked in GitHub:
 - Issue #265: Go live: Production deployment with custom domains
 - Issue #375: Mobile MVP: Device testing (iOS + Android via Expo Go) — code quality prep done, physical testing pending
 - Issue #376: March 6 Pilot Launch: Go-Live Checklist
+
+**Pilot prep subtasks (parallelizable):**
+- Issue #396: Register custom domains with Cloud Run (depends on DNS access)
+- Issue #397: Update Google OAuth redirect URIs for production domain (depends on #396)
+- Issue #398: Create pilot user accounts and verify login
+- Issue #399: Run smoke-test.py against production with all 4 roles (depends on #398)
+- Issue #400: Verify SendGrid email delivery from production
+- Issue #401: Set Cloud Run min-instances=1 to avoid cold starts
+- Issue #402: Prepare Expo Go access instructions for pilot parents
 
 ### Mobile App — Post-Pilot (Phase 3-4, Open)
 - Issue #377: Phase 3: Add notification polling to mobile app
@@ -2497,8 +2512,8 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #150: Add loading skeletons to replace text loading states~~ ✅
 - Issue #151: Accessibility audit: aria labels, keyboard nav, skip-to-content
 - ~~Issue #152: Mobile responsive web: CSS breakpoints for 5+ pages~~ ✅
-- Issue #153: Fix FlashcardsPage stale closure bug in keyboard handler
-- Issue #154: Add frontend unit tests (vitest)
+- ~~Issue #153: Fix FlashcardsPage stale closure bug in keyboard handler~~ ✅
+- ~~Issue #154: Add frontend unit tests (vitest)~~ ✅ (258 frontend tests across 18 files)
 - ~~Issue #155: Add backend route tests for google, study, messages, notifications, admin, invites~~ ✅
 - Issue #156: Add PostgreSQL test environment to CI for cross-DB coverage
 
@@ -2515,7 +2530,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #186: MEDIUM: Fix N+1 queries in messages, tasks, and parent routes~~ ✅ (fixed in #241)
 - ~~Issue #187: MEDIUM: Add cascading deletes and unique constraints~~ ✅
 - Issue #188: LOW: Replace deprecated dependencies (python-jose, PyPDF2, datetime.utcnow)
-- Issue #189: LOW: Add deployment pipeline tests and database backup strategy
+- Issue #189: LOW: Add deployment pipeline tests and database backup strategy (backup strategy done in #353)
 - Issue #190: LOW: Improve health check endpoint to verify database connectivity
 - Issue #191: LOW: Fix audit log silent failure and invite token reuse
 
@@ -2536,6 +2551,7 @@ Current feature issues are tracked in GitHub:
 - Issue #13: ~~Deploy to GCP~~ (CLOSED)
 - Issue #14: Google OAuth verification
 - Issue #24: Register classbridge.ca domain
+- ~~Issue #353: Infrastructure: Database Backup & Disaster Recovery for Production~~ ✅
 
 ### Security & Hardening
 - ~~Issue #63: Require SECRET_KEY and fail fast if missing~~ ✅ (fixed in #179)

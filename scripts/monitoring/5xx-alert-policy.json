@@ -1,0 +1,32 @@
+{
+  "displayName": "ClassBridge: 5xx Error Rate",
+  "documentation": {
+    "content": "ClassBridge is returning 5xx errors. Check Cloud Run logs:\n\ngcloud logging read \"resource.type=cloud_run_revision AND resource.labels.service_name=classbridge AND severity>=ERROR\" --project=emai-dev-01 --limit=20",
+    "mimeType": "text/markdown"
+  },
+  "conditions": [
+    {
+      "displayName": "Cloud Run 5xx responses",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"classbridge\" AND metric.type = \"run.googleapis.com/request_count\" AND metric.labels.response_code_class = \"5xx\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_RATE"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": [
+    "projects/emai-dev-01/notificationChannels/6195366348465449860"
+  ]
+}

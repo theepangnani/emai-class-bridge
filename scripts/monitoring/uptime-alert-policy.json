@@ -1,0 +1,34 @@
+{
+  "displayName": "ClassBridge: Uptime Check Failed",
+  "documentation": {
+    "content": "ClassBridge /health endpoint is not responding. Check Cloud Run service status:\n\ngcloud run services describe classbridge --region=us-central1 --project=emai-dev-01",
+    "mimeType": "text/markdown"
+  },
+  "conditions": [
+    {
+      "displayName": "Health check failing",
+      "conditionThreshold": {
+        "filter": "resource.type = \"uptime_url\" AND metric.type = \"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id = \"classbridge-health-check-jZ1rrRJA5YY\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_NEXT_OLDER",
+            "crossSeriesReducer": "REDUCE_COUNT_FALSE",
+            "groupByFields": ["resource.label.host"]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 1,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": [
+    "projects/emai-dev-01/notificationChannels/6195366348465449860"
+  ]
+}
