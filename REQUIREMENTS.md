@@ -612,16 +612,16 @@ The platform uses ClassBridge logo files in multiple locations with theme-aware 
 - Favicon: `frontend/index.html:5` (`<link rel="icon">`)
 
 **Asset Optimization:**
-- Auth logo optimized to <100KB (was 363KB)
-- Header icon optimized to <50KB (was 406KB)
-- WebP format with PNG fallback for additional size savings
+- Auth logo (v6.1): 196KB - optimized for clarity and detail
+- Header icon (v7.1): 150KB - optimized for web performance
 - Multiple favicon formats for cross-browser/device support (PNG, ICO, SVG)
+- Transparent backgrounds work for both light and dark themes
 
 **File Locations:**
 - Source: `frontend/public/*.{png,ico,svg}`
 - Build output: `frontend/dist/*.{png,ico,svg}` (copied during build)
 
-**Status:** Phase 1.5 — Planned (#308)
+**Status:** Phase 1.5 — IMPLEMENTED (#308, #309) ✅ (Feb 2026, commits 619e42b, d7bb5ce)
 
 ### 6.16 Layout Redesign (turbo.ai-inspired) — PLANNED
 
@@ -869,10 +869,10 @@ Users can hold multiple roles simultaneously (e.g., a parent who is also a teach
 - [x] **Frontend: ProtectedRoute** — Checks all roles for route access, not just active role
 - [x] **Frontend: Role switcher** — Dropdown in DashboardLayout header (visible only with 2+ roles)
 
-#### Phase B — PLANNED
+#### Phase B — IN PROGRESS
 - [ ] **Admin role management UI** (#255) — Admin can add/remove roles for any user from the admin portal, with checkbox modal and auto-creation of profile records
-- [ ] **Auto-create profile records** (#256) — When adding teacher/student roles, auto-create Teacher/Student records if missing; preserve data on role removal
-- [ ] **Multi-role registration** (#257) — Checkbox role selection during signup instead of single dropdown
+- [x] **Auto-create profile records** (#256) — When adding teacher/student roles, auto-create Teacher/Student records if missing; preserve data on role removal (IMPLEMENTED - Feb 2026, commit 120e065)
+- [x] **Multi-role registration** (#257) — Checkbox role selection during signup instead of single dropdown (IMPLEMENTED - Feb 2026, commit 120e065)
 - [ ] **Admin as multi-role** — Admin users can simultaneously hold parent, teacher, and/or student roles, accessing all corresponding dashboards and features via the role switcher
 - [ ] Merged data views (combined parent+teacher data on single dashboard)
 
@@ -1673,7 +1673,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [x] **Toast notification system** — Global ToastProvider with success/error/info types, auto-dismiss, click-to-dismiss (#148) ✅
 - [ ] **Token refresh** — JWT tokens expire without refresh mechanism; users lose work and get silently redirected to login (#149)
 - [x] **Loading skeletons** — Reusable Skeleton components (Page, Card, List, Detail) replace Loading... text across 12 pages (#150) ✅
-- [ ] **Accessibility (A11Y)** — Missing aria-labels on icon buttons, no keyboard nav for modals/dropdowns, no skip-to-content link, color-only indicators (#151)
+- [x] **Accessibility (A11Y)** — ARIA labels on icon buttons, keyboard navigation for interactive elements, skip-to-content link, focus indicators (#151, #247) ✅ (IMPLEMENTED - Feb 2026, commit 120e065)
 - [ ] **Mobile responsiveness** — Calendar not optimized for mobile; tables don't scroll; modals overflow on small screens; no touch drag-drop (#152)
 - [ ] **FlashcardsPage stale closure bug** — `handleKeyDown` event listener captures stale state; arrow keys stop working after card flip (#153)
 
