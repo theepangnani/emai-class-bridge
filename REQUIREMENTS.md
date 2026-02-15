@@ -2456,6 +2456,13 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #386: Create pilot user accounts and seed demo data~~ ✅
 - ~~Issue #387: Pilot onboarding: Welcome email and setup guide~~ ✅
 - ~~Issue #389: Marketing: Landing page for limited launch~~ ✅
+- ~~Issue #409: Email branding: Add ClassBridge logo to all email templates~~ ✅
+- ~~Issue #410: Email branding: Unify color theme across all email templates~~ ✅
+- ~~Issue #321: Enhance health endpoint with version info~~ ✅
+- ~~Issue #359: Performance validation with load test script~~ ✅
+- ~~Issue #363: Deploy freeze and dress rehearsal~~ ✅
+- ~~Issue #376: March 6 Pilot Launch: Go-Live Checklist~~ ✅
+- ~~Issue #408: Email format validation on all input fields~~ ✅
 
 ### Mobile App — Post-Pilot (Phase 3-4, Open)
 - Issue #377: Phase 3: Add notification polling to mobile app
