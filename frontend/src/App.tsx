@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ComponentType } from 'react';
+import { Suspense, lazy, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -59,6 +59,7 @@ const ResetPasswordPage = lazyRetry(() => import('./pages/ResetPasswordPage').th
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy })));
 const TermsOfService = lazyRetry(() => import('./pages/TermsOfService').then((m) => ({ default: m.TermsOfService })));
 const LandingPage = lazyRetry(() => import('./pages/LandingPage').then((m) => ({ default: m.LandingPage })));
+const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,6 +85,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/onboarding" element={<OnboardingGuard><OnboardingPage /></OnboardingGuard>} />
               <Route path="/accept-invite" element={<AcceptInvite />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -224,9 +226,18 @@ function App() {
   );
 }
 
+function OnboardingGuard({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <PageLoader />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.needs_onboarding) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 function HomeRedirect() {
   const { user, isLoading } = useAuth();
   if (isLoading) return <PageLoader />;
+  if (user && user.needs_onboarding) return <Navigate to="/onboarding" replace />;
   if (user) return <Navigate to="/dashboard" replace />;
   return <LandingPage />;
 }

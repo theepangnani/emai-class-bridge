@@ -22,6 +22,7 @@ def _user_response(user: User) -> UserResponse:
         roles=[r.value for r in user.get_roles_list()],
         is_active=user.is_active,
         google_connected=bool(user.google_access_token),
+        needs_onboarding=user.needs_onboarding or False,
         created_at=user.created_at,
     )
 

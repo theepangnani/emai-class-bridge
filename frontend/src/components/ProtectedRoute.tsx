@@ -21,8 +21,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/login" replace />;
   }
 
+  // Redirect users who need onboarding
+  if (user.needs_onboarding) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   if (allowedRoles) {
-    const userRoles = user.roles?.length ? user.roles : [user.role];
+    const userRoles = user.roles?.length ? user.roles : (user.role ? [user.role] : []);
     if (!userRoles.some(r => allowedRoles.includes(r))) {
       return <Navigate to="/dashboard" replace />;
     }

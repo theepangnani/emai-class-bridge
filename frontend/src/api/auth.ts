@@ -47,4 +47,12 @@ export const authApi = {
     const response = await api.post('/api/auth/reset-password', { token, new_password });
     return response.data as { message: string };
   },
+
+  completeOnboarding: async (roles: string[], teacherType?: string) => {
+    const response = await api.post('/api/auth/onboarding', {
+      roles,
+      ...(teacherType ? { teacher_type: teacherType } : {}),
+    });
+    return response.data;
+  },
 };

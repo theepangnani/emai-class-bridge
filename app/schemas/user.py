@@ -18,15 +18,15 @@ class UserCreate(BaseModel):
         # If roles list is empty, use single role field
         if not self.roles and self.role:
             self.roles = [self.role]
-        elif not self.roles:
-            raise ValueError("At least one role is required")
+        # No roles provided = roleless registration (onboarding deferred)
+        # This is valid — user will complete onboarding post-login
 
         # Prevent self-assigned admin
         if UserRole.ADMIN in self.roles:
             raise ValueError("Admin role cannot be self-registered")
 
         # Set primary role (first in list becomes active role)
-        if not self.role:
+        if self.roles and not self.role:
             self.role = self.roles[0]
 
         return self
@@ -41,10 +41,11 @@ class UserResponse(BaseModel):
     id: int
     email: str | None = None
     full_name: str
-    role: UserRole
+    role: UserRole | None = None
     roles: list[str] = []
     is_active: bool
     google_connected: bool = False
+    needs_onboarding: bool = False
     created_at: datetime
 
     @field_validator("roles", mode="before")
@@ -77,3 +78,8 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
+
+
+class OnboardingRequest(BaseModel):
+    roles: list[str]
+    teacher_type: str | None = None

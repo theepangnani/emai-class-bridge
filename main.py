@@ -279,6 +279,27 @@ with engine.connect() as conn:
             logger.info("Added 'archived_at' column to study_guides")
         conn.commit()
 
+    # ── users: needs_onboarding column (#412) ───────────────────
+    if "users" in inspector.get_table_names():
+        existing_cols = {c["name"] for c in inspector.get_columns("users")}
+        if "needs_onboarding" not in existing_cols:
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN needs_onboarding BOOLEAN DEFAULT FALSE"))
+                logger.info("Added 'needs_onboarding' column to users")
+            except Exception:
+                conn.rollback()
+        conn.commit()
+
+    # ── users: make role column nullable (#412) ───────────────
+    if "sqlite" not in settings.database_url:
+        if "users" in inspector.get_table_names():
+            try:
+                conn.execute(text("ALTER TABLE users ALTER COLUMN role DROP NOT NULL"))
+                logger.info("Made 'role' nullable on users table")
+            except Exception:
+                conn.rollback()
+            conn.commit()
+
     # ── audit_logs migrations ────────────────────────────────────
     if "audit_logs" in inspector.get_table_names():
         existing_cols = {c["name"] for c in inspector.get_columns("audit_logs")}

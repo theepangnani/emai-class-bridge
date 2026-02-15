@@ -5,10 +5,11 @@ interface User {
   id: number;
   email: string;
   full_name: string;
-  role: string;
+  role: string | null;
   roles: string[];
   is_active: boolean;
   google_connected: boolean;
+  needs_onboarding: boolean;
 }
 
 interface AuthContextType {
@@ -20,6 +21,8 @@ interface AuthContextType {
   register: (data: { email: string; password: string; full_name: string; roles: string[]; teacher_type?: string; [key: string]: string | string[] | undefined }) => Promise<void>;
   logout: () => void;
   switchRole: (role: string) => Promise<void>;
+  completeOnboarding: (roles: string[], teacherType?: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,8 +85,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
+  const completeOnboarding = async (roles: string[], teacherType?: string) => {
+    const userData = await authApi.completeOnboarding(roles, teacherType);
+    setUser(userData);
+  };
+
+  const refreshUser = async () => {
+    const userData = await authApi.getMe();
+    setUser(userData);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, loginWithToken, register, logout, switchRole }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, loginWithToken, register, logout, switchRole, completeOnboarding, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
