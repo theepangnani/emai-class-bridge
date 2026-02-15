@@ -1,6 +1,6 @@
-# /emai-req - ClassBridge Requirement Review & Management
+# /emai-req - ClassBridge Requirement Review & Planning
 
-Review, analyze, and track requirements for the ClassBridge (EMAI) platform with feedback, feasibility assessment, priority/phase recommendations, GitHub issue creation, and REQUIREMENTS.md updates.
+Review, analyze, and plan requirements for the ClassBridge (EMAI) platform with feedback, feasibility assessment, priority/phase recommendations, GitHub issue creation, REQUIREMENTS.md updates, and detailed implementation planning. **Does not include coding** — ends at planning stage.
 
 ## Usage
 
@@ -14,6 +14,8 @@ Examples:
 ## Instructions
 
 Follow all 8 steps in order. Present findings to the user at each major checkpoint.
+
+**IMPORTANT:** This skill is for requirement analysis and planning ONLY. It ends after creating a detailed implementation plan and updating GitHub issues. DO NOT proceed to coding — implementation should be done separately after plan review.
 
 ---
 
@@ -258,44 +260,133 @@ Next steps:
 
 ---
 
-### Step 8: Implement Changes
+### Step 8: Create Design and Implementation Plan
 
-After REQUIREMENTS.md and GitHub issues are created/updated, implement the requirement:
+After REQUIREMENTS.md and GitHub issues are created/updated, create a detailed design and implementation plan:
 
-1. **Follow the implementation plan** from the analysis (Step 2/5)
-2. **Backend first**: Models → Schemas → Services → Routes
-3. **Frontend second**: API client → Components → Pages → CSS
-4. **Always create or update unit tests** for backend changes:
-   - Add test file in `tests/` if new endpoint/feature
-   - Update existing test file if modifying existing behavior
-   - Run `python -m pytest tests/ -x -q` to verify all tests pass
-5. **Build frontend** after changes: `npm run build` in `frontend/`
-6. **Commit and push** with descriptive commit message referencing the issue number
-7. **Close GitHub issues** that are fully implemented:
-   ```bash
-   gh issue close <number> --comment "Implemented in <commit-hash>."
+1. **Architecture & Design Decisions**:
+   - Database schema changes (new tables, columns, indexes, migrations)
+   - API contract design (endpoints, request/response schemas, status codes)
+   - Frontend component hierarchy and data flow
+   - State management approach (local state, context, query cache)
+   - Security considerations (auth, authorization, data validation)
+   - Performance optimization strategies (caching, pagination, eager loading)
+
+2. **Implementation Sequence**:
+   - **Backend** (in order):
+     - [ ] Database migration in `main.py` startup block
+     - [ ] SQLAlchemy models in `app/models/`
+     - [ ] Pydantic schemas in `app/schemas/`
+     - [ ] Service layer logic in `app/services/`
+     - [ ] API routes in `app/api/routes/`
+     - [ ] Unit tests in `tests/`
+   - **Frontend** (in order):
+     - [ ] API client methods in `frontend/src/api/client.ts`
+     - [ ] Shared components in `frontend/src/components/`
+     - [ ] Page components in `frontend/src/pages/`
+     - [ ] CSS styling updates
+     - [ ] Integration points with existing features
+
+3. **File-by-File Plan**:
+   List each file to be created/modified with specific changes:
+   ```
+   File: app/models/example.py
+   Action: CREATE
+   Changes:
+     - Add ExampleModel with fields: id, name, user_id, created_at
+     - Add relationship to User model
+     - Include __repr__ for debugging
+
+   File: app/api/routes/example.py
+   Action: MODIFY
+   Changes:
+     - Add POST /api/examples endpoint
+     - Add GET /api/examples/{id} endpoint
+     - Implement role-based access control
    ```
 
-**After implementation, report:**
+4. **Testing Strategy**:
+   - Unit test coverage plan (models, schemas, services, routes)
+   - Integration test scenarios (API endpoint flows)
+   - Frontend component test plan (if applicable)
+   - Manual testing checklist (user flows, edge cases)
+
+5. **Risks & Mitigation**:
+   - Identify potential breaking changes
+   - Database migration rollback plan
+   - Cross-DB compatibility verification steps
+   - Performance testing requirements
+
+**Update GitHub issues** with the detailed implementation plan:
+```bash
+gh issue edit <number> --body "$(cat <<'EOF'
+[existing content]
+
+## Detailed Implementation Plan
+
+### Architecture Decisions
+- <decision 1>
+- <decision 2>
+
+### Implementation Sequence
+**Backend:**
+- [ ] Migration: <description>
+- [ ] Model: <description>
+- [ ] Schema: <description>
+- [ ] Service: <description>
+- [ ] Route: <description>
+- [ ] Tests: <description>
+
+**Frontend:**
+- [ ] API client: <description>
+- [ ] Component: <description>
+- [ ] Page: <description>
+- [ ] CSS: <description>
+
+### File Changes
+- `app/models/example.py` (CREATE): <changes>
+- `app/api/routes/example.py` (MODIFY): <changes>
+
+### Testing Plan
+- <test scenario 1>
+- <test scenario 2>
+
+### Risks
+- <risk + mitigation>
+EOF
+)"
+```
+
+**After planning, report:**
 
 ```
 ============================================
-  REQUIREMENT IMPLEMENTED
+  DESIGN & IMPLEMENTATION PLAN CREATED
 ============================================
 
-Files changed:
-  - <file path> (new/modified)
+ARCHITECTURE DECISIONS
+  - <key decision 1>
+  - <key decision 2>
 
-Tests: <N> passed, <N> failed
-Build: <clean/errors>
+FILES TO BE CHANGED
+  - CREATE: <file> — <purpose>
+  - MODIFY: <file> — <purpose>
 
-Commits:
-  - <hash>: <message>
+IMPLEMENTATION SEQUENCE
+  Backend: <N> steps
+  Frontend: <N> steps
+  Tests: <N> scenarios
 
-Issues closed:
-  - #<number>: <title>
+GITHUB ISSUES UPDATED
+  - #<number>: Added detailed implementation plan
+
+READY FOR IMPLEMENTATION
+  The requirement is fully analyzed, tracked, and planned.
+  Implementation can proceed following the detailed plan.
 ============================================
 ```
+
+**DO NOT START CODING.** The skill ends here. Implementation should be done separately after plan review.
 
 ---
 

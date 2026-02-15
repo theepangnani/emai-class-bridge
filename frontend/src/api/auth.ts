@@ -13,7 +13,7 @@ export const authApi = {
     return response.data;
   },
 
-  register: async (data: { email: string; password: string; full_name: string; role: string; teacher_type?: string; google_id?: string }) => {
+  register: async (data: { email: string; password: string; full_name: string; roles: string[]; teacher_type?: string; google_id?: string }) => {
     const response = await api.post('/api/auth/register', data);
     return response.data;
   },

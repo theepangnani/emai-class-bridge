@@ -589,6 +589,40 @@ The platform supports three visual themes that users can switch between via a to
 - Brand colors (Google)
 - Shadows, radii, overlays, gradients
 
+#### 6.15.1 Logo & Branding Assets (Phase 1.5)
+
+The platform uses ClassBridge logo files in multiple locations with theme-aware rendering via transparent backgrounds.
+
+**Logo Types:**
+
+| Logo Type | File | Usage | Dimensions | Theme Support |
+|-----------|------|-------|-----------|---------------|
+| Auth Logo | `classbridge-logo.png` | Login, Register, ForgotPassword, ResetPassword, AcceptInvite pages | max-width: 200px | Transparent BG works for all themes |
+| Header Icon | `logo-icon.png` | DashboardLayout header (all dashboards) | height: 48px | Transparent BG works for all themes |
+| Favicon | `favicon.png`, `favicon-192.png`, `favicon.ico`, `favicon.svg` | Browser tab, PWA icon, bookmarks | 16x16, 32x32, 48x48, 192x192 | N/A |
+
+**Theme Handling:**
+- CSS uses `content: url()` to swap images based on `[data-theme]` attribute
+- Current implementation swaps between `-logo.png` and `-logo-dark.png` variants
+- New logo files have transparent backgrounds, so same file works for all themes (light/dark/focus)
+
+**Implementation Details:**
+- Auth logo: `Auth.css:21-30` (`.auth-logo` class with dark mode swap)
+- Header icon: `Dashboard.css:25-34` (`.header-logo` class with dark mode swap)
+- Favicon: `frontend/index.html:5` (`<link rel="icon">`)
+
+**Asset Optimization:**
+- Auth logo optimized to <100KB (was 363KB)
+- Header icon optimized to <50KB (was 406KB)
+- WebP format with PNG fallback for additional size savings
+- Multiple favicon formats for cross-browser/device support (PNG, ICO, SVG)
+
+**File Locations:**
+- Source: `frontend/public/*.{png,ico,svg}`
+- Build output: `frontend/dist/*.{png,ico,svg}` (copied during build)
+
+**Status:** Phase 1.5 — Planned (#308)
+
 ### 6.16 Layout Redesign (turbo.ai-inspired) — PLANNED
 
 A layout overhaul inspired by modern SaaS dashboards (turbo.ai), addressing prototype user feedback.
@@ -2083,6 +2117,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #174: Global search: backend unified search endpoint~~ ✅
 - ~~Issue #175: Global search: frontend search component in DashboardLayout~~ ✅
 - ~~Issue #152: Mobile responsive web: CSS breakpoints for 5+ pages~~ ✅
+- Issue #308: Update ClassBridge logo and favicon assets
 - Issue #195: AI auto-task creation: extract critical dates from generated course materials
 - Issue #96: Student email identity merging (personal + school email)
 - Issue #45: Extend calendar to other roles (student, teacher) with role-aware data (parent calendar done in #97)
