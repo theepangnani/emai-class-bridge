@@ -2454,6 +2454,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #402: Prepare Expo Go access instructions for pilot parents~~ ✅
 - ~~Issue #406: Update documentation with production URL (classbridge.ca)~~ ✅
 - ~~Issue #386: Create pilot user accounts and seed demo data~~ ✅
+- ~~Issue #387: Pilot onboarding: Welcome email and setup guide~~ ✅
 
 ### Mobile App — Post-Pilot (Phase 3-4, Open)
 - Issue #377: Phase 3: Add notification polling to mobile app

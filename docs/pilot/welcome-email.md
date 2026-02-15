@@ -56,3 +56,99 @@ The ClassBridge Team
 ---
 
 *You're receiving this email because you've been enrolled in the ClassBridge pilot program at {SCHOOL_NAME}. If you believe this was sent in error, please contact us at support@classbridge.ca.*
+
+---
+---
+
+# Teacher Welcome Email Template
+
+**Subject:** Welcome to ClassBridge — Teacher Access
+
+---
+
+Hi {TEACHER_FIRST_NAME},
+
+Thank you for participating in the ClassBridge pilot! You'll be using ClassBridge to communicate with parents and manage assignment visibility during the pilot period (March 6–20, 2026).
+
+## Getting Started
+
+Visit **https://www.classbridge.ca** and log in with the credentials below.
+
+## Your Account
+
+- **Email:** {TEACHER_EMAIL}
+- **Temporary Password:** {TEMP_PASSWORD}
+
+Please change your password after your first login from your Profile page.
+
+## What You Can Do
+
+- **View your courses and assignments** synced from Google Classroom
+- **Message parents** about their child's progress
+- **See notifications** for new messages and parent replies
+- **Connect Google Classroom** to auto-sync your courses (Settings → Google Classroom)
+
+## Good to Know
+
+- The mobile app is currently **parent-only** — teachers use the web version
+- Parents may message you through the app; you'll see these in your Messages inbox
+- The pilot runs from **March 6 to March 20, 2026**
+
+## Need Help?
+
+Email **support@classbridge.ca** — we'll respond within 24 hours during the pilot.
+
+Thank you for helping us make ClassBridge better!
+
+The ClassBridge Team
+
+---
+
+*You're receiving this email because you've been enrolled in the ClassBridge pilot program at {SCHOOL_NAME}.*
+
+---
+---
+
+# Student Welcome Email Template
+
+**Subject:** Welcome to ClassBridge — Student Access
+
+---
+
+Hi {STUDENT_FIRST_NAME},
+
+You've been added to the ClassBridge pilot at {SCHOOL_NAME}! ClassBridge helps you keep track of your assignments, due dates, and study tools — all in one place.
+
+## Getting Started
+
+Visit **https://www.classbridge.ca** and log in with the credentials below.
+
+## Your Account
+
+- **Email:** {STUDENT_EMAIL}
+- **Temporary Password:** {TEMP_PASSWORD}
+
+Please change your password after your first login from your Profile page.
+
+## What You Can Do
+
+- **See all your assignments** and due dates across courses
+- **Use AI study tools** — generate study guides, quizzes, and flashcards
+- **Track your tasks** with a personal to-do list
+- **View your calendar** to plan your week
+
+## Good to Know
+
+- The mobile app is currently **parent-only** — students use the web version at classbridge.ca
+- Your parent(s) can also see your assignments and communicate with your teachers
+- The pilot runs from **March 6 to March 20, 2026**
+
+## Need Help?
+
+Ask your parent or email **support@classbridge.ca**.
+
+The ClassBridge Team
+
+---
+
+*You're receiving this email because you've been enrolled in the ClassBridge pilot program at {SCHOOL_NAME}.*
