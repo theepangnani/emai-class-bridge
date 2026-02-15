@@ -377,6 +377,18 @@ with engine.connect() as conn:
 
     conn.commit()
 
+    # One-time data fix: correct known invalid email (#408)
+    try:
+        conn.execute(text(
+            "UPDATE users SET email = 'haashinik30@gmail.com' WHERE email = 'haashinik30@gmailcom'"
+        ))
+        conn.execute(text(
+            "UPDATE invites SET email = 'haashinik30@gmail.com' WHERE email = 'haashinik30@gmailcom'"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -486,7 +498,11 @@ logger.info("All routers registered")
 @app.get("/health")
 def health_check():
     logger.debug("Health check requested")
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "version": os.environ.get("APP_VERSION", "dev"),
+        "environment": settings.environment,
+    }
 
 
 @app.post("/api/errors/log")
