@@ -1503,6 +1503,44 @@ Verify new users' email addresses after registration using a "soft gate" approac
 - [x] Frontend: VerifyEmailPage, AuthContext, DashboardLayout banner, routing (#417)
 - [x] Tests: 11 backend tests covering all verification scenarios (#417)
 
+### 6.45 Show/Hide Password Toggle (Phase 1)
+
+Add a clickable eye icon to all password input fields across authentication pages, allowing users to toggle between masked (`••••••`) and visible (plain text) password display. This improves usability — especially on mobile — by letting users verify what they typed before submitting.
+
+**GitHub Issue:** #420
+
+**Affected Pages (4 pages, 7 password fields):**
+
+| Page | File | Fields |
+|------|------|--------|
+| Login | `Login.tsx` | Password (1) |
+| Register | `Register.tsx` | Password, Confirm Password (2) |
+| Reset Password | `ResetPasswordPage.tsx` | New Password, Confirm Password (2) |
+| Accept Invite | `AcceptInvite.tsx` | Password, Confirm Password (2) |
+
+**Implementation:**
+
+- **Toggle icon:** An eye icon (open = visible, closed/slash = hidden) positioned inside the input field on the right side
+- **Default state:** Password is hidden (`type="password"`)
+- **Toggle behavior:** Clicking the icon switches between `type="password"` and `type="text"`
+- **Independent toggles:** Each password field has its own independent show/hide state (e.g., toggling Password does not toggle Confirm Password)
+- **Accessibility:** Icon button has `aria-label="Show password"` / `aria-label="Hide password"` and is keyboard-focusable
+- **Styling:** Icon uses existing CSS variables for theming (works in light, dark, and focus modes). Input field gets `padding-right` to prevent text from overlapping the icon
+
+**Frontend Changes:**
+
+- **Reusable `PasswordInput` component** (or inline per page): wraps a standard `<input>` with a toggle button overlay
+- **CSS:** `.password-input-wrapper` with relative positioning; `.password-toggle-btn` absolutely positioned inside the input
+- **State:** `useState<boolean>(false)` per password field — `showPassword`, `showConfirmPassword`
+- **No backend changes required** — this is a purely frontend UX enhancement
+
+**Sub-tasks:**
+- [ ] Frontend: Add show/hide toggle to Login.tsx password field (#420)
+- [ ] Frontend: Add show/hide toggle to Register.tsx password + confirm fields (#420)
+- [ ] Frontend: Add show/hide toggle to ResetPasswordPage.tsx fields (#420)
+- [ ] Frontend: Add show/hide toggle to AcceptInvite.tsx fields (#420)
+- [ ] Tests: Update existing tests to verify toggle functionality (#420)
+
 ### 6.30 Role-Based Inspirational Messages (Phase 2) - IMPLEMENTED
 
 Replace the static "Welcome back" dashboard greeting with role-specific inspirational messages that rotate on each visit. Messages are maintained in JSON seed files and imported into the database. Admins can manage messages via the admin dashboard.
@@ -2516,6 +2554,7 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #183: Task Detail Page: link/unlink resources (courses, materials, study guides)~~ ✅
 - ~~Issue #193: Task list: click task row to navigate to task detail page~~ ✅
 - Issue #194: Rename 'Study Guide' to 'Course Material' across UI and navigation
+- Issue #420: Frontend: Add show/hide password toggle to all auth pages
 - ~~Issue #169: Color theme: Clean up hardcoded CSS colors (prerequisite for themes)~~ ✅
 - ~~Issue #170: Color theme: Dark mode (ThemeContext, ThemeToggle, dark palette)~~ ✅
 - ~~Issue #171: Color theme: Focus mode (muted warm tones for study sessions)~~ ✅

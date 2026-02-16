@@ -49,7 +49,7 @@ describe('Login', () => {
     renderWithProviders(<Login />)
 
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
   })
 
@@ -73,7 +73,7 @@ describe('Login', () => {
     renderWithProviders(<Login />)
 
     await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'password123')
+    await user.type(screen.getByLabelText(/^password$/i), 'password123')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123')
@@ -91,7 +91,7 @@ describe('Login', () => {
     renderWithProviders(<Login />)
 
     await user.type(screen.getByLabelText(/email/i), 'bad@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'wrong')
+    await user.type(screen.getByLabelText(/^password$/i), 'wrong')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
@@ -106,7 +106,7 @@ describe('Login', () => {
     renderWithProviders(<Login />)
 
     await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'pass')
+    await user.type(screen.getByLabelText(/^password$/i), 'pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
@@ -122,7 +122,7 @@ describe('Login', () => {
     renderWithProviders(<Login />)
 
     await user.type(screen.getByLabelText(/email/i), 'test@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'pass')
+    await user.type(screen.getByLabelText(/^password$/i), 'pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled()
