@@ -94,7 +94,15 @@ describe('StudyGuidePage', () => {
     mockGetGuide.mockRejectedValue(new Error('Network error'))
     renderWithProviders(<StudyGuidePage />, { initialEntries: ['/study/guide/7'] })
     await waitFor(() => {
-      expect(screen.getByText('Failed to load study guide')).toBeInTheDocument()
+      expect(screen.getByText('Failed to load study guide. Please try again.')).toBeInTheDocument()
+    })
+  })
+
+  it('shows specific message when guide not found (404)', async () => {
+    mockGetGuide.mockRejectedValue({ response: { status: 404 } })
+    renderWithProviders(<StudyGuidePage />, { initialEntries: ['/study/guide/7'] })
+    await waitFor(() => {
+      expect(screen.getByText('This study guide no longer exists. It may have been deleted or archived.')).toBeInTheDocument()
     })
   })
 

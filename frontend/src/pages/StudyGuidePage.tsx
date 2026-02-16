@@ -75,8 +75,13 @@ export function StudyGuidePage() {
       try {
         const data = await studyApi.getGuide(parseInt(id));
         setGuide(data);
-      } catch (err) {
-        setError('Failed to load study guide');
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 404) {
+          setError('This study guide no longer exists. It may have been deleted or archived.');
+        } else {
+          setError('Failed to load study guide. Please try again.');
+        }
         console.error(err);
       } finally {
         setLoading(false);
@@ -109,7 +114,10 @@ export function StudyGuidePage() {
     return (
       <div className="study-guide-page">
         <div className="error">{error || 'Study guide not found'}</div>
-        <Link to="/dashboard" className="back-link">Back to Dashboard</Link>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
+          <Link to="/course-materials" className="back-link">View All Study Materials</Link>
+          <Link to="/dashboard" className="back-link">Back to Dashboard</Link>
+        </div>
       </div>
     );
   }

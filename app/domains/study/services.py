@@ -121,6 +121,7 @@ class StudyService:
                     StudyGuide.user_id == user_id,
                     StudyGuide.assignment_id == assignment_id,
                     StudyGuide.guide_type == guide_type,
+                    StudyGuide.archived_at.is_(None),
                 )
                 .order_by(StudyGuide.version.desc())
                 .first()
@@ -140,6 +141,7 @@ class StudyService:
                     StudyGuide.user_id == user_id,
                     StudyGuide.title.ilike(f"%{escape_like(title.strip())}%"),
                     StudyGuide.guide_type == guide_type,
+                    StudyGuide.archived_at.is_(None),
                 )
                 .order_by(StudyGuide.version.desc())
                 .first()

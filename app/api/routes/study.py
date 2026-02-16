@@ -53,24 +53,30 @@ router = APIRouter(prefix="/study", tags=["Study Tools"])
 
 
 def enforce_study_guide_limit(db: Session, user: User) -> None:
-    """Enforce role-based study guide limit. Deletes oldest guides when limit reached."""
+    """Enforce role-based study guide limit. Archives oldest active guides when limit reached."""
     limit = (
         settings.max_study_guides_per_parent
         if user.role == UserRole.PARENT
         else settings.max_study_guides_per_student
     )
-    count = db.query(StudyGuide).filter(StudyGuide.user_id == user.id).count()
+    count = db.query(StudyGuide).filter(
+        StudyGuide.user_id == user.id,
+        StudyGuide.archived_at.is_(None),
+    ).count()
     if count >= limit:
-        guides_to_delete = count - limit + 1
+        guides_to_archive = count - limit + 1
         oldest_guides = (
             db.query(StudyGuide)
-            .filter(StudyGuide.user_id == user.id)
+            .filter(
+                StudyGuide.user_id == user.id,
+                StudyGuide.archived_at.is_(None),
+            )
             .order_by(StudyGuide.created_at.asc())
-            .limit(guides_to_delete)
+            .limit(guides_to_archive)
             .all()
         )
         for guide in oldest_guides:
-            db.delete(guide)
+            guide.archived_at = datetime.now(timezone.utc)
 
 
 
@@ -705,8 +711,12 @@ def get_study_guide(
     current_user: User = Depends(get_current_user),
 ):
     """Get a specific study guide with role-based access control."""
+    from app.core.logging_config import get_logger
+    logger = get_logger(__name__)
+
     guide = db.query(StudyGuide).filter(StudyGuide.id == guide_id).first()
     if not guide:
+        logger.info(f"Study guide {guide_id} not found in DB (user={current_user.id})")
         raise HTTPException(status_code=404, detail="Study guide not found")
 
     # Owner always has access
@@ -729,6 +739,7 @@ def get_study_guide(
         if guide.course_id in enrolled_course_ids:
             return guide
 
+    logger.warning(f"Study guide {guide_id} access denied for user={current_user.id} role={current_user.role} (owner={guide.user_id})")
     raise HTTPException(status_code=404, detail="Study guide not found")
 
 
