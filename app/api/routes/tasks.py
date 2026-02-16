@@ -103,13 +103,27 @@ def list_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List tasks where the current user is creator OR assignee."""
-    query = db.query(Task).options(*_task_eager_options()).filter(
-        or_(
-            Task.created_by_user_id == current_user.id,
-            Task.assigned_to_user_id == current_user.id,
-        )
-    )
+    """List tasks where the current user is creator OR assignee (parents also see children's tasks)."""
+    filters = [
+        Task.created_by_user_id == current_user.id,
+        Task.assigned_to_user_id == current_user.id,
+    ]
+
+    # Parents also see tasks assigned to their linked children
+    if current_user.role == UserRole.PARENT:
+        child_student_ids = [
+            r[0] for r in db.query(parent_students.c.student_id)
+            .filter(parent_students.c.parent_id == current_user.id).all()
+        ]
+        if child_student_ids:
+            child_user_ids = [
+                r[0] for r in db.query(Student.user_id)
+                .filter(Student.id.in_(child_student_ids)).all()
+            ]
+            if child_user_ids:
+                filters.append(Task.assigned_to_user_id.in_(child_user_ids))
+
+    query = db.query(Task).options(*_task_eager_options()).filter(or_(*filters))
 
     # Exclude archived tasks by default
     if not include_archived:

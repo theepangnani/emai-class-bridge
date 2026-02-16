@@ -22,7 +22,8 @@ def _auth(client, email):
 
 @pytest.fixture()
 def users(db_session):
-    """Create (or reuse) test users: parent, student (child), teacher, outsider.
+    """Create (or reuse) test users: parent, second_parent (both linked to same child),
+    student (child), teacher, outsider.
 
     The test DB is session-scoped, so we must not re-insert the same rows.
     """
@@ -40,25 +41,40 @@ def users(db_session):
         teacher_user = db_session.query(User).filter(User.email == "taskteacher@test.com").first()
         teacher = db_session.query(Teacher).filter(Teacher.user_id == teacher_user.id).first()
         outsider = db_session.query(User).filter(User.email == "taskoutsider@test.com").first()
+        second_parent = db_session.query(User).filter(User.email == "taskparent2@test.com").first()
         course = db_session.query(Course).filter(Course.name == "Test Math", Course.teacher_id == teacher.id).first()
+
+        # Ensure second_parent exists (migration for older test DBs)
+        if not second_parent:
+            hashed = get_password_hash(PASSWORD)
+            second_parent = User(email="taskparent2@test.com", full_name="Task Father", role=UserRole.PARENT, hashed_password=hashed)
+            db_session.add(second_parent)
+            db_session.commit()
+            db_session.execute(parent_students.insert().values(parent_id=second_parent.id, student_id=student.id))
+            db_session.commit()
+
         return {
-            "parent": parent, "child_user": child_user, "student": student,
+            "parent": parent, "second_parent": second_parent,
+            "child_user": child_user, "student": student,
             "teacher_user": teacher_user, "teacher": teacher, "outsider": outsider, "course": course,
         }
 
     hashed = get_password_hash(PASSWORD)
     parent = User(email="taskparent@test.com", full_name="Task Parent", role=UserRole.PARENT, hashed_password=hashed)
+    second_parent = User(email="taskparent2@test.com", full_name="Task Father", role=UserRole.PARENT, hashed_password=hashed)
     child_user = User(email="taskchild@test.com", full_name="Task Child", role=UserRole.STUDENT, hashed_password=hashed)
     teacher_user = User(email="taskteacher@test.com", full_name="Task Teacher", role=UserRole.TEACHER, hashed_password=hashed)
     outsider = User(email="taskoutsider@test.com", full_name="Outsider Parent", role=UserRole.PARENT, hashed_password=hashed)
-    db_session.add_all([parent, child_user, teacher_user, outsider])
+    db_session.add_all([parent, second_parent, child_user, teacher_user, outsider])
     db_session.commit()
 
     student = Student(user_id=child_user.id, grade_level=8)
     db_session.add(student)
     db_session.commit()
 
+    # Both parents linked to the same child
     db_session.execute(parent_students.insert().values(parent_id=parent.id, student_id=student.id))
+    db_session.execute(parent_students.insert().values(parent_id=second_parent.id, student_id=student.id))
     db_session.commit()
 
     teacher = Teacher(user_id=teacher_user.id)
@@ -72,7 +88,8 @@ def users(db_session):
     db_session.commit()
 
     return {
-        "parent": parent, "child_user": child_user, "student": student,
+        "parent": parent, "second_parent": second_parent,
+        "child_user": child_user, "student": student,
         "teacher_user": teacher_user, "teacher": teacher, "outsider": outsider, "course": course,
     }
 
@@ -205,6 +222,60 @@ class TestParentAssignsToChild:
             "assigned_to_user_id": users["child_user"].id,
         }, headers=headers)
         assert resp.status_code == 403
+
+
+# ===========================================================================
+# 2b. Second parent sees tasks for shared child
+# ===========================================================================
+
+class TestSecondParentVisibility:
+    """Second parent linked to the same child must see child's tasks."""
+
+    def test_second_parent_sees_task_assigned_to_shared_child(self, client, users):
+        """Mother creates task for child → father sees it in /api/tasks/ list."""
+        mother_headers = _auth(client, users["parent"].email)
+        resp = client.post("/api/tasks/", json={
+            "title": "Second parent visibility test",
+            "assigned_to_user_id": users["child_user"].id,
+        }, headers=mother_headers)
+        assert resp.status_code == 201
+        task_id = resp.json()["id"]
+
+        # Father (second parent) should see this task
+        father_headers = _auth(client, users["second_parent"].email)
+        resp = client.get("/api/tasks/", headers=father_headers)
+        assert resp.status_code == 200
+        task_ids = [t["id"] for t in resp.json()]
+        assert task_id in task_ids
+
+    def test_second_parent_can_view_single_task_for_shared_child(self, client, users):
+        """Father can GET a single task assigned to the shared child."""
+        mother_headers = _auth(client, users["parent"].email)
+        resp = client.post("/api/tasks/", json={
+            "title": "Single task view test",
+            "assigned_to_user_id": users["child_user"].id,
+        }, headers=mother_headers)
+        task_id = resp.json()["id"]
+
+        father_headers = _auth(client, users["second_parent"].email)
+        resp = client.get(f"/api/tasks/{task_id}", headers=father_headers)
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "Single task view test"
+
+    def test_outsider_still_cannot_see_child_tasks(self, client, users):
+        """Outsider parent (not linked to child) must NOT see child's tasks."""
+        mother_headers = _auth(client, users["parent"].email)
+        resp = client.post("/api/tasks/", json={
+            "title": "Outsider should not see",
+            "assigned_to_user_id": users["child_user"].id,
+        }, headers=mother_headers)
+        task_id = resp.json()["id"]
+
+        outsider_headers = _auth(client, users["outsider"].email)
+        resp = client.get("/api/tasks/", headers=outsider_headers)
+        assert resp.status_code == 200
+        task_ids = [t["id"] for t in resp.json()]
+        assert task_id not in task_ids
 
 
 # ===========================================================================
