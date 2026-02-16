@@ -454,6 +454,10 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# FAQ hint exceptions (errors with faq_code for frontend hint links)
+from app.core.faq_errors import FAQHintException, faq_hint_exception_handler  # noqa: E402
+app.add_exception_handler(FAQHintException, faq_hint_exception_handler)
+
 
 # Global exception handler — logs full tracebacks for 500 errors
 @app.exception_handler(Exception)
