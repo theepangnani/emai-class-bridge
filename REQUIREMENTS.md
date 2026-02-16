@@ -82,9 +82,9 @@ Persistent storage, organization, and lifecycle management for AI-generated stud
 
 - **List & Browse**: Parents and students can view a full list of all their generated study guides, quizzes, and flashcards directly from their dashboards. Clicking any item opens the full study material for review. Students see their materials in the "Your Study Materials" section; parents see both "My Study Materials" and each linked child's study materials
 - **Course Categorization**: Study guides are labeled under existing courses for organized browsing; students can filter guides by course using a dropdown filter
-- **Configurable Storage Limits**: Maximum 100 study guides per student, 200 per parent. Limits are configurable via application settings (`STUDY_GUIDE_LIMIT_STUDENT`, `STUDY_GUIDE_LIMIT_PARENT`)
+- **Configurable Storage Limits**: Maximum 100 study guides per student, 200 per parent. Limits are configurable via application settings (`STUDY_GUIDE_LIMIT_STUDENT`, `STUDY_GUIDE_LIMIT_PARENT`). When the limit is reached, the oldest active (non-archived) guides are **soft-deleted** (archived) rather than permanently deleted, preserving URLs and enabling restore
 - **Version Control**: Regenerating a study guide for the same topic/assignment creates a new version linked to the original via `parent_guide_id`, preserving full history. Users can browse all versions of a guide
-- **Duplicate Detection**: Before AI generation, the system checks for existing guides with matching content hash to avoid redundant API calls and save costs. Endpoint: `POST /api/study/check-duplicate`
+- **Duplicate Detection**: Before AI generation, the system checks for existing guides with matching content hash to avoid redundant API calls and save costs. Archived guides are excluded from duplicate checks to prevent redirecting users to deleted content. Endpoint: `POST /api/study/check-duplicate`
 - **Role-Based Visibility**:
   - **Students** see their own study guides plus any course-labeled guides shared within their enrolled courses
   - **Parents** see their own study guides plus all study guides belonging to their linked children
@@ -2566,7 +2566,7 @@ Current feature issues are tracked in GitHub:
 
 ### Phase 1 - Implemented (Feb 15: Bug Fixes, Test Expansion & Backup Infrastructure)
 - ~~Issue #153: Fix FlashcardsPage stale closure bug in keyboard handler~~ ✅ (useRef pattern for stable keyboard event handler)
-- ~~Issue #154: Add frontend unit tests (vitest)~~ ✅ (75 new tests: FlashcardsPage 27, QuizPage 15, StudyGuidePage 13, TasksPage 20; total 258 frontend tests)
+- ~~Issue #154: Add frontend unit tests (vitest)~~ ✅ (75 new tests: FlashcardsPage 27, QuizPage 15, StudyGuidePage 14, TasksPage 20; total 253 frontend tests)
 - ~~Issue #353: Infrastructure: Database Backup & Disaster Recovery for Production~~ ✅ (daily backups 02:00 UTC, PITR 7-day, log-based metric + alert policy, 4 scripts + runbook)
 - ~~Issue #411: Improve landing page logo clarity and hero branding~~ ✅
 - Fix CI test failures: Add `pyproject.toml` with `testpaths = ["tests"]` and update `deploy.yml` — `scripts/load_test.py` matched pytest's `*_test.py` pattern, causing secret key mismatch in test environment ✅
@@ -2574,6 +2574,9 @@ Current feature issues are tracked in GitHub:
 ### Phase 1 - Implemented (Feb 15: UI Polish)
 - ~~Issue #420: Add show/hide password toggle to all auth pages~~ ✅ (eye icon toggle on Login, Register, Reset Password, Accept Invite)
 - ~~Issue #427: Reduce whitespace around logo and increase size~~ ✅ (CSS negative margins to crop built-in PNG padding on auth pages, landing nav/hero, dashboard header)
+
+### Phase 1 - Implemented (Feb 16: Bug Fix)
+- ~~Issue #429: Fix study guide 404 for parents (guide ID 8)~~ ✅ (add logging to distinguish "not found" vs "access denied"; exclude archived guides from duplicate detection; change enforce_study_guide_limit to soft-delete instead of hard-delete; improve frontend 404 error message with navigation links)
 
 ### Phase 1 - Open
 - Issue #41: Multi-Google account support for teachers
