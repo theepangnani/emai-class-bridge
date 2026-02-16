@@ -53,6 +53,7 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
         { label: 'Child Profiles', path: '/my-kids' },
         { label: 'Tasks', path: '/tasks' },
         { label: 'Messages', path: '/messages' },
+        { label: 'FAQ', path: '/faq' },
         { label: 'Help', path: '/help' },
       ];
     }
@@ -69,6 +70,7 @@ export function DashboardLayout({ children, welcomeSubtitle, sidebarActions }: D
       items.push({ label: 'Teacher Comms', path: '/teacher-communications' });
     }
 
+    items.push({ label: 'FAQ', path: '/faq' });
     items.push({ label: 'Help', path: '/help' });
 
     return items;
