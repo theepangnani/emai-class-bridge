@@ -886,7 +886,7 @@ Users can hold multiple roles simultaneously (e.g., a parent who is also a teach
 Course materials and study guides use soft-delete (archive) with retention policies, last-viewed tracking, and automatic study guide archival when source content changes.
 
 #### Requirements
-1. **Edit/delete icons on course materials list** — Each item in the StudyGuidesPage list has pencil (edit) and trash (archive) action icons
+1. **Edit/move/archive icons on course materials list** — Each item in the StudyGuidesPage list has pencil (edit ✏️), folder (move to course 📂), and trash (archive 🗑️) action icons. Move opens a course selector modal allowing reassignment to a different course (with search and create-new-course option)
 2. **Edit + delete on course materials detail page** — Document tab has "Edit Content" toggle for inline text editing; study guide tabs have "Archive" action
 3. **Regeneration prompt after content edit** — When course material `text_content` is modified and linked study guides are archived, a regeneration prompt appears with buttons for Study Guide, Quiz, and Flashcards
 4. **Auto-archive linked study guides** — When a course material's `text_content` field changes, all linked non-archived study guides (`StudyGuide.course_content_id == id`) are automatically archived. A toast notification shows: "Content updated. N linked study material(s) archived."
@@ -1704,6 +1704,7 @@ Dedicated page for course management (accessible to all roles):
 - **Assign to children** — parent only, supports assigning one course to multiple children
 - **Course Detail Page** — edit course, CRUD content, upload documents, generate study materials (see §6.4.2)
 - Course cards show: name, subject, teacher name, Google badge, expand/collapse arrow
+- **Hover action icons on all course cards** — Edit (✏️) button appears on hover for all course tiles (parent child courses, student enrolled, and My Created Courses); navigates to Course Detail Page. Parent child courses also show unassign (✕); My Created Courses also show assign (✓) when a child is selected
 
 #### 9. Study Guides View (Left Nav → `/study-guides`)
 Dedicated page for study guide management:
@@ -2617,6 +2618,9 @@ Current feature issues are tracked in GitHub:
 
 ### Phase 1 - Implemented (Feb 16: Courses Page Fix)
 - ~~Issue #435: Courses page: missing styles and course materials not displayed~~ ✅ (add .child-selector/.child-tab CSS to CoursesPage.css; implement inline course content expansion on course cards for parent and student views)
+
+### Phase 1 - Implemented (Feb 16: Hover Buttons Fix)
+- ~~Issue #446: Missing hover edit button on course tiles and assign-to-course on material tiles~~ ✅ (add edit ✏️ button to parent child-course tiles and student enrolled-course tiles; add move-to-course 📂 button to course material rows on StudyGuidesPage with course selector modal; add `course_id` to `CourseContentUpdate` schema for reassignment)
 
 ### Phase 1 - Open
 - Issue #41: Multi-Google account support for teachers
