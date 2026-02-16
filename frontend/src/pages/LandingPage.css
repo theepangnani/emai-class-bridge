@@ -255,22 +255,101 @@
   margin: 0;
 }
 
+/* Tablet / small desktop */
+@media (max-width: 768px) {
+  .landing-features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .landing-roles-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Mobile */
 @media (max-width: 640px) {
-  .landing-hero h1 {
-    font-size: 1.8rem;
+  .landing-nav {
+    padding: 4px 12px;
+  }
+
+  .landing-nav-logo {
+    height: 56px;
+    margin: -4px 0;
+  }
+
+  .landing-nav-links {
+    gap: 8px;
+  }
+
+  .landing-btn-primary,
+  .landing-btn-secondary {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  .landing-btn-lg {
+    padding: 12px 24px;
+    font-size: 16px;
   }
 
   .landing-hero {
-    padding: 48px 16px 40px;
+    padding: 24px 16px 36px;
+  }
+
+  .landing-hero-logo {
+    height: 160px;
+    margin: -10px auto -10px;
+  }
+
+  .landing-hero h1 {
+    font-size: 1.6rem;
+    margin: 0 0 14px;
+  }
+
+  .landing-hero-sub {
+    font-size: 1rem;
+    margin: 0 0 24px;
   }
 
   .landing-features,
   .landing-roles {
+    padding: 36px 16px;
+  }
+
+  .landing-features h2,
+  .landing-roles h2 {
+    font-size: 1.4rem;
+    margin: 0 0 24px;
+  }
+
+  .landing-features-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .landing-feature {
+    padding: 20px;
+  }
+
+  .landing-roles-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .landing-role {
+    padding: 20px;
+  }
+
+  .landing-cta {
     padding: 40px 16px;
   }
 
-  .landing-nav {
-    padding: 12px 16px;
+  .landing-cta h2 {
+    font-size: 1.4rem;
+  }
+
+  .landing-footer-links {
+    gap: 16px;
+    flex-wrap: wrap;
   }
 }
