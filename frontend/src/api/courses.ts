@@ -148,6 +148,7 @@ export const courseContentsApi = {
     content_type?: string;
     reference_url?: string;
     google_classroom_url?: string;
+    course_id?: number;
   }) => {
     const response = await api.patch(`/api/course-contents/${id}`, data);
     return response.data as CourseContentUpdateResponse;

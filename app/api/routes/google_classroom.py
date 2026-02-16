@@ -407,17 +407,23 @@ def _sync_courses_for_user(user: User, db: Session) -> list[dict]:
     db.commit()
 
     # Sync courseWorkMaterials and assignments for each synced course
+    total_materials = 0
+    total_assignments = 0
     for course in synced_courses:
         if not course.google_classroom_id:
             continue
-        _sync_materials_for_course(course, user, db)
-        _sync_assignments_for_course(course, user, db)
+        total_materials += _sync_materials_for_course(course, user, db)
+        total_assignments += _sync_assignments_for_course(course, user, db)
 
-    return [{"id": c.id, "name": c.name, "google_id": c.google_classroom_id} for c in synced_courses]
+    return {
+        "courses": [{"id": c.id, "name": c.name, "google_id": c.google_classroom_id} for c in synced_courses],
+        "materials_synced": total_materials,
+        "assignments_synced": total_assignments,
+    }
 
 
-def _sync_materials_for_course(course: Course, user: User, db: Session):
-    """Sync courseWorkMaterials from Google Classroom into CourseContent."""
+def _sync_materials_for_course(course: Course, user: User, db: Session) -> int:
+    """Sync courseWorkMaterials from Google Classroom into CourseContent. Returns count synced."""
     try:
         materials, credentials = get_course_work_materials(
             user.google_access_token,
@@ -427,8 +433,9 @@ def _sync_materials_for_course(course: Course, user: User, db: Session):
         update_user_tokens(user, credentials, db)
     except Exception as e:
         logger.warning(f"Failed to fetch courseWorkMaterials for course {course.google_classroom_id}: {e}")
-        return
+        return 0
 
+    count = 0
     for mat in materials:
         # Skip drafts/deleted
         if mat.get("state") in ("DRAFT", "DELETED"):
@@ -477,12 +484,14 @@ def _sync_materials_for_course(course: Course, user: User, db: Session):
                 reference_url=reference_url,
             )
             db.add(content)
+            count += 1
 
     db.commit()
+    return count
 
 
-def _sync_assignments_for_course(course: Course, user: User, db: Session):
-    """Auto-sync assignments from Google Classroom during course sync."""
+def _sync_assignments_for_course(course: Course, user: User, db: Session) -> int:
+    """Auto-sync assignments from Google Classroom during course sync. Returns count of new assignments."""
     try:
         google_assignments, credentials = get_course_work(
             user.google_access_token,
@@ -492,8 +501,9 @@ def _sync_assignments_for_course(course: Course, user: User, db: Session):
         update_user_tokens(user, credentials, db)
     except Exception as e:
         logger.warning(f"Failed to fetch assignments for course {course.google_classroom_id}: {e}")
-        return
+        return 0
 
+    count = 0
     for ga in google_assignments:
         existing = db.query(Assignment).filter(
             Assignment.google_classroom_id == ga["id"]
@@ -518,8 +528,10 @@ def _sync_assignments_for_course(course: Course, user: User, db: Session):
                 max_points=ga.get("maxPoints"),
             )
             db.add(assignment)
+            count += 1
 
     db.commit()
+    return count
 
 
 @router.post("/courses/sync")
@@ -534,14 +546,26 @@ def sync_google_courses(
             detail="User not connected to Google Classroom",
         )
 
-    synced = _sync_courses_for_user(current_user, db)
+    result = _sync_courses_for_user(current_user, db)
 
     log_action(db, user_id=current_user.id, action="sync", resource_type="google_classroom")
     db.commit()
 
+    courses = result["courses"]
+    materials = result["materials_synced"]
+    assignments = result["assignments_synced"]
+
+    parts = [f"Synced {len(courses)} course{'s' if len(courses) != 1 else ''}"]
+    if materials:
+        parts.append(f"{materials} new material{'s' if materials != 1 else ''}")
+    if assignments:
+        parts.append(f"{assignments} new assignment{'s' if assignments != 1 else ''}")
+
     return {
-        "message": f"Synced {len(synced)} courses",
-        "courses": synced,
+        "message": ", ".join(parts),
+        "courses": courses,
+        "materials_synced": materials,
+        "assignments_synced": assignments,
     }
 
 

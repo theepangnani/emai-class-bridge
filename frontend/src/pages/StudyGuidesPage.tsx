@@ -109,6 +109,9 @@ export function StudyGuidesPage() {
   const [categorizeNewName, setCategorizeNewName] = useState('');
   const [categorizeCreating, setCategorizeCreating] = useState(false);
 
+  // Reassign course content to different course
+  const [reassignContent, setReassignContent] = useState<CourseContentItem | null>(null);
+
   useEffect(() => {
     loadData();
     if (_pendingGeneration) {
@@ -301,6 +304,30 @@ export function StudyGuidesPage() {
     try {
       const newCourse = await coursesApi.create({ name: categorizeNewName.trim() });
       await handleCategorize(newCourse.id);
+    } catch { /* ignore */ }
+    setCategorizeCreating(false);
+  };
+
+  const handleReassignContent = async (courseId?: number) => {
+    if (!reassignContent) return;
+    const targetCourseId = courseId ?? (categorizeCourseId ? Number(categorizeCourseId) : null);
+    if (!targetCourseId) return;
+    try {
+      await courseContentsApi.update(reassignContent.id, { course_id: targetCourseId });
+      setReassignContent(null);
+      setCategorizeCourseId('');
+      setCategorizeSearch('');
+      setCategorizeNewName('');
+      loadData();
+    } catch { /* ignore */ }
+  };
+
+  const handleCreateAndReassign = async () => {
+    if (!reassignContent || !categorizeNewName.trim()) return;
+    setCategorizeCreating(true);
+    try {
+      const newCourse = await coursesApi.create({ name: categorizeNewName.trim() });
+      await handleReassignContent(newCourse.id);
     } catch { /* ignore */ }
     setCategorizeCreating(false);
   };
@@ -633,6 +660,7 @@ export function StudyGuidesPage() {
                   </div>
                   <div className="guide-row-actions">
                     <button className="guide-convert-btn" title="Edit" onClick={() => navigateToContent(item)}>&#9998;</button>
+                    <button className="guide-convert-btn" title="Move to course" onClick={() => { setReassignContent(item); setCategorizeCourseId(''); setCategorizeSearch(''); setCategorizeNewName(''); }}>&#128194;</button>
                     <button className="guide-delete-btn" title="Archive" onClick={() => handleArchiveContent(item.id)}>&#128465;</button>
                   </div>
                 </div>
@@ -915,6 +943,56 @@ export function StudyGuidesPage() {
                 </button>
               ) : (
                 <button className="generate-btn" disabled={!categorizeCourseId} onClick={() => handleCategorize()}>Move</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Reassign content to course modal */}
+      {reassignContent && (
+        <div className="modal-overlay" onClick={() => setReassignContent(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Move to Course</h2>
+            <p className="modal-desc">Assign &ldquo;{reassignContent.title}&rdquo; to a course.</p>
+            <div className="modal-form">
+              <input
+                type="text"
+                placeholder="Search courses or type a new name..."
+                value={categorizeSearch}
+                onChange={(e) => { setCategorizeSearch(e.target.value); setCategorizeCourseId(''); setCategorizeNewName(''); }}
+                autoFocus
+              />
+              <div className="categorize-list">
+                {courses
+                  .filter(c => !categorizeSearch || c.name.toLowerCase().includes(categorizeSearch.toLowerCase()))
+                  .map(c => (
+                    <div
+                      key={c.id}
+                      className={`categorize-item${categorizeCourseId === c.id ? ' selected' : ''}${c.id === reassignContent.course_id ? ' current' : ''}`}
+                      onClick={() => { setCategorizeCourseId(c.id); setCategorizeNewName(''); }}
+                    >
+                      &#127891; {c.name}{c.id === reassignContent.course_id ? ' (current)' : ''}
+                    </div>
+                  ))
+                }
+                {categorizeSearch.trim() && !courses.some(c => c.name.toLowerCase() === categorizeSearch.trim().toLowerCase()) && (
+                  <div
+                    className={`categorize-item create-new${categorizeNewName ? ' selected' : ''}`}
+                    onClick={() => { setCategorizeNewName(categorizeSearch.trim()); setCategorizeCourseId(''); }}
+                  >
+                    &#10133; Create &ldquo;{categorizeSearch.trim()}&rdquo;
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setReassignContent(null)}>Cancel</button>
+              {categorizeNewName ? (
+                <button className="generate-btn" disabled={categorizeCreating} onClick={handleCreateAndReassign}>
+                  {categorizeCreating ? 'Creating...' : 'Create & Move'}
+                </button>
+              ) : (
+                <button className="generate-btn" disabled={!categorizeCourseId || categorizeCourseId === reassignContent.course_id} onClick={() => handleReassignContent()}>Move</button>
               )}
             </div>
           </div>

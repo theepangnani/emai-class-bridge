@@ -979,7 +979,7 @@ def sync_child_courses(
         raise HTTPException(status_code=400, detail="Child has not connected Google Classroom yet")
 
     try:
-        synced = _sync_courses_for_user(child_user, db)
+        result = _sync_courses_for_user(child_user, db)
     except HTTPException:
         raise
     except Exception as e:
@@ -988,9 +988,22 @@ def sync_child_courses(
             status_code=502,
             detail="Failed to sync courses from Google Classroom. The child's Google connection may have expired.",
         )
+
+    courses = result["courses"]
+    materials = result["materials_synced"]
+    assignments = result["assignments_synced"]
+
+    parts = [f"Synced {len(courses)} course{'s' if len(courses) != 1 else ''} for {child_user.full_name}"]
+    if materials:
+        parts.append(f"{materials} new material{'s' if materials != 1 else ''}")
+    if assignments:
+        parts.append(f"{assignments} new assignment{'s' if assignments != 1 else ''}")
+
     return {
-        "message": f"Synced {len(synced)} courses for {child_user.full_name}",
-        "courses": synced,
+        "message": ", ".join(parts),
+        "courses": courses,
+        "materials_synced": materials,
+        "assignments_synced": assignments,
     }
 
 

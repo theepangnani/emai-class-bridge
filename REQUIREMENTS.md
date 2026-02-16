@@ -312,12 +312,12 @@ Dedicated page for viewing and managing a single course and its content:
 - **Route:** `/courses/:id` — accessible to all authenticated roles
 - **Course header** — Name, subject, description, privacy badge, Google Classroom badge, created date
 - **Edit Course** — Creator/admin can edit name, subject, description via modal (`PATCH /api/courses/{id}`)
-- **Course Content list** — Full CRUD (add, edit, delete) for content items
+- **Course Materials section** — Heading reads "Course Materials". Full CRUD (add, edit, delete) for content items (creator/admin only). Parents and other read-only viewers see materials listed without management buttons
 - **Upload Document** — Drag-and-drop or file picker, extracts text via `/api/study/upload/extract-text`, stores as course content with `text_content` field
 - **Optional study material generation** — Checkbox + dropdown (study guide, quiz, or flashcards) when uploading a document
 - **Generate Study Guide** — Button on each content item to generate study guide from its `text_content` or `description`
 - **Navigation** — Course cards expand inline to show a materials preview panel; a "View Details" button navigates to the full detail page
-- **All roles** — Courses and Study Guides navigation visible to parent, student, teacher, and admin
+- **Role-aware UI** — All roles can view course materials; management buttons (Add Content, Upload Document, Create Task, Edit Course) only visible to course creator/admin
 
 ### 6.5 Performance Analytics (Phase 2)
 - Subject-level insights

@@ -61,6 +61,7 @@ const TermsOfService = lazyRetry(() => import('./pages/TermsOfService').then((m)
 const LandingPage = lazyRetry(() => import('./pages/LandingPage').then((m) => ({ default: m.LandingPage })));
 const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
 const VerifyEmailPage = lazyRetry(() => import('./pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })));
+const HelpPage = lazyRetry(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -213,6 +214,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TeacherCommsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/help"
+                element={
+                  <ProtectedRoute>
+                    <HelpPage />
                   </ProtectedRoute>
                 }
               />

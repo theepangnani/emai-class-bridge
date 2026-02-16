@@ -30,6 +30,7 @@ class CourseContentUpdate(BaseModel):
     content_type: Optional[str] = None
     reference_url: Optional[str] = None
     google_classroom_url: Optional[str] = None
+    course_id: Optional[int] = None
 
     @field_validator("content_type")
     @classmethod

@@ -149,6 +149,7 @@ export function StudentDashboard() {
       const result = await googleApi.syncCourses();
       setStatusMessage({ type: 'success', text: result.message || 'Courses synced successfully' });
       loadCourses();
+      loadAssignments();
     } catch {
       setStatusMessage({ type: 'error', text: 'Failed to sync courses' });
     } finally {

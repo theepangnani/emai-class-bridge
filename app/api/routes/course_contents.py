@@ -210,6 +210,13 @@ def update_course_content(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the creator can edit content")
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # Validate course_id if being changed
+    if "course_id" in update_data and update_data["course_id"] != content.course_id:
+        target_course = db.query(Course).filter(Course.id == update_data["course_id"]).first()
+        if not target_course:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target course not found")
+
     text_content_changed = (
         "text_content" in update_data
         and update_data["text_content"] != content.text_content

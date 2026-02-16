@@ -392,6 +392,13 @@ export function CoursesPage() {
                       </div>
                       <div className="course-card-actions">
                         <button
+                          className="course-card-action-btn edit"
+                          title="View course details"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/courses/${course.id}`); }}
+                        >
+                          &#9998;
+                        </button>
+                        <button
                           className="course-card-action-btn unassign"
                           title={`Unassign from ${childName}`}
                           onClick={(e) => { e.stopPropagation(); handleUnassignCourse(course.id, course.name); }}
@@ -489,6 +496,13 @@ export function CoursesPage() {
                             {course.teacher_name && <span className="course-card-teacher">{course.teacher_name}</span>}
                           </div>
                           <div className="course-card-actions">
+                            <button
+                              className="course-card-action-btn edit"
+                              title="View course details"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/courses/${course.id}`); }}
+                            >
+                              &#9998;
+                            </button>
                             <button
                               className="course-card-action-btn unassign"
                               title="Unenroll"

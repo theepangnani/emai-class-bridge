@@ -645,8 +645,16 @@ async def startup_event():
         replace_existing=True,
     )
 
+    # Background Google Classroom sync once daily at 6 AM
+    from app.jobs.google_sync import sync_google_classrooms
+    scheduler.add_job(
+        sync_google_classrooms,
+        CronTrigger(hour=6, minute=0),
+        id="google_classroom_sync",
+        replace_existing=True,
+    )
+
     # Teacher comm sync disabled — all syncs are manual/on-demand per parent-first platform design
-    # from apscheduler.triggers.interval import IntervalTrigger
     # from app.jobs.teacher_comm_sync import check_teacher_communications
     # scheduler.add_job(check_teacher_communications, IntervalTrigger(minutes=15), id="teacher_comm_sync", replace_existing=True)
     start_scheduler()
