@@ -62,6 +62,9 @@ const LandingPage = lazyRetry(() => import('./pages/LandingPage').then((m) => ({
 const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
 const VerifyEmailPage = lazyRetry(() => import('./pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })));
 const HelpPage = lazyRetry(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
+const FAQPage = lazyRetry(() => import('./pages/FAQPage').then((m) => ({ default: m.FAQPage })));
+const FAQDetailPage = lazyRetry(() => import('./pages/FAQDetailPage').then((m) => ({ default: m.FAQDetailPage })));
+const AdminFAQPage = lazyRetry(() => import('./pages/AdminFAQPage').then((m) => ({ default: m.AdminFAQPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -222,6 +225,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <HelpPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/faq"
+                element={
+                  <ProtectedRoute>
+                    <FAQPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/faq/:id"
+                element={
+                  <ProtectedRoute>
+                    <FAQDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/faq"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminFAQPage />
                   </ProtectedRoute>
                 }
               />

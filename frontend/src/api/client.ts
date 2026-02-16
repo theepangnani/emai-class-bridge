@@ -151,3 +151,5 @@ export { searchApi } from './search';
 export type { SearchResultItem, SearchResultGroup, SearchResponse } from './search';
 export { inspirationApi } from './inspiration';
 export type { InspirationMessage, InspirationMessageFull } from './inspiration';
+export { faqApi } from './faq';
+export type { FAQQuestionItem, FAQAnswerItem, FAQQuestionDetail } from './faq';
