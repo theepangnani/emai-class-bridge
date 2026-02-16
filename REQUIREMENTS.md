@@ -1921,6 +1921,41 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 - [ ] Advanced notifications
 - [ ] Notes & project tracking tools
 - [ ] Data privacy & user rights (account deletion, data export, consent)
+- [ ] **FAQ / Knowledge Base** — Community-driven Q&A with admin approval (#437-#444)
+
+#### 6.28 FAQ / Knowledge Base (Phase 2)
+
+Community-driven help center where users ask questions, provide answers, and admins curate approved content.
+
+**Data Model:**
+- `faq_questions` — User-submitted questions with category, status (open/answered/closed), optional error_code mapping, is_pinned, view_count, soft delete
+- `faq_answers` — Answers to questions with admin approval workflow (pending → approved/rejected), is_official flag, reviewer audit trail
+
+**Categories:** getting-started, google-classroom, study-tools, account, courses, messaging, tasks, other
+
+**Core Behaviors:**
+- All authenticated users can browse FAQ, ask questions, and submit answers
+- Submitted answers are **hidden from non-admin users** until approved by an admin
+- Admin approval workflow: admins see pending queue, approve/reject with one click, author notified of outcome
+- Admin can pin important questions (appear first), mark answers as official/accepted
+- Admin can create "official FAQ" entries (auto-approved Q+A in one shot)
+- Global search (Ctrl+K) includes FAQ questions alongside courses, tasks, and materials
+- Error-to-FAQ references: backend errors can include a `faq_code` that maps to a FAQ entry; frontend shows contextual "Need help? See FAQ" link
+- Markdown rendering for answer content (reuse existing ReactMarkdown)
+- Seed 10-15 initial how-to entries before launch
+
+**API Endpoints:**
+- Public: `GET/POST /api/faq/questions`, `GET/PATCH/DELETE /api/faq/questions/{id}`, `POST /api/faq/questions/{id}/answers`, `PATCH /api/faq/answers/{id}`
+- Admin: `GET /api/faq/admin/pending`, `PATCH /api/faq/admin/answers/{id}/approve|reject|mark-official`, `PATCH /api/faq/admin/questions/{id}/pin`, `POST /api/faq/admin/questions`
+- Search: `GET /api/search?types=faq`
+- Error hint: `GET /api/faq/by-error-code/{code}`
+
+**Frontend Pages:**
+- `/faq` — List page with search, category filters, pinned-first ordering
+- `/faq/:id` — Detail page with approved answers, submit answer form
+- `/admin/faq` — Admin approval queue + question management
+
+**GitHub Issues:** #437 (models), #438 (schemas), #439 (API routes), #440 (search), #441 (error references), #442 (frontend), #443 (tests), #444 (seed data)
 
 ### Phase 2 (Mobile App — March 6 Pilot MVP) - IN PROGRESS
 
@@ -2640,6 +2675,16 @@ Current feature issues are tracked in GitHub:
 - Issue #27: Notes & Project Tracking Tools
 - Issue #29: TeachAssist Integration
 - Issue #50: Data privacy & user rights (FERPA/PIPEDA compliance)
+
+### Phase 2 — FAQ / Knowledge Base
+- Issue #437: FAQ: Backend models — FAQQuestion + FAQAnswer tables
+- Issue #438: FAQ: Pydantic schemas for request/response validation
+- Issue #439: FAQ: Backend API routes — CRUD + admin approval workflow
+- Issue #440: FAQ: Integrate FAQ into global search
+- Issue #441: FAQ: Error-to-FAQ reference system
+- Issue #442: FAQ: Frontend pages — FAQ list, detail, and admin management
+- Issue #443: FAQ: Backend + frontend tests
+- Issue #444: FAQ: Seed initial how-to entries for pilot
 
 ### March 6 Pilot — Mobile MVP (Completed)
 - ~~Issue #364: Mobile MVP: API client & auth modules (AsyncStorage, refresh tokens)~~ ✅
