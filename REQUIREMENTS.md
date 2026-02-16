@@ -316,7 +316,7 @@ Dedicated page for viewing and managing a single course and its content:
 - **Upload Document** — Drag-and-drop or file picker, extracts text via `/api/study/upload/extract-text`, stores as course content with `text_content` field
 - **Optional study material generation** — Checkbox + dropdown (study guide, quiz, or flashcards) when uploading a document
 - **Generate Study Guide** — Button on each content item to generate study guide from its `text_content` or `description`
-- **Navigation** — Courses page cards now navigate to detail page instead of inline expand
+- **Navigation** — Course cards expand inline to show a materials preview panel; a "View Details" button navigates to the full detail page
 - **All roles** — Courses and Study Guides navigation visible to parent, student, teacher, and admin
 
 ### 6.5 Performance Analytics (Phase 2)
@@ -1697,11 +1697,13 @@ Clicking a **date** on the calendar opens a modal showing all items for that day
 #### 8. Courses View (Left Nav → `/courses`)
 Dedicated page for course management (accessible to all roles):
 - **List all courses** — parent-created + child-enrolled courses (parent view); all visible courses (student/teacher view)
-- **Click course card** → navigates to Course Detail Page (`/courses/:id`) for full content management
+- **Click course card** → expands inline to show course materials preview panel (content items with type badges, titles, links)
+- **Expanded panel** includes "View Details →" button to navigate to full Course Detail Page (`/courses/:id`)
+- **Child selector tabs** — styled pill buttons with active gradient for parents with multiple children
 - **Create new course** — name, subject, description (all roles)
 - **Assign to children** — parent only, supports assigning one course to multiple children
 - **Course Detail Page** — edit course, CRUD content, upload documents, generate study materials (see §6.4.2)
-- Course cards show: name, subject, teacher name, Google badge
+- Course cards show: name, subject, teacher name, Google badge, expand/collapse arrow
 
 #### 9. Study Guides View (Left Nav → `/study-guides`)
 Dedicated page for study guide management:
@@ -2577,6 +2579,9 @@ Current feature issues are tracked in GitHub:
 
 ### Phase 1 - Implemented (Feb 16: Bug Fix)
 - ~~Issue #429: Fix study guide 404 for parents (guide ID 8)~~ ✅ (add logging to distinguish "not found" vs "access denied"; exclude archived guides from duplicate detection; change enforce_study_guide_limit to soft-delete instead of hard-delete; improve frontend 404 error message with navigation links)
+
+### Phase 1 - Implemented (Feb 16: Courses Page Fix)
+- ~~Issue #435: Courses page: missing styles and course materials not displayed~~ ✅ (add .child-selector/.child-tab CSS to CoursesPage.css; implement inline course content expansion on course cards for parent and student views)
 
 ### Phase 1 - Open
 - Issue #41: Multi-Google account support for teachers
