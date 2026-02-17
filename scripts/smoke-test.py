@@ -270,7 +270,7 @@ def test_common_endpoints(base, token, role_label=""):
         ("/api/notifications/", "list", lambda b: isinstance(b, list), lambda b: f"{len(b)} notifications"),
         ("/api/notifications/unread-count", "dict", lambda b: isinstance(b, dict), lambda b: f"count={b.get('count', '?')}"),
         ("/api/tasks/", "list", lambda b: isinstance(b, list), lambda b: f"{len(b)} tasks"),
-        ("/api/conversations/", "list", lambda b: isinstance(b, list), lambda b: f"{len(b)} conversations"),
+        ("/api/messages/conversations", "list", lambda b: isinstance(b, list), lambda b: f"{len(b)} conversations"),
         ("/api/search?q=test", "dict", lambda b: isinstance(b, dict), lambda _: ""),
     ]
 
@@ -283,8 +283,8 @@ def test_common_endpoints(base, token, role_label=""):
 
     # Inspiration — 404 is acceptable (no messages seeded)
     code, body, ms = _timed_request(api_get, base, "/api/inspiration/random", token)
-    if code == 200 and body and "message" in body:
-        tracker.ok("GET /api/inspiration/random", f"'{body['message'][:40]}...'", ms)
+    if code == 200 and body and "text" in body:
+        tracker.ok("GET /api/inspiration/random", f"'{body['text'][:40]}...'", ms)
     elif code == 404:
         tracker.ok("GET /api/inspiration/random", "no messages seeded yet", ms)
     else:
@@ -417,22 +417,41 @@ def test_admin_endpoints(base, token):
         tracker.fail("GET /api/admin/users", f"code={code}", ms)
 
     code, body, ms = _timed_request(api_get, base, "/api/admin/audit-logs?limit=5", token)
-    if code == 200 and isinstance(body, dict) and "logs" in body:
-        tracker.ok("GET /api/admin/audit-logs", f"{len(body['logs'])} entries", ms)
+    if code == 200 and isinstance(body, dict) and "items" in body:
+        tracker.ok("GET /api/admin/audit-logs", f"{len(body['items'])} entries", ms)
     else:
         tracker.fail("GET /api/admin/audit-logs", f"code={code}", ms)
 
-    code, body, ms = _timed_request(api_get, base, "/api/admin/inspiration", token)
+    code, body, ms = _timed_request(api_get, base, "/api/inspiration/messages", token)
     if code == 200 and isinstance(body, list):
-        tracker.ok("GET /api/admin/inspiration", f"{len(body)} messages", ms)
+        tracker.ok("GET /api/inspiration/messages", f"{len(body)} messages", ms)
     else:
-        tracker.fail("GET /api/admin/inspiration", f"code={code}", ms)
+        tracker.fail("GET /api/inspiration/messages", f"code={code}", ms)
+
+
+def test_smtp(smtp_user, smtp_password, smtp_host="smtp.gmail.com", smtp_port=587):
+    """Verify SMTP credentials by connecting and authenticating."""
+    tracker.set_section("Email Verification")
+    print(f"\n{BOLD}Email Verification (SMTP){RESET}")
+
+    import smtplib
+
+    try:
+        start = time.monotonic()
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+        ms = int((time.monotonic() - start) * 1000)
+        tracker.ok("SMTP login", f"{smtp_user} via {smtp_host}:{smtp_port}", ms)
+    except Exception as e:
+        ms = int((time.monotonic() - start) * 1000) if 'start' in dir() else 0
+        tracker.fail("SMTP login", f"{e}", ms)
 
 
 def test_sendgrid(sendgrid_key):
     """Verify SendGrid API key and sender authentication status."""
-    tracker.set_section("SendGrid Verification")
-    print(f"\n{BOLD}SendGrid Verification{RESET}")
+    tracker.set_section("Email Verification")
+    print(f"\n{BOLD}Email Verification (SendGrid){RESET}")
 
     if not sendgrid_key or not sendgrid_key.startswith("SG."):
         tracker.fail("SendGrid API key", "key missing or does not start with SG.")
@@ -604,6 +623,16 @@ Examples:
         help="SendGrid API key for email delivery verification",
     )
     parser.add_argument(
+        "--smtp-user",
+        default=os.environ.get("SMTP_USER"),
+        help="SMTP username for email delivery verification (e.g. user@gmail.com)",
+    )
+    parser.add_argument(
+        "--smtp-password",
+        default=os.environ.get("SMTP_PASSWORD"),
+        help="SMTP password / app password",
+    )
+    parser.add_argument(
         "--json-output",
         default=os.environ.get("SMOKE_JSON_OUTPUT"),
         help="Path to write JSON results report (e.g. smoke-results.json)",
@@ -665,12 +694,14 @@ Examples:
     else:
         tracker.skip("Authenticated tests", "pass --email/--password or --credentials-file")
 
-    # SendGrid verification
-    if args.sendgrid_key:
+    # Email delivery verification (SMTP or SendGrid)
+    if args.smtp_user and args.smtp_password:
+        test_smtp(args.smtp_user, args.smtp_password)
+    elif args.sendgrid_key:
         test_sendgrid(args.sendgrid_key)
     else:
-        tracker.set_section("SendGrid Verification")
-        tracker.skip("SendGrid verification", "pass --sendgrid-key or set SENDGRID_API_KEY")
+        tracker.set_section("Email Verification")
+        tracker.skip("Email verification", "pass --smtp-user/--smtp-password or --sendgrid-key")
 
     # Summary
     print_summary(base, start_time, args.json_output)
