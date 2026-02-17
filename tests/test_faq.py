@@ -250,6 +250,33 @@ class TestFAQAnswers:
         }, headers=user_headers)
         assert resp.status_code == 403
 
+    def test_edit_approved_answer_fails(self, client, faq_users):
+        """Cannot edit an answer that has already been approved."""
+        # user2 submits answer
+        user2_headers = _auth(client, "faquser2@test.com")
+        create = client.post(f"/api/faq/questions/{self.question_id}/answers", json={
+            "content": "Answer that will be approved and then edit attempted.",
+        }, headers=user2_headers)
+        answer_id = create.json()["id"]
+
+        # admin approves it
+        admin_headers = _auth(client, "faqadmin@test.com")
+        client.patch(f"/api/faq/admin/answers/{answer_id}/approve", headers=admin_headers)
+
+        # user2 tries to edit approved answer
+        resp = client.patch(f"/api/faq/answers/{answer_id}", json={
+            "content": "Trying to edit an already approved answer should fail!",
+        }, headers=user2_headers)
+        assert resp.status_code == 400
+
+    def test_edit_nonexistent_answer_404(self, client, faq_users):
+        """Editing a non-existent answer returns 404."""
+        headers = _auth(client, "faquser@test.com")
+        resp = client.patch("/api/faq/answers/99999", json={
+            "content": "This answer does not exist so should return 404.",
+        }, headers=headers)
+        assert resp.status_code == 404
+
 
 # ── Admin Approval Workflow ────────────────────────────────────
 
