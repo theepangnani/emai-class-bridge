@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.logging_config import setup_logging, get_logger, RequestLogger
-from app.core.middleware import SecurityHeadersMiddleware
+from app.core.middleware import DomainRedirectMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
 from app.db.database import Base, engine, SessionLocal
 from app.api.routes import auth, users, students, courses, assignments, google_classroom, study, logs, messages, notifications, teacher_communications, parent, admin, invites, tasks, course_contents, search, inspiration, faq
@@ -526,6 +526,10 @@ app.add_middleware(
 # Security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Domain redirect middleware (301 non-canonical → canonical)
+# No-ops when canonical_domain is empty; always registered, checks at runtime
+app.add_middleware(DomainRedirectMiddleware)
+
 # Include all API routers at /api prefix
 # NOTE: Mobile apps will use these same endpoints initially.
 # Dedicated /api/v1 endpoints will be created as mobile-specific features are needed.
@@ -607,11 +611,13 @@ async def startup_event():
     from app.jobs.assignment_reminders import check_assignment_reminders
     from app.jobs.task_reminders import check_task_reminders
     from app.services.inspiration_service import seed_messages
+    from app.services.faq_seed_service import seed_faq
 
-    # Seed inspiration messages if table is empty
+    # Seed inspiration messages and FAQ entries if tables are empty
     db = SessionLocal()
     try:
         seed_messages(db)
+        seed_faq(db)
     finally:
         db.close()
 
