@@ -319,10 +319,48 @@ Dedicated page for viewing and managing a single course and its content:
 - **Navigation** — Course cards expand inline to show a materials preview panel; a "View Details" button navigates to the full detail page
 - **Role-aware UI** — All roles can view course materials; management buttons (Add Content, Upload Document, Create Task, Edit Course) only visible to course creator/admin
 
-### 6.5 Performance Analytics (Phase 2)
-- Subject-level insights
-- Trend analysis
-- Weekly progress reports
+### 6.5 Performance Analytics (Phase 2) - IN PROGRESS
+
+Grade tracking and analytics dashboard for parents and students. Provides performance summaries, subject-level insights, grade trends over time, AI-powered recommendations, and weekly progress reports.
+
+**Data Model:**
+- `grade_records` — Analytics source of truth: student_id, course_id, assignment_id (nullable for course-level grades), grade, max_grade, percentage (pre-computed), source (google_classroom/manual/seed), recorded_at
+- `StudentAssignment` (existing) — Google Classroom sync target with grade, status, submitted_at; feeds into grade_records via sync service
+- `progress_reports` (planned) — Cached weekly reports: student_id, report_type, period_start/end, data (JSON), generated_at
+
+**Grade Data Pipeline:**
+- Google Classroom submissions synced → `StudentAssignment` → `GradeRecord` (with pre-computed percentage)
+- `GradeRecord.assignment_id` is nullable to support future course-level grades (midterms, finals, manual entry)
+- `source` column tracks origin: `google_classroom`, `manual`, `seed`
+- Seed service provides 26 demo grade records across 3 courses with 60-day date spread
+
+**Analytics Service:**
+- `get_performance_summary()` — overall average, total grades/courses, completion rate, recent trend
+- `get_subject_insights()` — per-course: average grade, grade count, last grade, trend (improving/declining/stable)
+- `get_grade_trends()` — weekly aggregated time-series for line charts
+- `get_course_trends()` — individual grade points for per-course drill-down
+- `get_strengths_weaknesses()` — courses ≥5% above/below overall average, with trend context
+- Trend detection: compares last 30 days vs previous 30 days, 3-point threshold
+
+**API Endpoints:**
+- `GET /api/analytics/grades?student_id=&course_id=&limit=&offset=` — paginated grade records
+- `POST /api/analytics/sync-grades?student_id=` — trigger Google Classroom grade sync
+- `GET /api/analytics/dashboard?student_id=&days=90` — full dashboard payload (summary + subjects + trends + strengths/weaknesses)
+- `GET /api/analytics/subject/{course_id}?student_id=` — single course insight
+- `GET /api/analytics/trends?student_id=&days=90` — weekly aggregated time-series
+- `GET /api/analytics/trends/{course_id}?student_id=&days=90` — per-course grade points
+- `POST /api/analytics/ai-insights?student_id=` (planned) — AI-generated recommendations
+- `GET /api/analytics/reports/weekly?student_id=` (planned) — weekly progress report
+
+**RBAC:** Parents see linked children, students see own data, teachers see their course students, admins see all.
+
+**Frontend (planned):**
+- `/analytics` page with Recharts: grade trend line chart, subject breakdown bar chart, summary cards, strengths/weaknesses section
+- Child selector for parents with multiple children
+- AI insights panel (on-demand button to manage API costs)
+- Weekly progress report with week-over-week comparison
+
+**GitHub Issues:** #469 (grade data pipeline), #470 (aggregation service + API), #471 (frontend charts), #472 (AI insights), #473 (weekly reports), #474 (tests)
 
 ### 6.6 Communication (Phase 1) - IMPLEMENTED
 - Secure Parent <-> Teacher messaging
@@ -1918,7 +1956,7 @@ Parents and students have a **many-to-many** relationship via the `parent_studen
 
 ### Phase 2
 - [ ] TeachAssist integration
-- [ ] Performance analytics dashboard
+- [ ] **Performance Analytics Dashboard** — Grade tracking, trends, AI insights, weekly reports (#469-#474) — IN PROGRESS
 - [ ] Advanced notifications
 - [ ] Notes & project tracking tools
 - [ ] Data privacy & user rights (account deletion, data export, consent)
@@ -2675,10 +2713,18 @@ Current feature issues are tracked in GitHub:
 - ~~Issue #207: Parent Dashboard: Calendar default expanded on all screen sizes~~ ✅
 
 ### Phase 2
-- Issue #26: Performance Analytics Dashboard
+- Issue #26: Performance Analytics Dashboard (umbrella — broken into #469-#474)
 - Issue #27: Notes & Project Tracking Tools
 - Issue #29: TeachAssist Integration
 - Issue #50: Data privacy & user rights (FERPA/PIPEDA compliance)
+
+### Phase 2 — Performance Analytics (#26)
+- ~~Issue #469: Analytics: Grade data pipeline — sync grades from Google Classroom~~ ✅
+- ~~Issue #470: Analytics: Backend aggregation service and API endpoints~~ ✅
+- Issue #471: Analytics: Frontend dashboard with charts (Recharts)
+- Issue #472: Analytics: AI-powered performance insights
+- Issue #473: Analytics: Weekly progress reports
+- Issue #474: Analytics: Backend + frontend tests
 
 ### Phase 2 — FAQ / Knowledge Base
 - Issue #437: FAQ: Backend models — FAQQuestion + FAQAnswer tables

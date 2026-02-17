@@ -15,7 +15,7 @@ from app.core.logging_config import setup_logging, get_logger, RequestLogger
 from app.core.middleware import DomainRedirectMiddleware, SecurityHeadersMiddleware
 from app.core.rate_limit import limiter
 from app.db.database import Base, engine, SessionLocal
-from app.api.routes import auth, users, students, courses, assignments, google_classroom, study, logs, messages, notifications, teacher_communications, parent, admin, invites, tasks, course_contents, search, inspiration, faq
+from app.api.routes import auth, users, students, courses, assignments, google_classroom, study, logs, messages, notifications, teacher_communications, parent, admin, invites, tasks, course_contents, search, inspiration, faq, analytics
 
 # Initialize logging first (auto-determines level based on environment)
 setup_logging(
@@ -552,6 +552,7 @@ app.include_router(course_contents.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(inspiration.router, prefix="/api")
 app.include_router(faq.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 
 logger.info("API routes registered at /api")
 
@@ -612,12 +613,14 @@ async def startup_event():
     from app.jobs.task_reminders import check_task_reminders
     from app.services.inspiration_service import seed_messages
     from app.services.faq_seed_service import seed_faq
+    from app.services.grade_seed_service import seed_grades
 
-    # Seed inspiration messages and FAQ entries if tables are empty
+    # Seed inspiration messages, FAQ entries, and grade records if tables are empty
     db = SessionLocal()
     try:
         seed_messages(db)
         seed_faq(db)
+        seed_grades(db)
     finally:
         db.close()
 
