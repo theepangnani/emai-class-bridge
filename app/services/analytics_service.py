@@ -1,287 +1,383 @@
 """Analytics aggregation service.
 
-Computes performance summaries, subject-level insights, grade trends,
-and strengths/weaknesses from GradeRecord data.
+All grade computations join StudentAssignment -> Assignment -> Course
+and compute percentage as (sa.grade / assignment.max_points) * 100.
 """
 
+import json
 import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from app.models.analytics import GradeRecord
-from app.models.course import Course
+from app.models.analytics import ProgressReport
+from app.models.assignment import Assignment, StudentAssignment
+from app.models.course import Course, student_courses
+from app.models.student import Student
 
 logger = logging.getLogger(__name__)
 
 
-def get_performance_summary(db: Session, student_id: int) -> dict:
-    """Overall performance summary for a student.
+# ---------------------------------------------------------------------------
+# Core query helpers
+# ---------------------------------------------------------------------------
 
-    Returns:
-        {
-            "overall_average": float,
-            "total_grades": int,
-            "total_courses": int,
-            "completion_rate": float,  # % of assignments graded
-            "recent_trend": "improving" | "declining" | "stable",
-        }
-    """
-    grades = (
-        db.query(GradeRecord)
-        .filter(GradeRecord.student_id == student_id)
+def _base_graded_query(db: Session, student_id: int, course_id: int | None = None):
+    """Return a query of (StudentAssignment, Assignment, Course) for graded rows."""
+    query = (
+        db.query(StudentAssignment, Assignment, Course)
+        .join(Assignment, StudentAssignment.assignment_id == Assignment.id)
+        .join(Course, Assignment.course_id == Course.id)
+        .filter(
+            StudentAssignment.student_id == student_id,
+            StudentAssignment.grade.isnot(None),
+            Assignment.max_points.isnot(None),
+            Assignment.max_points > 0,
+        )
+    )
+    if course_id:
+        query = query.filter(Assignment.course_id == course_id)
+    return query
+
+
+def _total_assignments_query(db: Session, student_id: int) -> int:
+    """Count all assignments for courses the student is enrolled in."""
+    enrolled_course_ids = (
+        db.query(student_courses.c.course_id)
+        .filter(student_courses.c.student_id == student_id)
+        .subquery()
+    )
+    return (
+        db.query(sa_func.count(Assignment.id))
+        .filter(Assignment.course_id.in_(db.query(enrolled_course_ids.c.course_id)))
+        .scalar()
+    ) or 0
+
+
+# ---------------------------------------------------------------------------
+# Public functions
+# ---------------------------------------------------------------------------
+
+def get_graded_assignments(
+    db: Session,
+    student_id: int,
+    course_id: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict], int]:
+    """Return paginated graded assignments with computed percentages."""
+    query = _base_graded_query(db, student_id, course_id)
+    total = query.count()
+
+    rows = (
+        query
+        .order_by(
+            Assignment.due_date.desc().nullslast(),
+            StudentAssignment.created_at.desc(),
+        )
+        .offset(offset)
+        .limit(limit)
         .all()
     )
 
-    if not grades:
+    grades = []
+    for sa, assignment, course in rows:
+        pct = round((sa.grade / assignment.max_points) * 100, 2)
+        grades.append({
+            "student_assignment_id": sa.id,
+            "assignment_id": assignment.id,
+            "assignment_title": assignment.title,
+            "course_id": course.id,
+            "course_name": course.name,
+            "grade": sa.grade,
+            "max_points": assignment.max_points,
+            "percentage": pct,
+            "status": sa.status,
+            "submitted_at": sa.submitted_at,
+            "due_date": assignment.due_date,
+        })
+
+    return grades, total
+
+
+def compute_summary(db: Session, student_id: int) -> dict:
+    """Compute overall average, per-course averages, trend, completion rate."""
+    rows = _base_graded_query(db, student_id).all()
+
+    if not rows:
         return {
             "overall_average": 0.0,
-            "total_grades": 0,
-            "total_courses": 0,
+            "total_graded": 0,
+            "total_assignments": _total_assignments_query(db, student_id),
             "completion_rate": 0.0,
-            "recent_trend": "stable",
+            "course_averages": [],
+            "trend": "stable",
         }
 
-    percentages = [g.percentage for g in grades]
-    course_ids = {g.course_id for g in grades}
+    percentages = []
+    course_data: dict[int, dict] = {}
 
-    # Recent trend: compare last 30 days vs previous 30 days
-    now = datetime.utcnow()
-    recent_grades = [g for g in grades if g.recorded_at and g.recorded_at >= now - timedelta(days=30)]
-    older_grades = [
-        g for g in grades
-        if g.recorded_at and now - timedelta(days=60) <= g.recorded_at < now - timedelta(days=30)
-    ]
+    for sa, assignment, course in rows:
+        pct = (sa.grade / assignment.max_points) * 100
+        percentages.append(pct)
 
-    trend = calculate_trend(
-        [g.percentage for g in older_grades],
-        [g.percentage for g in recent_grades],
+        if course.id not in course_data:
+            course_data[course.id] = {
+                "course_id": course.id,
+                "course_name": course.name,
+                "percentages": [],
+                "graded_count": 0,
+            }
+        course_data[course.id]["percentages"].append(pct)
+        course_data[course.id]["graded_count"] += 1
+
+    overall_avg = round(sum(percentages) / len(percentages), 2)
+    total_assignments = _total_assignments_query(db, student_id)
+    total_graded = len(rows)
+
+    # Per-course averages
+    course_averages = []
+    for cid, cdata in course_data.items():
+        total_in_course = (
+            db.query(sa_func.count(Assignment.id))
+            .filter(Assignment.course_id == cid)
+            .scalar()
+        ) or 0
+        avg_pct = round(sum(cdata["percentages"]) / len(cdata["percentages"]), 2)
+        completion = round((cdata["graded_count"] / total_in_course) * 100, 2) if total_in_course else 0.0
+        course_averages.append({
+            "course_id": cid,
+            "course_name": cdata["course_name"],
+            "average_percentage": avg_pct,
+            "graded_count": cdata["graded_count"],
+            "total_count": total_in_course,
+            "completion_rate": completion,
+        })
+
+    completion_rate = round((total_graded / total_assignments) * 100, 2) if total_assignments else 0.0
+
+    # Compute trend from chronological order
+    trend_rows = (
+        _base_graded_query(db, student_id)
+        .order_by(
+            Assignment.due_date.asc().nullslast(),
+            StudentAssignment.created_at.asc(),
+        )
+        .all()
     )
+    chrono_pcts = [(sa.grade / a.max_points) * 100 for sa, a, _ in trend_rows]
+    trend = determine_trend(chrono_pcts)
 
     return {
-        "overall_average": round(sum(percentages) / len(percentages), 2),
-        "total_grades": len(grades),
-        "total_courses": len(course_ids),
-        "completion_rate": 100.0,  # all GradeRecords are graded by definition
-        "recent_trend": trend,
+        "overall_average": overall_avg,
+        "total_graded": total_graded,
+        "total_assignments": total_assignments,
+        "completion_rate": completion_rate,
+        "course_averages": course_averages,
+        "trend": trend,
     }
 
 
-def get_subject_insights(db: Session, student_id: int) -> list[dict]:
-    """Per-course performance breakdown.
-
-    Returns a list of:
-        {
-            "course_id": int,
-            "course_name": str,
-            "subject": str | None,
-            "average_grade": float,
-            "grade_count": int,
-            "last_grade": float,
-            "trend": "improving" | "declining" | "stable",
-        }
-    """
-    # Aggregate by course
-    rows = (
-        db.query(
-            GradeRecord.course_id,
-            sa_func.avg(GradeRecord.percentage).label("avg_pct"),
-            sa_func.count(GradeRecord.id).label("cnt"),
-        )
-        .filter(GradeRecord.student_id == student_id)
-        .group_by(GradeRecord.course_id)
-        .all()
+def compute_trend_points(
+    db: Session,
+    student_id: int,
+    course_id: int | None = None,
+    days: int = 90,
+) -> tuple[list[dict], str]:
+    """Return chronological trend points and overall trend string."""
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    query = _base_graded_query(db, student_id, course_id).filter(
+        (Assignment.due_date >= cutoff) | (StudentAssignment.created_at >= cutoff)
     )
+    rows = query.order_by(
+        Assignment.due_date.asc().nullslast(),
+        StudentAssignment.created_at.asc(),
+    ).all()
 
-    if not rows:
-        return []
-
-    course_ids = [r.course_id for r in rows]
-    courses = {c.id: c for c in db.query(Course).filter(Course.id.in_(course_ids)).all()}
-
-    now = datetime.utcnow()
-    insights = []
-
-    for row in rows:
-        course = courses.get(row.course_id)
-
-        # Per-course grades for trend + last_grade
-        course_grades = (
-            db.query(GradeRecord)
-            .filter(
-                GradeRecord.student_id == student_id,
-                GradeRecord.course_id == row.course_id,
-            )
-            .order_by(GradeRecord.recorded_at.asc())
-            .all()
-        )
-
-        last_grade = course_grades[-1].percentage if course_grades else 0.0
-
-        recent = [g for g in course_grades if g.recorded_at and g.recorded_at >= now - timedelta(days=30)]
-        older = [
-            g for g in course_grades
-            if g.recorded_at and now - timedelta(days=60) <= g.recorded_at < now - timedelta(days=30)
-        ]
-
-        insights.append({
-            "course_id": row.course_id,
-            "course_name": course.name if course else "Unknown",
-            "subject": course.subject if course else None,
-            "average_grade": round(float(row.avg_pct), 2),
-            "grade_count": row.cnt,
-            "last_grade": round(last_grade, 2),
-            "trend": calculate_trend(
-                [g.percentage for g in older],
-                [g.percentage for g in recent],
-            ),
+    points = []
+    pcts = []
+    for sa, assignment, course in rows:
+        pct = round((sa.grade / assignment.max_points) * 100, 2)
+        pcts.append(pct)
+        date_val = assignment.due_date or sa.created_at
+        points.append({
+            "date": date_val.isoformat() if date_val else "",
+            "percentage": pct,
+            "assignment_title": assignment.title,
+            "course_name": course.name,
         })
 
-    # Sort by average descending (best courses first)
-    insights.sort(key=lambda x: x["average_grade"], reverse=True)
-    return insights
+    return points, determine_trend(pcts)
 
 
-def get_grade_trends(db: Session, student_id: int, days: int = 90) -> list[dict]:
-    """Time-series grade data for charting.
-
-    Returns weekly aggregated data points:
-        [{"date": "2026-01-06", "average": 85.5, "count": 3}, ...]
-    """
-    cutoff = datetime.utcnow() - timedelta(days=days)
-
-    grades = (
-        db.query(GradeRecord)
-        .filter(
-            GradeRecord.student_id == student_id,
-            GradeRecord.recorded_at >= cutoff,
-        )
-        .order_by(GradeRecord.recorded_at.asc())
-        .all()
-    )
-
-    if not grades:
-        return []
-
-    # Group by ISO week
-    weekly: dict[str, list[float]] = {}
-    for g in grades:
-        if not g.recorded_at:
-            continue
-        # Monday of the week
-        week_start = g.recorded_at - timedelta(days=g.recorded_at.weekday())
-        key = week_start.strftime("%Y-%m-%d")
-        weekly.setdefault(key, []).append(g.percentage)
-
-    return [
-        {
-            "date": key,
-            "average": round(sum(vals) / len(vals), 2),
-            "count": len(vals),
-        }
-        for key, vals in sorted(weekly.items())
-    ]
-
-
-def get_course_trends(db: Session, student_id: int, course_id: int, days: int = 90) -> list[dict]:
-    """Time-series grade data for a single course.
-
-    Returns individual grade points (not aggregated):
-        [{"date": "2026-01-10", "percentage": 85.0, "assignment_title": "..."}, ...]
-    """
-    cutoff = datetime.utcnow() - timedelta(days=days)
-
-    grades = (
-        db.query(GradeRecord)
-        .filter(
-            GradeRecord.student_id == student_id,
-            GradeRecord.course_id == course_id,
-            GradeRecord.recorded_at >= cutoff,
-        )
-        .order_by(GradeRecord.recorded_at.asc())
-        .all()
-    )
-
-    return [
-        {
-            "date": g.recorded_at.strftime("%Y-%m-%d") if g.recorded_at else None,
-            "percentage": round(g.percentage, 2),
-            "grade": g.grade,
-            "max_grade": g.max_grade,
-            "assignment_title": g.assignment.title if g.assignment else None,
-        }
-        for g in grades
-    ]
-
-
-def get_strengths_weaknesses(db: Session, student_id: int) -> dict:
-    """Identify top-performing and struggling courses.
-
-    Returns:
-        {
-            "strengths": [{"course_name": str, "average_grade": float, "description": str}],
-            "weaknesses": [{"course_name": str, "average_grade": float, "description": str}],
-        }
-    """
-    insights = get_subject_insights(db, student_id)
-
-    if not insights:
-        return {"strengths": [], "weaknesses": []}
-
-    overall_avg = sum(i["average_grade"] for i in insights) / len(insights)
-
-    strengths = []
-    weaknesses = []
-
-    for ins in insights:
-        avg = ins["average_grade"]
-        name = ins["course_name"]
-        trend = ins["trend"]
-
-        if avg >= overall_avg + 5:
-            desc = f"Performing well in {name} with {avg:.0f}% average"
-            if trend == "improving":
-                desc += " and still improving"
-            strengths.append({
-                "course_id": ins["course_id"],
-                "course_name": name,
-                "average_grade": avg,
-                "trend": trend,
-                "description": desc,
-            })
-        elif avg <= overall_avg - 5:
-            desc = f"Struggling in {name} with {avg:.0f}% average"
-            if trend == "declining":
-                desc += " and trending downward"
-            elif trend == "improving":
-                desc += " but showing improvement"
-            weaknesses.append({
-                "course_id": ins["course_id"],
-                "course_name": name,
-                "average_grade": avg,
-                "trend": trend,
-                "description": desc,
-            })
-
-    return {"strengths": strengths, "weaknesses": weaknesses}
-
-
-def calculate_trend(older: list[float], recent: list[float]) -> str:
-    """Determine trend by comparing two sets of percentages.
-
-    Returns "improving", "declining", or "stable".
-    Uses a 3-point threshold to avoid noise.
-    """
-    if not older or not recent:
+def determine_trend(percentages: list[float]) -> str:
+    """Given chronological percentages, return 'improving'/'declining'/'stable'."""
+    if len(percentages) < 3:
         return "stable"
-
-    old_avg = sum(older) / len(older)
-    new_avg = sum(recent) / len(recent)
-    diff = new_avg - old_avg
-
-    if diff >= 3:
+    third = max(1, len(percentages) // 3)
+    first_avg = sum(percentages[:third]) / third
+    last_avg = sum(percentages[-third:]) / third
+    if last_avg > first_avg + 3:
         return "improving"
-    elif diff <= -3:
+    elif last_avg < first_avg - 3:
         return "declining"
     return "stable"
+
+
+# ---------------------------------------------------------------------------
+# Weekly report (cached in ProgressReport)
+# ---------------------------------------------------------------------------
+
+def _current_week_bounds() -> tuple[datetime, datetime]:
+    """Return (Monday 00:00, Sunday 23:59:59) for the current week."""
+    now = datetime.utcnow()
+    monday = now - timedelta(days=now.weekday())
+    start = monday.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+    return start, end
+
+
+def get_or_create_weekly_report(db: Session, student_id: int) -> dict:
+    """Return cached weekly report or compute a fresh one."""
+    start, end = _current_week_bounds()
+
+    existing = (
+        db.query(ProgressReport)
+        .filter(
+            ProgressReport.student_id == student_id,
+            ProgressReport.report_type == "weekly",
+            ProgressReport.period_start == start,
+        )
+        .first()
+    )
+
+    if existing and existing.generated_at:
+        age = datetime.utcnow() - existing.generated_at
+        if age < timedelta(hours=24):
+            return {
+                "id": existing.id,
+                "student_id": existing.student_id,
+                "report_type": existing.report_type,
+                "period_start": existing.period_start,
+                "period_end": existing.period_end,
+                "data": json.loads(existing.data),
+                "generated_at": existing.generated_at,
+            }
+
+    # Compute fresh report
+    summary = compute_summary(db, student_id)
+    points, trend = compute_trend_points(db, student_id, days=7)
+
+    report_data = {
+        "overall_average": summary["overall_average"],
+        "total_graded": summary["total_graded"],
+        "completion_rate": summary["completion_rate"],
+        "trend": trend,
+        "course_summaries": summary["course_averages"],
+        "grades_this_week": len(points),
+    }
+
+    data_json = json.dumps(report_data)
+
+    if existing:
+        existing.data = data_json
+        existing.generated_at = datetime.utcnow()
+        existing.period_end = end
+    else:
+        existing = ProgressReport(
+            student_id=student_id,
+            report_type="weekly",
+            period_start=start,
+            period_end=end,
+            data=data_json,
+        )
+        db.add(existing)
+
+    db.commit()
+    db.refresh(existing)
+
+    return {
+        "id": existing.id,
+        "student_id": existing.student_id,
+        "report_type": existing.report_type,
+        "period_start": existing.period_start,
+        "period_end": existing.period_end,
+        "data": json.loads(existing.data),
+        "generated_at": existing.generated_at,
+    }
+
+
+# ---------------------------------------------------------------------------
+# AI Insights (on-demand)
+# ---------------------------------------------------------------------------
+
+async def generate_ai_insight(
+    db: Session,
+    student_id: int,
+    focus_area: str | None = None,
+) -> str:
+    """Gather grade data, build prompt, call AI, return markdown insight."""
+    from app.services.ai_service import generate_content
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    student_name = student.user.full_name if student and student.user else "Student"
+
+    summary = compute_summary(db, student_id)
+    grades, _ = get_graded_assignments(db, student_id, limit=10)
+
+    # Build recent grades text
+    recent_lines = []
+    for g in grades:
+        recent_lines.append(
+            f"- {g['assignment_title']} ({g['course_name']}): "
+            f"{g['percentage']:.1f}% ({g['grade']}/{g['max_points']})"
+        )
+    recent_text = "\n".join(recent_lines) if recent_lines else "No graded assignments yet."
+
+    # Build course summary text
+    course_lines = []
+    for ca in summary["course_averages"]:
+        course_lines.append(
+            f"- {ca['course_name']}: avg {ca['average_percentage']:.1f}%, "
+            f"{ca['graded_count']}/{ca['total_count']} assignments graded"
+        )
+    course_text = "\n".join(course_lines) if course_lines else "No course data."
+
+    focus_text = f"\nFocus area requested: {focus_area}" if focus_area else ""
+
+    prompt = f"""Analyze the following student's academic performance and provide actionable insights:
+
+Student: {student_name}
+Overall Average: {summary['overall_average']:.1f}%
+Overall Trend: {summary['trend']}
+Completion Rate: {summary['completion_rate']:.1f}%
+Total Graded: {summary['total_graded']} of {summary['total_assignments']} assignments
+{focus_text}
+
+Courses:
+{course_text}
+
+Recent Grades (most recent first):
+{recent_text}
+
+Provide:
+1. Performance summary (2-3 sentences)
+2. Strengths (courses/areas doing well)
+3. Areas for improvement
+4. Specific actionable recommendations (3-5 items)
+
+Format as Markdown with headers. Be encouraging but honest. Keep it concise."""
+
+    system_prompt = (
+        "You are an educational analytics assistant for parents and students. "
+        "Provide clear, actionable insights about academic performance. "
+        "Be encouraging and constructive."
+    )
+
+    return await generate_content(
+        prompt=prompt,
+        system_prompt=system_prompt,
+        max_tokens=1500,
+        temperature=0.5,
+    )

@@ -35,7 +35,7 @@ def sync_grades_for_course(user: User, course: Course, db: Session) -> dict:
     """Sync grades for a single course from Google Classroom.
 
     Fetches all coursework, then all submissions for each, and upserts
-    into StudentAssignment + GradeRecord.
+    into StudentAssignment.
 
     Returns {"synced": int, "errors": int}.
     """
@@ -144,21 +144,9 @@ def sync_grades_for_course(user: User, course: Course, db: Session) -> dict:
             sa.status = our_status
             if grade is not None:
                 sa.grade = grade
+                synced += 1
             if state == "TURNED_IN" and not sa.submitted_at:
                 sa.submitted_at = datetime.utcnow()
-
-            # If graded, upsert GradeRecord
-            if grade is not None and max_points:
-                _upsert_grade_record(
-                    db,
-                    student_id=student.id,
-                    course_id=course.id,
-                    assignment_id=assignment.id,
-                    grade=grade,
-                    max_grade=max_points,
-                    source="google_classroom",
-                )
-                synced += 1
 
     db.commit()
     return {"synced": synced, "errors": errors}
@@ -206,39 +194,3 @@ def _find_student_for_submission(
     return students_by_user_id.get(user.id)
 
 
-def _upsert_grade_record(
-    db: Session,
-    *,
-    student_id: int,
-    course_id: int,
-    assignment_id: int,
-    grade: float,
-    max_grade: float,
-    source: str,
-) -> GradeRecord:
-    """Create or update a GradeRecord for a specific assignment."""
-    percentage = round((grade / max_grade) * 100, 2) if max_grade else 0.0
-
-    existing = db.query(GradeRecord).filter(
-        GradeRecord.student_id == student_id,
-        GradeRecord.assignment_id == assignment_id,
-    ).first()
-
-    if existing:
-        existing.grade = grade
-        existing.max_grade = max_grade
-        existing.percentage = percentage
-        existing.recorded_at = datetime.utcnow()
-        return existing
-
-    record = GradeRecord(
-        student_id=student_id,
-        course_id=course_id,
-        assignment_id=assignment_id,
-        grade=grade,
-        max_grade=max_grade,
-        percentage=percentage,
-        source=source,
-    )
-    db.add(record)
-    return record

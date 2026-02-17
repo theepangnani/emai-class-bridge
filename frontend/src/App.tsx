@@ -65,6 +65,7 @@ const HelpPage = lazyRetry(() => import('./pages/HelpPage').then((m) => ({ defau
 const FAQPage = lazyRetry(() => import('./pages/FAQPage').then((m) => ({ default: m.FAQPage })));
 const FAQDetailPage = lazyRetry(() => import('./pages/FAQDetailPage').then((m) => ({ default: m.FAQDetailPage })));
 const AdminFAQPage = lazyRetry(() => import('./pages/AdminFAQPage').then((m) => ({ default: m.AdminFAQPage })));
+const AnalyticsPage = lazyRetry(() => import('./pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,6 +111,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <MyKidsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute allowedRoles={['parent', 'student', 'admin']}>
+                    <AnalyticsPage />
                   </ProtectedRoute>
                 }
               />
