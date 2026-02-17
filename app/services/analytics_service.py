@@ -1,7 +1,8 @@
 """Analytics aggregation service.
 
-All grade computations join StudentAssignment -> Assignment -> Course
-and compute percentage as (sa.grade / assignment.max_points) * 100.
+All grade computations now query GradeRecord — the dedicated analytics
+source of truth.  GradeRecord stores pre-computed percentage and a direct
+course_id FK, eliminating the need for multi-table JOINs.
 """
 
 import json
@@ -11,8 +12,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from app.models.analytics import ProgressReport
-from app.models.assignment import Assignment, StudentAssignment
+from app.models.analytics import GradeRecord, ProgressReport
+from app.models.assignment import Assignment
 from app.models.course import Course, student_courses
 from app.models.student import Student
 
@@ -24,20 +25,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _base_graded_query(db: Session, student_id: int, course_id: int | None = None):
-    """Return a query of (StudentAssignment, Assignment, Course) for graded rows."""
+    """Return a query of (GradeRecord, Course, Assignment) for graded rows.
+
+    LEFT JOINs Assignment for title/due_date (nullable for course-level grades).
+    JOINs Course for course_name.
+    """
     query = (
-        db.query(StudentAssignment, Assignment, Course)
-        .join(Assignment, StudentAssignment.assignment_id == Assignment.id)
-        .join(Course, Assignment.course_id == Course.id)
-        .filter(
-            StudentAssignment.student_id == student_id,
-            StudentAssignment.grade.isnot(None),
-            Assignment.max_points.isnot(None),
-            Assignment.max_points > 0,
-        )
+        db.query(GradeRecord, Course, Assignment)
+        .join(Course, GradeRecord.course_id == Course.id)
+        .outerjoin(Assignment, GradeRecord.assignment_id == Assignment.id)
+        .filter(GradeRecord.student_id == student_id)
     )
     if course_id:
-        query = query.filter(Assignment.course_id == course_id)
+        query = query.filter(GradeRecord.course_id == course_id)
     return query
 
 
@@ -66,15 +66,14 @@ def get_graded_assignments(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict], int]:
-    """Return paginated graded assignments with computed percentages."""
+    """Return paginated graded assignments with pre-computed percentages."""
     query = _base_graded_query(db, student_id, course_id)
     total = query.count()
 
     rows = (
         query
         .order_by(
-            Assignment.due_date.desc().nullslast(),
-            StudentAssignment.created_at.desc(),
+            GradeRecord.recorded_at.desc(),
         )
         .offset(offset)
         .limit(limit)
@@ -82,20 +81,20 @@ def get_graded_assignments(
     )
 
     grades = []
-    for sa, assignment, course in rows:
-        pct = round((sa.grade / assignment.max_points) * 100, 2)
+    for gr, course, assignment in rows:
         grades.append({
-            "student_assignment_id": sa.id,
-            "assignment_id": assignment.id,
-            "assignment_title": assignment.title,
+            "student_assignment_id": gr.id,  # backward compat key
+            "assignment_id": assignment.id if assignment else None,
+            "assignment_title": assignment.title if assignment else f"{course.name} grade",
             "course_id": course.id,
             "course_name": course.name,
-            "grade": sa.grade,
-            "max_points": assignment.max_points,
-            "percentage": pct,
-            "status": sa.status,
-            "submitted_at": sa.submitted_at,
-            "due_date": assignment.due_date,
+            "grade": gr.grade,
+            "max_points": gr.max_grade,
+            "percentage": gr.percentage,  # pre-computed
+            "status": "graded",
+            "source": gr.source,
+            "submitted_at": gr.recorded_at,
+            "due_date": assignment.due_date if assignment else None,
         })
 
     return grades, total
@@ -118,8 +117,8 @@ def compute_summary(db: Session, student_id: int) -> dict:
     percentages = []
     course_data: dict[int, dict] = {}
 
-    for sa, assignment, course in rows:
-        pct = (sa.grade / assignment.max_points) * 100
+    for gr, course, _assignment in rows:
+        pct = gr.percentage  # pre-computed — no runtime division
         percentages.append(pct)
 
         if course.id not in course_data:
@@ -158,15 +157,12 @@ def compute_summary(db: Session, student_id: int) -> dict:
     completion_rate = round((total_graded / total_assignments) * 100, 2) if total_assignments else 0.0
 
     # Compute trend from chronological order
-    trend_rows = (
+    chrono_rows = (
         _base_graded_query(db, student_id)
-        .order_by(
-            Assignment.due_date.asc().nullslast(),
-            StudentAssignment.created_at.asc(),
-        )
+        .order_by(GradeRecord.recorded_at.asc())
         .all()
     )
-    chrono_pcts = [(sa.grade / a.max_points) * 100 for sa, a, _ in trend_rows]
+    chrono_pcts = [gr.percentage for gr, _, _ in chrono_rows]
     trend = determine_trend(chrono_pcts)
 
     return {
@@ -188,23 +184,20 @@ def compute_trend_points(
     """Return chronological trend points and overall trend string."""
     cutoff = datetime.utcnow() - timedelta(days=days)
     query = _base_graded_query(db, student_id, course_id).filter(
-        (Assignment.due_date >= cutoff) | (StudentAssignment.created_at >= cutoff)
+        GradeRecord.recorded_at >= cutoff,
     )
-    rows = query.order_by(
-        Assignment.due_date.asc().nullslast(),
-        StudentAssignment.created_at.asc(),
-    ).all()
+    rows = query.order_by(GradeRecord.recorded_at.asc()).all()
 
     points = []
     pcts = []
-    for sa, assignment, course in rows:
-        pct = round((sa.grade / assignment.max_points) * 100, 2)
+    for gr, course, assignment in rows:
+        pct = gr.percentage  # pre-computed
         pcts.append(pct)
-        date_val = assignment.due_date or sa.created_at
+        date_val = gr.recorded_at
         points.append({
             "date": date_val.isoformat() if date_val else "",
-            "percentage": pct,
-            "assignment_title": assignment.title,
+            "percentage": round(pct, 2),
+            "assignment_title": assignment.title if assignment else f"{course.name} grade",
             "course_name": course.name,
         })
 

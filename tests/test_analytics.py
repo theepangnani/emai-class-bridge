@@ -16,12 +16,13 @@ def _auth(client, email):
 
 @pytest.fixture()
 def analytics_data(db_session):
-    """Create parent, student, courses, assignments, and graded StudentAssignments."""
+    """Create parent, student, courses, assignments, GradeRecords + StudentAssignments."""
     from app.core.security import get_password_hash
     from app.models.user import User, UserRole
     from app.models.student import Student, parent_students, RelationshipType
     from app.models.course import Course, student_courses
     from app.models.assignment import Assignment, StudentAssignment
+    from app.models.analytics import GradeRecord
     from sqlalchemy import insert
     from datetime import datetime, timedelta
 
@@ -66,7 +67,7 @@ def analytics_data(db_session):
 
     now = datetime.utcnow()
 
-    # Create assignments + graded StudentAssignments
+    # Create assignments
     assignments = []
     for i in range(5):
         a = Assignment(
@@ -84,25 +85,42 @@ def analytics_data(db_session):
     db_session.add_all(assignments)
     db_session.flush()
 
-    # Grade some assignments (improving trend: 70, 75, 80, 85, 90 for math)
+    # Grade math assignments (improving trend: 70, 75, 80, 85, 90)
     math_grades = [70, 75, 80, 85, 90]
     for i, a in enumerate(assignments[:5]):
+        recorded_at = now - timedelta(days=30 - i * 6)
         sa = StudentAssignment(
             student_id=student_rec.id, assignment_id=a.id,
             grade=math_grades[i], status="graded",
-            submitted_at=now - timedelta(days=30 - i * 6),
+            submitted_at=recorded_at,
         )
         db_session.add(sa)
+        # GradeRecord (analytics source of truth)
+        gr = GradeRecord(
+            student_id=student_rec.id, course_id=course1.id,
+            assignment_id=a.id, grade=math_grades[i], max_grade=100.0,
+            percentage=math_grades[i],  # max=100, so pct == grade
+            source="seed", recorded_at=recorded_at,
+        )
+        db_session.add(gr)
 
     # Science: 40, 35, 45 (out of 50)
     sci_grades = [40, 35, 45]
     for i, a in enumerate(assignments[5:]):
+        recorded_at = now - timedelta(days=20 - i * 7)
         sa = StudentAssignment(
             student_id=student_rec.id, assignment_id=a.id,
             grade=sci_grades[i], status="graded",
-            submitted_at=now - timedelta(days=20 - i * 7),
+            submitted_at=recorded_at,
         )
         db_session.add(sa)
+        gr = GradeRecord(
+            student_id=student_rec.id, course_id=course2.id,
+            assignment_id=a.id, grade=sci_grades[i], max_grade=50.0,
+            percentage=round((sci_grades[i] / 50.0) * 100, 2),
+            source="seed", recorded_at=recorded_at,
+        )
+        db_session.add(gr)
 
     db_session.commit()
 

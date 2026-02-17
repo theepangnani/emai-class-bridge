@@ -1,7 +1,8 @@
-"""Sync grades from Google Classroom into StudentAssignment.
+"""Sync grades from Google Classroom into StudentAssignment + GradeRecord.
 
-Fetches student submissions via the Google Classroom API and updates
-StudentAssignment status/grade fields.
+Fetches student submissions via the Google Classroom API, updates
+StudentAssignment status/grade fields, and upserts into GradeRecord
+(the analytics source of truth).
 """
 
 import logging
@@ -9,6 +10,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.models.analytics import GradeRecord
 from app.models.assignment import Assignment, StudentAssignment
 from app.models.course import Course, student_courses
 from app.models.student import Student
@@ -145,6 +147,17 @@ def sync_grades_for_course(user: User, course: Course, db: Session) -> dict:
             if grade is not None:
                 sa.grade = grade
                 synced += 1
+
+                # Copy to GradeRecord (analytics source of truth)
+                _upsert_grade_record(
+                    db,
+                    student_id=student.id,
+                    course_id=course.id,
+                    assignment_id=assignment.id,
+                    grade=grade,
+                    max_grade=max_points,
+                    source="google_classroom",
+                )
             if state == "TURNED_IN" and not sa.submitted_at:
                 sa.submitted_at = datetime.utcnow()
 
@@ -178,6 +191,47 @@ def sync_grades_for_student(user: User, student: Student, db: Session) -> dict:
         total_errors += result["errors"]
 
     return {"synced": total_synced, "errors": total_errors}
+
+
+def _upsert_grade_record(
+    db: Session,
+    student_id: int,
+    course_id: int,
+    assignment_id: int | None,
+    grade: float,
+    max_grade: float,
+    source: str = "manual",
+) -> GradeRecord:
+    """Create or update a GradeRecord for the given student+assignment."""
+    existing = None
+    if assignment_id:
+        existing = db.query(GradeRecord).filter(
+            GradeRecord.student_id == student_id,
+            GradeRecord.assignment_id == assignment_id,
+        ).first()
+
+    percentage = round((grade / max_grade) * 100, 2) if max_grade else 0.0
+
+    if existing:
+        existing.grade = grade
+        existing.max_grade = max_grade
+        existing.percentage = percentage
+        existing.source = source
+        existing.recorded_at = datetime.utcnow()
+        return existing
+
+    gr = GradeRecord(
+        student_id=student_id,
+        course_id=course_id,
+        assignment_id=assignment_id,
+        grade=grade,
+        max_grade=max_grade,
+        percentage=percentage,
+        source=source,
+        recorded_at=datetime.utcnow(),
+    )
+    db.add(gr)
+    return gr
 
 
 def _find_student_for_submission(

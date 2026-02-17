@@ -2,14 +2,15 @@ import { api } from './client';
 
 export interface GradeItem {
   student_assignment_id: number;
-  assignment_id: number;
-  assignment_title: string;
+  assignment_id: number | null;
+  assignment_title: string | null;
   course_id: number;
   course_name: string;
   grade: number;
   max_points: number;
   percentage: number;
   status: string;
+  source: string;
   submitted_at: string | null;
   due_date: string | null;
 }

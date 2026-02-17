@@ -5,15 +5,16 @@ from datetime import datetime
 # --- Grade Data (from StudentAssignment + Assignment) ---
 
 class GradeItem(BaseModel):
-    student_assignment_id: int
-    assignment_id: int
-    assignment_title: str
+    student_assignment_id: int  # maps to GradeRecord.id for backward compat
+    assignment_id: int | None = None  # nullable for course-level grades
+    assignment_title: str | None = None
     course_id: int
     course_name: str
     grade: float
     max_points: float
-    percentage: float
+    percentage: float  # pre-computed from GradeRecord
     status: str
+    source: str = "manual"  # google_classroom, manual, seed
     submitted_at: datetime | None = None
     due_date: datetime | None = None
 

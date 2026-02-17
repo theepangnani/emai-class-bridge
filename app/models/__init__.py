@@ -15,7 +15,7 @@ from app.models.inspiration_message import InspirationMessage
 from app.models.broadcast import Broadcast
 from app.models.teacher_google_account import TeacherGoogleAccount
 from app.models.faq import FAQQuestion, FAQAnswer, FAQCategory, FAQQuestionStatus, FAQAnswerStatus
-from app.models.analytics import ProgressReport
+from app.models.analytics import GradeRecord, ProgressReport
 
 __all__ = [
     "User",
@@ -47,5 +47,6 @@ __all__ = [
     "FAQCategory",
     "FAQQuestionStatus",
     "FAQAnswerStatus",
+    "GradeRecord",
     "ProgressReport",
 ]
